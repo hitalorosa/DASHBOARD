@@ -41,6 +41,7 @@ interface StoreState {
   baseData: Record<string, Partial<BaseData>>;
   customDisparos: Disparo[];
   baseEntries: Record<string, BaseEntryData[]>; // key = disparo ID
+  hiddenIds: string[]; // fixed dispatches marked as removed
 }
 
 interface Store extends StoreState {
@@ -91,7 +92,7 @@ const Ctx = createContext<Store | null>(null);
 const STORAGE_KEY = 'noue-dash-v1';
 
 function load(): StoreState {
-  if (typeof window === 'undefined') return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {} };
+  if (typeof window === 'undefined') return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] };
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     return {
@@ -99,8 +100,9 @@ function load(): StoreState {
       baseData: parsed?.baseData ?? {},
       customDisparos: parsed?.customDisparos ?? [],
       baseEntries: parsed?.baseEntries ?? {},
+      hiddenIds: parsed?.hiddenIds ?? [],
     };
-  } catch { return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {} }; }
+  } catch { return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] }; }
 }
 
 function save(state: StoreState) {
@@ -112,7 +114,7 @@ function allDisparos(state: StoreState): Disparo[] {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {} });
+  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] });
 
   useEffect(() => { setState(load()); }, []);
 
@@ -139,7 +141,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const removeDisparo = useCallback((id: string) => {
     setState((prev) => {
-      const next = { ...prev, customDisparos: (prev.customDisparos ?? []).filter((d) => d.id !== id) };
+      const isCustom = id.startsWith('c-');
+      const next = isCustom
+        ? { ...prev, customDisparos: (prev.customDisparos ?? []).filter((d) => d.id !== id) }
+        : { ...prev, hiddenIds: [...new Set([...(prev.hiddenIds ?? []), id])] };
       save(next); return next;
     });
   }, []);
@@ -174,7 +179,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state.baseEntries]);
 
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {
+    const hidden = new Set(state.hiddenIds ?? []);
     return allDisparos(state)
+      .filter((d) => !hidden.has(d.id))
       .filter((d) => { const dt = new Date(d.data); return dt.getMonth() === month && dt.getFullYear() === year; })
       .map((d) => merge(d, state.disparoData?.[d.id]));
   }, [state]);

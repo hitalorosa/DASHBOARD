@@ -433,6 +433,7 @@ export default function DisparosPage() {
   const [month, setMonth] = useState(4);
   const [year, setYear] = useState(2026);
   const [openFill, setOpenFill] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const {
     getDisparos, updateDisparo, addDisparo, removeDisparo,
     addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
@@ -455,7 +456,7 @@ export default function DisparosPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#161616', borderBottom: '1px solid #262626' }}>
-                  {['','Data','Campanha','Tipo','Base','Invest. R$','Fat. R$','Pedidos','ROAS','Leitura','Observações'].map((h, i) => (
+                  {['','Data','Campanha','Tipo','Base','Invest. R$','Fat. R$','Pedidos','ROAS','Leitura','Observações',''].map((h, i) => (
                     <th key={`${h}-${i}`} className={`px-4 py-3.5 ${i >= 5 && i <= 8 ? 'text-right' : 'text-left'}`}
                       style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A', fontWeight: 500 }}>{h}</th>
                   ))}
@@ -495,10 +496,34 @@ export default function DisparosPage() {
                       <td className="px-4 py-3.5 text-xs max-w-[200px] truncate" style={{ color: '#9A9A9A' }}>
                         {d.observacoes || <span style={{ color: '#3A3A3A' }}>—</span>}
                       </td>
+                      <td className="px-3 py-3 text-right">
+                        {confirmDelete === d.id ? (
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <button
+                              onClick={() => { removeDisparo(d.id); setConfirmDelete(null); if (openFill === d.id) setOpenFill(null); }}
+                              className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                              style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: '#F87171', border: '1px solid rgba(248,113,113,0.3)' }}>
+                              Confirmar
+                            </button>
+                            <button onClick={() => setConfirmDelete(null)} className="text-xs px-2 py-1 rounded-lg"
+                              style={{ color: '#5E5E5E' }}>
+                              Não
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDelete(d.id)}
+                            className="p-1.5 rounded-lg"
+                            style={{ color: '#3A3A3A' }}
+                            title="Remover disparo">
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                     {openFill === d.id && (
                       <tr>
-                        <td colSpan={11} className="px-4 pb-4">
+                        <td colSpan={12} className="px-4 pb-4">
                           <FillCard
                             d={d}
                             isCustom={customIds.has(d.id)}
@@ -529,7 +554,7 @@ export default function DisparosPage() {
                   <td className="px-4 py-3 text-right">
                     {roasTotal > 0 ? <RoasBadge roas={roasTotal} /> : <span className="text-xs" style={{ color: '#374151' }}>—</span>}
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={3} />
                 </tr>
               </tfoot>
             </table>
