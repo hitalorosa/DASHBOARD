@@ -166,17 +166,17 @@ export default function DisparosPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b" style={{ backgroundColor: '#161616', borderColor: '#2A2A2A' }}>
+                <tr style={{ backgroundColor: '#161616', borderBottom: '1px solid #262626' }}>
                   {['','Data','Campanha','Tipo','Base','Invest. R$','Fat. R$','Pedidos','ROAS','Leitura','Observacoes'].map((h, i) => (
-                    <th key={`${h}-${i}`} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${i >= 5 && i <= 8 ? 'text-right' : 'text-left'}`}
-                      style={{ color: '#4B5563' }}>{h}</th>
+                    <th key={`${h}-${i}`} className={`px-4 py-3.5 ${i >= 5 && i <= 8 ? 'text-right' : 'text-left'}`}
+                      style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {disparos.map((d: Disparo) => (
                   <React.Fragment key={d.id}>
-                    <tr className="border-b" style={{ borderColor: '#1F1F1F' }}>
+                    <tr className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
                       <td className="px-4 py-3">
                         <button onClick={() => setOpenFill(openFill === d.id ? null : d.id)}
                           className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
@@ -185,27 +185,27 @@ export default function DisparosPage() {
                           {d.investimentoBrl > 0 || d.faturamentoPago > 0 ? 'Editar' : 'Preencher'}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
+                      <td className="px-4 py-3.5 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
                         {format(parseISO(d.data), 'dd/MM', { locale: ptBR })}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#E5E7EB' }}>{d.campanha}</td>
-                      <td className="px-4 py-3"><CampaignBadge type={d.tipo} /></td>
-                      <td className="px-4 py-3 max-w-[140px] truncate text-xs" style={{ color: '#6B7280' }}>{d.base}</td>
-                      <td className="px-4 py-3 text-right" style={{ color: d.investimentoBrl > 0 ? '#9CA3AF' : '#374151' }}>
+                      <td className="px-4 py-3.5 whitespace-nowrap font-medium" style={{ color: '#F2F2F2' }}>{d.campanha}</td>
+                      <td className="px-4 py-3.5"><CampaignBadge type={d.tipo} /></td>
+                      <td className="px-4 py-3.5 max-w-[140px] truncate text-xs" style={{ color: '#9A9A9A' }}>{d.base}</td>
+                      <td className="px-4 py-3.5 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
+                      <td className="px-4 py-3.5 text-right font-medium" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#3A3A3A' }}>
                         {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right" style={{ color: d.pedidos > 0 ? '#9CA3AF' : '#374151' }}>
+                      <td className="px-4 py-3.5 text-right" style={{ color: d.pedidos > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.pedidos > 0 ? d.pedidos : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right"><RoasBadge roas={d.roas} /></td>
-                      <td className="px-4 py-3 text-xs" style={{ color: d.taxaLeitura > 0 ? '#9CA3AF' : '#374151' }}>
+                      <td className="px-4 py-3.5 text-right"><RoasBadge roas={d.roas} /></td>
+                      <td className="px-4 py-3.5 text-xs" style={{ color: d.taxaLeitura > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.taxaLeitura > 0 ? `${(d.taxaLeitura * 100).toFixed(0)}%` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs max-w-[200px] truncate" style={{ color: '#6B7280' }}>
-                        {d.observacoes || <span style={{ color: '#374151' }}>—</span>}
+                      <td className="px-4 py-3.5 text-xs max-w-[200px] truncate" style={{ color: '#9A9A9A' }}>
+                        {d.observacoes || <span style={{ color: '#3A3A3A' }}>—</span>}
                       </td>
                     </tr>
                     {openFill === d.id && (

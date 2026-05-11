@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -9,13 +10,57 @@
   --card-bg: #1A1A1A;
   --card-border: #2A2A2A;
   --noue-gold: #D4A843;
-  --text-primary: #F9FAFB;
+  --text-primary: #ECECEC;
   --text-secondary: #9CA3AF;
-  --text-muted: #4B5563;
+  --text-muted: #5E5E5E;
 }
 
 body {
   background-color: var(--page-bg);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--text-primary);
+}
+
+/* KPI cards */
+.kpi-card {
+  position: relative;
+  background: linear-gradient(180deg, #1c1c1c 0%, #181818 100%);
+  border: 1px solid #262626;
+  border-radius: 14px;
+  padding: 20px 20px 16px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.kpi-card::before {
+  content: "";
+  position: absolute; left: 0; top: 0; height: 2px; width: 42px;
+  background: linear-gradient(90deg, #D4A843, transparent);
+}
+.kpi-card::after {
+  content: "";
+  position: absolute; inset: auto -40px -60px auto;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(212,168,67,0.18), transparent 70%);
+  z-index: -1; pointer-events: none;
+}
+
+/* Disparos table rows */
+.disparo-row td { color: #D8D8D8; }
+.disparo-row:nth-child(even) td { background-color: #161616; }
+.disparo-row:hover td { background-color: #1d1a13 !important; }
+.disparo-row:hover td:first-child { box-shadow: inset 2px 0 0 #D4A843; }
+
+/* Calendar serif numerals + today cell */
+.cal-num {
+  font-family: 'Instrument Serif', serif;
+  font-size: 22px;
+  line-height: 1;
+  color: #D0D0D0;
+}
+.cal-cell-today .cal-num { color: #D4A843; }
+.cal-cell-today::after {
+  content: "HOJE";
+  position: absolute; right: 7px; top: 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; letter-spacing: 0.18em; color: #D4A843;
 }
