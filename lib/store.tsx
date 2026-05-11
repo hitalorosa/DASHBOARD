@@ -53,7 +53,7 @@ interface Store extends StoreState {
   removeBaseEntry: (disparoId: string, idx: number) => void;
   getBaseEntries: (disparoId: string) => BaseEntryData[];
   getDisparos: (month: number, year: number) => Disparo[];
-  getBases: () => Base[];
+  getBases: (start?: string, end?: string) => Base[];
 }
 
 function merge(base: Disparo, override: Partial<DisparoData> = {}): Disparo {
@@ -179,8 +179,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .map((d) => merge(d, state.disparoData?.[d.id]));
   }, [state]);
 
-  const getBases = useCallback((): Base[] => {
-    const merged = allDisparos(state).map((d) => merge(d, state.disparoData?.[d.id]));
+  const getBases = useCallback((start?: string, end?: string): Base[] => {
+    let merged = allDisparos(state).map((d) => merge(d, state.disparoData?.[d.id]));
+    if (start && end) {
+      merged = merged.filter((d) => d.data >= start && d.data <= end);
+    }
 
     type Agg = { tamanho: number; disparos: number; entregas: number; totalInvest: number; faturamento: number; pedidos: number };
     const map = new Map<string, Agg>();
@@ -193,8 +196,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const entries = state.baseEntries?.[d.id] ?? [];
 
       if (entries.length === 0) {
-        // No per-base breakdown — attribute everything to d.base
-        if (!d.base) continue;
+        // Only include if the disparo has real financial data
+        if (!d.base || (d.faturamentoPago === 0 && d.investimentoBrl === 0 && d.enviados === 0)) continue;
         const b = ensure(d.base);
         b.disparos += 1;
         b.tamanho = Math.max(b.tamanho, d.tamanhoBase);
@@ -203,7 +206,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         b.faturamento += d.faturamentoPago;
         b.pedidos += d.pedidos;
       } else {
-        // Per-base entries exist — aggregate from each entry, count one disparo per unique base
+        // Per-base entries exist — aggregate from each entry
         const seen = new Set<string>();
         for (const entry of entries) {
           if (!entry.base) continue;
