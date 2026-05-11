@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import { StoreProvider } from '@/lib/store';
+import AuthGuard from '@/components/AuthGuard';
 
 export const metadata: Metadata = {
   title: 'Dash Disparos — Nouê',
@@ -13,10 +14,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className="h-full">
       <body className="flex h-full min-h-screen" style={{ backgroundColor: '#111111' }}>
         <StoreProvider>
-          <Sidebar />
-          <div className="flex flex-col flex-1 min-h-screen overflow-auto">
-            {children}
-          </div>
+          <AuthGuard>
+            <Sidebar />
+            <div className="flex flex-col flex-1 min-h-screen overflow-auto">
+              {children}
+            </div>
+          </AuthGuard>
         </StoreProvider>
       </body>
     </html>
