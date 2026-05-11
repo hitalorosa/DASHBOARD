@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
 import { useStore, DisparoData } from '@/lib/store';
@@ -11,6 +11,14 @@ import { X, ChevronDown, ChevronUp } from 'lucide-react';
 
 function fmt(n: number) { return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
 function fmtN(n: number, decimals = 0) { return n > 0 ? n.toFixed(decimals) : ''; }
+
+function RoasBadge({ roas }: { roas: number }) {
+  if (roas === 0) return <span className="text-xs" style={{ color: '#374151' }}>A preencher</span>;
+  let bg = '#3F1010', color = '#F87171';
+  if (roas >= 7) { bg = '#0F2E1A'; color = '#4ADE80'; }
+  else if (roas >= 4) { bg = '#2D2208'; color = '#FCD34D'; }
+  return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>{roas.toFixed(1)}x</span>;
+}
 
 const CARD = { backgroundColor: '#1A1A1A', borderColor: '#2A2A2A' };
 const INPUT = { backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', color: '#F9FAFB' };
@@ -149,16 +157,6 @@ export default function DisparosPage() {
   const totalEntregas = disparos.reduce((s, d) => s + d.entregas, 0);
   const roasTotal = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
 
-  function fmt(n: number) { return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
-
-  function RoasBadge({ roas }: { roas: number }) {
-    if (roas === 0) return <span className="text-xs" style={{ color: '#374151' }}>A preencher</span>;
-    let bg = '#3F1010', color = '#F87171';
-    if (roas >= 7) { bg = '#0F2E1A'; color = '#4ADE80'; }
-    else if (roas >= 4) { bg = '#2D2208'; color = '#FCD34D'; }
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>{roas.toFixed(1)}x</span>;
-  }
-
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
       <Header title="Disparos" month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
@@ -177,8 +175,8 @@ export default function DisparosPage() {
               </thead>
               <tbody>
                 {disparos.map((d: Disparo) => (
-                  <>
-                    <tr key={d.id} className="border-b" style={{ borderColor: '#1F1F1F' }}>
+                  <React.Fragment key={d.id}>
+                    <tr className="border-b" style={{ borderColor: '#1F1F1F' }}>
                       <td className="px-4 py-3">
                         <button onClick={() => setOpenFill(openFill === d.id ? null : d.id)}
                           className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
@@ -211,14 +209,14 @@ export default function DisparosPage() {
                       </td>
                     </tr>
                     {openFill === d.id && (
-                      <tr key={`fill-${d.id}`}>
+                      <tr>
                         <td colSpan={11} className="px-4 pb-4">
                           <FillCard d={d} onClose={() => setOpenFill(null)}
                             onSave={(data) => { updateDisparo(d.id, data); setOpenFill(null); }} />
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
               <tfoot>
