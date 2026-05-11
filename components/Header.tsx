@@ -5,7 +5,7 @@ const MONTHS = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
-const YEARS = [2024, 2025, 2026];
+const YEARS = [2026, 2027];
 
 interface HeaderProps {
   title: string;

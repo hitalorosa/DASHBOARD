@@ -25,131 +25,136 @@ const CARD = { backgroundColor: '#1A1A1A', borderColor: '#262626' };
 const INPUT: React.CSSProperties = { backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', color: '#F9FAFB' };
 const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
 
-// ── Compact base entry card ─────────────────────────────────────────────────
+// ── Base entry card — always fully expanded ──────────────────────────────────
 function BaseEntryCard({ entry, onUpdate, onRemove }: {
   entry: BaseEntryData;
   onUpdate: (data: Partial<BaseEntryData>) => void;
   onRemove: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const inv = (entry.investimentoUsd ?? 0) * (entry.cotacaoUsd ?? 0);
   const fat = entry.faturamentoPago ?? 0;
   const roas = inv > 0 && fat > 0 ? fat / inv : 0;
+  const ticket = fat > 0 && (entry.pedidos ?? 0) > 0 ? fat / entry.pedidos! : 0;
+  const entregas = (entry.enviados ?? 0) * (entry.taxaEntrega ?? 0);
 
-  const numField = (key: keyof BaseEntryData, placeholder: string) => (
+  const numInput = (key: keyof BaseEntryData, label: string, placeholder: string) => (
     <div>
+      <label className="block mb-1.5" style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{label}</label>
       <input
         type="number"
         placeholder={placeholder}
         value={(entry[key] as number) ?? ''}
         onChange={(e) => onUpdate({ [key]: e.target.value === '' ? undefined : Number(e.target.value) })}
-        className="w-full rounded-md px-2 py-1.5 text-xs outline-none border"
+        className="w-full rounded-lg px-3 py-2 text-xs outline-none border"
         style={INPUT}
       />
     </div>
   );
 
   return (
-    <div className="rounded-xl border" style={{ backgroundColor: '#0D0D0D', borderColor: '#2A2A2A' }}>
-      {/* collapsed header — always visible */}
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        <span className="text-xs font-semibold truncate flex-1" style={{ color: '#D4A843' }}>
-          {entry.base || '—'}
-        </span>
-        {!open && (
-          <div className="flex items-center gap-3 shrink-0">
-            {(entry.enviados ?? 0) > 0 && (
-              <span style={{ ...MONO, fontSize: 11, color: '#9A9A9A' }}>{(entry.enviados! / 1000).toFixed(1)}k env</span>
-            )}
-            {fat > 0 && (
-              <span style={{ ...MONO, fontSize: 11, color: '#D4A843' }}>{fmt(fat)}</span>
-            )}
-            {roas > 0 && (
-              <span style={{ ...MONO, fontSize: 11, fontWeight: 700, color: roasColor(roas) }}>{roas.toFixed(1)}x</span>
-            )}
-            {roas === 0 && fat === 0 && (
-              <span style={{ fontSize: 11, color: '#3A3A3A' }}>Vazio</span>
-            )}
-          </div>
-        )}
-        <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setOpen(!open)} className="p-1 rounded" style={{ color: '#5E5E5E' }}>
-            {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-          <button onClick={onRemove} className="p-1 rounded" style={{ color: '#5E5E5E' }}>
-            <X size={12} />
-          </button>
+    <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: '#111111', borderColor: '#2A2A2A' }}>
+
+      {/* card header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ backgroundColor: '#161616', borderColor: '#2A2A2A' }}>
+        <div className="flex items-center gap-3">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: '#D4A843' }} />
+          <input
+            type="text"
+            value={entry.base}
+            onChange={(e) => onUpdate({ base: e.target.value })}
+            className="text-sm font-semibold outline-none bg-transparent border-none"
+            style={{ color: '#F2F2F2', minWidth: 140 }}
+            placeholder="Nome da base"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          {roas > 0 && (
+            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold"
+              style={{ backgroundColor: roas >= 7 ? '#0F2E1A' : roas >= 4 ? '#2D2208' : '#3F1010', color: roasColor(roas) }}>
+              {roas.toFixed(1)}x
+            </span>
+          )}
+          {fat > 0 && <span style={{ ...MONO, fontSize: 11, color: '#D4A843' }}>{fmt(fat)}</span>}
+          <button onClick={onRemove} className="p-1.5 rounded-lg" style={{ color: '#5E5E5E' }}><X size={13} /></button>
         </div>
       </div>
 
-      {/* expanded fields */}
-      {open && (
-        <div className="px-3 pb-3 border-t" style={{ borderColor: '#1c1c1c' }}>
-          {/* base name */}
-          <div className="pt-3 mb-3">
-            <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Base</label>
-            <input
-              type="text"
-              value={entry.base}
-              onChange={(e) => onUpdate({ base: e.target.value })}
-              className="w-full rounded-md px-2 py-1.5 text-xs outline-none border"
-              style={INPUT}
-            />
+      {/* fields */}
+      <div className="p-4 flex flex-col gap-4">
+
+        {/* plataforma */}
+        <div>
+          <p className="mb-2.5" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#D4A843' }}>
+            Plataforma (Martz / Nextags)
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {numInput('tamanhoBase', 'Total da Base', '15000')}
+            {numInput('enviados', 'Enviados', '12500')}
+            {numInput('taxaEntrega', 'Tx. Entrega', '0.94')}
+            {numInput('taxaLeitura', 'Tx. Leitura', '0.62')}
           </div>
-
-          {/* platform row */}
-          <div className="grid grid-cols-4 gap-2 mb-2">
-            {(['Enviados', 'Tx. Entrega', 'Tx. Leitura', 'Cliques'] as const).map((lbl, i) => {
-              const keys: (keyof BaseEntryData)[] = ['enviados', 'taxaEntrega', 'taxaLeitura', 'cliques'];
-              const phs = ['12500', '0.94', '0.62', '890'];
-              return (
-                <div key={lbl}>
-                  <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{lbl}</label>
-                  {numField(keys[i], phs[i])}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* cost + results row */}
-          <div className="grid grid-cols-4 gap-2 mb-3">
-            {(['Invest. USD', 'Cotação', 'Faturamento', 'Pedidos'] as const).map((lbl, i) => {
-              const keys: (keyof BaseEntryData)[] = ['investimentoUsd', 'cotacaoUsd', 'faturamentoPago', 'pedidos'];
-              const phs = ['48.50', '5.72', '18400', '142'];
-              return (
-                <div key={lbl}>
-                  <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{lbl}</label>
-                  {numField(keys[i], phs[i])}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* auto preview */}
-          {(inv > 0 || fat > 0) && (
-            <div className="flex items-center gap-4 mb-3 px-2 py-1.5 rounded-lg" style={{ backgroundColor: '#111111' }}>
-              {inv > 0 && <span style={{ ...MONO, fontSize: 10, color: '#8A8A8A' }}>Invest BRL: <span style={{ color: '#D8D8D8' }}>{fmt(inv)}</span></span>}
-              {roas > 0 && <span style={{ ...MONO, fontSize: 10, color: '#8A8A8A' }}>ROAS: <span style={{ fontWeight: 700, color: roasColor(roas) }}>{roas.toFixed(2)}x</span></span>}
-              {fat > 0 && (entry.pedidos ?? 0) > 0 && (
-                <span style={{ ...MONO, fontSize: 10, color: '#8A8A8A' }}>Ticket: <span style={{ color: '#D8D8D8' }}>{fmt(fat / entry.pedidos!)}</span></span>
-              )}
-            </div>
-          )}
-
-          {/* observation */}
-          <div>
-            <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Observações</label>
-            <input
-              type="text"
-              placeholder="Insight sobre esta base..."
-              value={entry.observacoes ?? ''}
-              onChange={(e) => onUpdate({ observacoes: e.target.value })}
-              className="w-full rounded-md px-2 py-1.5 text-xs outline-none border"
-              style={INPUT}
-            />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+            {numInput('cliques', 'Cliques', '890')}
           </div>
         </div>
-      )}
+
+        {/* custo */}
+        <div>
+          <p className="mb-2.5" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#D4A843' }}>
+            Custo da API
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {numInput('investimentoUsd', 'Investimento USD', '48.50')}
+            {numInput('cotacaoUsd', 'Cotação USD/BRL', '5.72')}
+          </div>
+        </div>
+
+        {/* resultado */}
+        <div>
+          <p className="mb-2.5" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#D4A843' }}>
+            Resultado Shopify (Pago)
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {numInput('faturamentoPago', 'Faturamento R$', '18400')}
+            {numInput('pedidos', 'Pedidos', '142')}
+          </div>
+        </div>
+
+        {/* auto calc */}
+        {(inv > 0 || fat > 0 || entregas > 0) && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-xl" style={{ backgroundColor: '#0D0D0D' }}>
+            <div>
+              <p className="text-xs mb-1" style={{ color: '#5E5E5E' }}>Invest. BRL</p>
+              <p className="text-sm font-bold" style={{ color: '#9CA3AF' }}>{inv > 0 ? fmt(inv) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-1" style={{ color: '#5E5E5E' }}>Entregas</p>
+              <p className="text-sm font-bold" style={{ color: '#9CA3AF' }}>{entregas > 0 ? `${(entregas / 1000).toFixed(1)}k` : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-1" style={{ color: '#5E5E5E' }}>Ticket Médio</p>
+              <p className="text-sm font-bold" style={{ color: '#9CA3AF' }}>{ticket > 0 ? fmt(ticket) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-1" style={{ color: '#5E5E5E' }}>ROAS</p>
+              <p className="text-sm font-bold" style={{ color: roasColor(roas) }}>{roas > 0 ? `${roas.toFixed(2)}x` : '—'}</p>
+            </div>
+          </div>
+        )}
+
+        {/* observações */}
+        <div>
+          <label className="block mb-1.5" style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Observações</label>
+          <input
+            type="text"
+            placeholder="Insight sobre esta base..."
+            value={entry.observacoes ?? ''}
+            onChange={(e) => onUpdate({ observacoes: e.target.value })}
+            className="w-full rounded-lg px-3 py-2 text-xs outline-none border"
+            style={INPUT}
+          />
+        </div>
+      </div>
     </div>
   );
 }
