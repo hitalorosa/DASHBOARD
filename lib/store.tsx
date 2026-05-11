@@ -25,11 +25,14 @@ export interface BaseData {
 interface StoreState {
   disparoData: Record<string, Partial<DisparoData>>;
   baseData: Record<string, Partial<BaseData>>;
+  customDisparos: Disparo[];
 }
 
 interface Store extends StoreState {
   updateDisparo: (id: string, data: Partial<DisparoData>) => void;
   updateBase: (nome: string, data: Partial<BaseData>) => void;
+  addDisparo: (d: Disparo) => void;
+  removeDisparo: (id: string) => void;
   getDisparos: (month: number, year: number) => Disparo[];
   getBases: () => Base[];
 }
@@ -70,28 +73,33 @@ const Ctx = createContext<Store | null>(null);
 const STORAGE_KEY = 'noue-dash-v1';
 
 function load(): StoreState {
-  if (typeof window === 'undefined') return { disparoData: {}, baseData: {} };
+  if (typeof window === 'undefined') return { disparoData: {}, baseData: {}, customDisparos: [] };
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     return {
       disparoData: parsed?.disparoData ?? {},
       baseData: parsed?.baseData ?? {},
+      customDisparos: parsed?.customDisparos ?? [],
     };
-  } catch { return { disparoData: {}, baseData: {} }; }
+  } catch { return { disparoData: {}, baseData: {}, customDisparos: [] }; }
 }
 
 function save(state: StoreState) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
 }
 
+function allDisparos(state: StoreState): Disparo[] {
+  return [...disparosMaio, ...(state.customDisparos ?? [])];
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {} });
+  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {}, customDisparos: [] });
 
   useEffect(() => { setState(load()); }, []);
 
   const updateDisparo = useCallback((id: string, data: Partial<DisparoData>) => {
     setState((prev) => {
-      const next = { ...prev, disparoData: { ...prev.disparoData, [id]: { ...(prev.disparoData[id] ?? {}), ...data } } };
+      const next = { ...prev, disparoData: { ...prev.disparoData, [id]: { ...(prev.disparoData?.[id] ?? {}), ...data } } };
       save(next);
       return next;
     });
@@ -99,22 +107,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateBase = useCallback((nome: string, data: Partial<BaseData>) => {
     setState((prev) => {
-      const next = { ...prev, baseData: { ...prev.baseData, [nome]: { ...(prev.baseData[nome] ?? {}), ...data } } };
+      const next = { ...prev, baseData: { ...prev.baseData, [nome]: { ...(prev.baseData?.[nome] ?? {}), ...data } } };
+      save(next);
+      return next;
+    });
+  }, []);
+
+  const addDisparo = useCallback((d: Disparo) => {
+    setState((prev) => {
+      const next = { ...prev, customDisparos: [...(prev.customDisparos ?? []), d] };
+      save(next);
+      return next;
+    });
+  }, []);
+
+  const removeDisparo = useCallback((id: string) => {
+    setState((prev) => {
+      const next = { ...prev, customDisparos: (prev.customDisparos ?? []).filter((d) => d.id !== id) };
       save(next);
       return next;
     });
   }, []);
 
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {
-    return disparosMaio
+    return allDisparos(state)
       .filter((d) => { const dt = new Date(d.data); return dt.getMonth() === month && dt.getFullYear() === year; })
       .map((d) => merge(d, state.disparoData?.[d.id]));
-  }, [state.disparoData]);
+  }, [state]);
 
   const getBases = useCallback((): Base[] => {
-    const allDisparos = disparosMaio.map((d) => merge(d, state.disparoData?.[d.id]));
+    const merged = allDisparos(state).map((d) => merge(d, state.disparoData?.[d.id]));
     return basesMaio.map((b) => {
-      const matching = allDisparos.filter((d) => d.base === b.nome);
+      const matching = merged.filter((d) => d.base === b.nome);
       const totalFat = matching.reduce((s, d) => s + d.faturamentoPago, 0);
       const totalInvest = matching.reduce((s, d) => s + d.investimentoBrl, 0);
       const totalEntregas = matching.reduce((s, d) => s + d.entregas, 0);
@@ -131,9 +155,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         notas: override.notas ?? b.notas,
       };
     });
-  }, [state.disparoData, state.baseData]);
+  }, [state]);
 
-  return <Ctx.Provider value={{ ...state, updateDisparo, updateBase, getDisparos, getBases }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ ...state, updateDisparo, updateBase, addDisparo, removeDisparo, getDisparos, getBases }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useStore() {
