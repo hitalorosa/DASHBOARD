@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Calendar, Zap, Database } from 'lucide-react';
+import Image from 'next/image';
 
 const navItems = [
   { href: '/', label: 'Central', icon: LayoutDashboard },
@@ -16,10 +17,15 @@ export default function Sidebar() {
 
   return (
     <aside className="flex flex-col" style={{ width: 220, minHeight: '100vh', backgroundColor: '#0D0D0D', flexShrink: 0 }}>
-      <div className="px-5 py-7">
-        <span className="text-white font-bold text-2xl tracking-widest" style={{ letterSpacing: '0.18em' }}>
-          NOU<span style={{ color: '#D4A843' }}>Ê</span>
-        </span>
+      <div className="px-5 py-6 flex items-center justify-center">
+        <Image
+          src="/logo-noue.png"
+          alt="Noue"
+          width={110}
+          height={44}
+          style={{ objectFit: 'contain', filter: 'brightness(1)' }}
+          priority
+        />
       </div>
 
       <nav className="flex flex-col gap-1 px-3 mt-2">
