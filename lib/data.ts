@@ -25,18 +25,7 @@ export const disparosMaio: Disparo[] = [
   empty('16', '2026-05-31', 'Oferta Fim de Mes',       'fimmes',         'Carrinho Abandonado Geral'),
 ];
 
-export const basesMaio: Base[] = [
-  { nome: 'Base Toda',                     tamanho: 0, disparos: 7, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Carrinho Abandonado 60d',       tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Carrinho Abandonado Geral',     tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Carrinho Abandonado Camuflage', tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Nao Compraram 05/05',           tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Nao Compraram Dia das Maes',    tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Clientes Noturnos',             tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Vieram do Popup',               tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Nunca Compraram',               tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-  { nome: 'Nao Compraram 29/05',           tamanho: 0, disparos: 1, entregas: 0, faturamento: 0, pedidos: 0, roasMedio: 0, decisao: 'pendente', notas: '' },
-];
+export const basesMaio: Base[] = [];
 
 export const datasazonais2025: DataSazonal[] = [ // kept name for compatibility
   { data: '2026-05-01', evento: 'Dia do Trabalho',       categoria: 'feriado',   relevancia: 'media' },

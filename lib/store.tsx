@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Disparo, Base, DecisaoBase } from './types';
-import { disparosMaio, basesMaio } from './data';
+import { disparosMaio } from './data';
 
 export interface DisparoData {
   tamanhoBase: number;
@@ -181,20 +181,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const getBases = useCallback((): Base[] => {
     const merged = allDisparos(state).map((d) => merge(d, state.disparoData?.[d.id]));
-    return basesMaio.map((b) => {
-      const matching = merged.filter((d) => d.base === b.nome);
-      const totalFat = matching.reduce((s, d) => s + d.faturamentoPago, 0);
-      const totalInvest = matching.reduce((s, d) => s + d.investimentoBrl, 0);
-      const totalEntregas = matching.reduce((s, d) => s + d.entregas, 0);
-      const totalPedidos = matching.reduce((s, d) => s + d.pedidos, 0);
-      const roasMedio = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
-      const override = state.baseData?.[b.nome] ?? {};
-      return {
-        ...b, entregas: totalEntregas, faturamento: totalFat, pedidos: totalPedidos, roasMedio,
-        decisao: (override.decisao as DecisaoBase) ?? b.decisao,
-        notas: override.notas ?? b.notas,
-      };
-    });
+
+    type Agg = { tamanho: number; disparos: number; entregas: number; totalInvest: number; faturamento: number; pedidos: number };
+    const map = new Map<string, Agg>();
+    const ensure = (nome: string) => {
+      if (!map.has(nome)) map.set(nome, { tamanho: 0, disparos: 0, entregas: 0, totalInvest: 0, faturamento: 0, pedidos: 0 });
+      return map.get(nome)!;
+    };
+
+    for (const d of merged) {
+      const entries = state.baseEntries?.[d.id] ?? [];
+
+      if (entries.length === 0) {
+        // No per-base breakdown — attribute everything to d.base
+        if (!d.base) continue;
+        const b = ensure(d.base);
+        b.disparos += 1;
+        b.tamanho = Math.max(b.tamanho, d.tamanhoBase);
+        b.entregas += d.entregas;
+        b.totalInvest += d.investimentoBrl;
+        b.faturamento += d.faturamentoPago;
+        b.pedidos += d.pedidos;
+      } else {
+        // Per-base entries exist — aggregate from each entry, count one disparo per unique base
+        const seen = new Set<string>();
+        for (const entry of entries) {
+          if (!entry.base) continue;
+          const b = ensure(entry.base);
+          if (!seen.has(entry.base)) { b.disparos += 1; seen.add(entry.base); }
+          b.tamanho = Math.max(b.tamanho, entry.tamanhoBase ?? 0);
+          b.entregas += (entry.enviados ?? 0) * (entry.taxaEntrega ?? 0);
+          b.totalInvest += (entry.investimentoUsd ?? 0) * (entry.cotacaoUsd ?? 0);
+          b.faturamento += entry.faturamentoPago ?? 0;
+          b.pedidos += entry.pedidos ?? 0;
+        }
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([nome, agg]) => {
+        const override = state.baseData?.[nome] ?? {};
+        return {
+          nome,
+          tamanho: agg.tamanho,
+          disparos: agg.disparos,
+          entregas: Math.round(agg.entregas),
+          faturamento: agg.faturamento,
+          pedidos: agg.pedidos,
+          roasMedio: agg.totalInvest > 0 && agg.faturamento > 0 ? agg.faturamento / agg.totalInvest : 0,
+          decisao: (override.decisao as DecisaoBase) ?? 'pendente',
+          notas: override.notas ?? '',
+        };
+      })
+      .sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome));
   }, [state]);
 
   return (
