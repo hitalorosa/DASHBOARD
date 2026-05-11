@@ -184,6 +184,8 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
     observacoes: d.observacoes || '',
   });
   const [newBaseName, setNewBaseName] = useState('');
+  const [baseUnica, setBaseUnica] = useState(false);
+  const [baseUnicaNome, setBaseUnicaNome] = useState(d.base);
 
   const inv = (form.investimentoUsd ?? 0) * (form.cotacaoUsd ?? 0);
   const fat = form.faturamentoPago ?? 0;
@@ -215,6 +217,25 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
     if (!newBaseName.trim()) return;
     onAddBaseEntry({ base: newBaseName.trim() });
     setNewBaseName('');
+  }
+
+  function handleSave() {
+    if (baseUnica && baseUnicaNome.trim()) {
+      onAddBaseEntry({
+        base: baseUnicaNome.trim(),
+        tamanhoBase: form.tamanhoBase,
+        enviados: form.enviados,
+        taxaEntrega: form.taxaEntrega,
+        taxaLeitura: form.taxaLeitura,
+        cliques: form.cliques,
+        cotacaoUsd: form.cotacaoUsd,
+        investimentoUsd: form.investimentoUsd,
+        faturamentoPago: form.faturamentoPago,
+        pedidos: form.pedidos,
+        observacoes: form.observacoes,
+      });
+    }
+    onSave(form);
   }
 
   return (
@@ -302,7 +323,7 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
       </div>
 
       <div className="flex gap-3">
-        <button onClick={() => onSave(form)}
+        <button onClick={handleSave}
           className="px-5 py-2.5 rounded-xl text-sm font-semibold"
           style={{ backgroundColor: '#D4A843', color: '#0D0D0D' }}>
           Salvar Resultado
@@ -315,53 +336,93 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
 
       {/* ── Per-base section ── */}
       <div className="mt-6 pt-5 border-t" style={{ borderColor: '#262626' }}>
-        <div className="flex items-center justify-between mb-3">
+
+        {/* header row */}
+        <div className="flex items-center justify-between mb-4">
           <div>
             <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#D4A843' }}>
               Detalhamento por Base
             </p>
             <p className="text-xs mt-0.5" style={{ color: '#5E5E5E' }}>
-              Insira os números de cada base individualmente — os campos gerais acima são os totais do dia.
+              {baseUnica
+                ? 'O formulário acima será salvo inteiro para esta base.'
+                : 'Insira os números de cada base individualmente — os campos gerais acima são os totais do dia.'}
             </p>
           </div>
-          <span style={{ ...MONO, fontSize: 10, color: '#5E5E5E' }}>{baseEntries.length} base{baseEntries.length !== 1 ? 's' : ''}</span>
-        </div>
-
-        {/* existing base entries */}
-        <div className="flex flex-col gap-2 mb-3">
-          {baseEntries.map((entry, idx) => (
-            <BaseEntryCard
-              key={idx}
-              entry={entry}
-              onUpdate={(data) => onUpdateBaseEntry(idx, data)}
-              onRemove={() => onRemoveBaseEntry(idx)}
-            />
-          ))}
-        </div>
-
-        {/* add new base input */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Nome da base (ex: Base Toda, Carrinho Abandonado 60d...)"
-            value={newBaseName}
-            onChange={(e) => setNewBaseName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAddBase(); }}
-            className="flex-1 rounded-lg px-3 py-2 text-sm outline-none border"
-            style={INPUT}
-          />
+          {/* Base Única toggle */}
           <button
-            onClick={handleAddBase}
-            disabled={!newBaseName.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border"
+            onClick={() => setBaseUnica((v) => !v)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
             style={{
-              borderColor: newBaseName.trim() ? '#D4A843' : '#2A2A2A',
-              color: newBaseName.trim() ? '#D4A843' : '#5E5E5E',
-              backgroundColor: 'transparent',
+              borderColor: baseUnica ? '#4ADE80' : '#2A2A2A',
+              color: baseUnica ? '#4ADE80' : '#5E5E5E',
+              backgroundColor: baseUnica ? 'rgba(74,222,128,0.08)' : 'transparent',
             }}>
-            <Plus size={12} /> Adicionar Base
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: baseUnica ? '#4ADE80' : '#3A3A3A' }} />
+            Base Única
           </button>
         </div>
+
+        {/* Base Única: nome field */}
+        {baseUnica && (
+          <div className="mb-4 p-4 rounded-xl border" style={{ backgroundColor: 'rgba(74,222,128,0.04)', borderColor: 'rgba(74,222,128,0.18)' }}>
+            <label className="block mb-2" style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#4ADE80' }}>
+              Nome da Base
+            </label>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Ex: Base Toda, Carrinho Abandonado 60d..."
+              value={baseUnicaNome}
+              onChange={(e) => setBaseUnicaNome(e.target.value)}
+              className="w-full rounded-lg px-3 py-2.5 text-sm outline-none border"
+              style={{ ...INPUT, borderColor: 'rgba(74,222,128,0.25)' }}
+            />
+            <p className="text-xs mt-2" style={{ color: '#5E5E5E' }}>
+              Ao salvar, todos os dados do formulário acima serão vinculados a esta base na página de Bases.
+            </p>
+          </div>
+        )}
+
+        {/* existing base entries (only shown when not in base única mode) */}
+        {!baseUnica && (
+          <>
+            <div className="flex flex-col gap-3 mb-3">
+              {baseEntries.map((entry, idx) => (
+                <BaseEntryCard
+                  key={idx}
+                  entry={entry}
+                  onUpdate={(data) => onUpdateBaseEntry(idx, data)}
+                  onRemove={() => onRemoveBaseEntry(idx)}
+                />
+              ))}
+            </div>
+
+            {/* add new base input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Nome da base (ex: Base Toda, Carrinho Abandonado 60d...)"
+                value={newBaseName}
+                onChange={(e) => setNewBaseName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddBase(); }}
+                className="flex-1 rounded-lg px-3 py-2 text-sm outline-none border"
+                style={INPUT}
+              />
+              <button
+                onClick={handleAddBase}
+                disabled={!newBaseName.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border"
+                style={{
+                  borderColor: newBaseName.trim() ? '#D4A843' : '#2A2A2A',
+                  color: newBaseName.trim() ? '#D4A843' : '#5E5E5E',
+                  backgroundColor: 'transparent',
+                }}>
+                <Plus size={12} /> Adicionar Base
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
