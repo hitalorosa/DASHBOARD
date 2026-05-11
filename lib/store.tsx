@@ -72,7 +72,11 @@ const STORAGE_KEY = 'noue-dash-v1';
 function load(): StoreState {
   if (typeof window === 'undefined') return { disparoData: {}, baseData: {} };
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') ?? { disparoData: {}, baseData: {} };
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    return {
+      disparoData: parsed?.disparoData ?? {},
+      baseData: parsed?.baseData ?? {},
+    };
   } catch { return { disparoData: {}, baseData: {} }; }
 }
 
@@ -104,11 +108,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {
     return disparosMaio
       .filter((d) => { const dt = new Date(d.data); return dt.getMonth() === month && dt.getFullYear() === year; })
-      .map((d) => merge(d, state.disparoData[d.id]));
+      .map((d) => merge(d, state.disparoData?.[d.id]));
   }, [state.disparoData]);
 
   const getBases = useCallback((): Base[] => {
-    const allDisparos = disparosMaio.map((d) => merge(d, state.disparoData[d.id]));
+    const allDisparos = disparosMaio.map((d) => merge(d, state.disparoData?.[d.id]));
     return basesMaio.map((b) => {
       const matching = allDisparos.filter((d) => d.base === b.nome);
       const totalFat = matching.reduce((s, d) => s + d.faturamentoPago, 0);
@@ -116,7 +120,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const totalEntregas = matching.reduce((s, d) => s + d.entregas, 0);
       const totalPedidos = matching.reduce((s, d) => s + d.pedidos, 0);
       const roasMedio = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
-      const override = state.baseData[b.nome] ?? {};
+      const override = state.baseData?.[b.nome] ?? {};
       return {
         ...b,
         entregas: totalEntregas,
