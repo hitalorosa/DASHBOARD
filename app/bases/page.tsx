@@ -17,7 +17,7 @@ const DEC: Record<DecisaoBase, { label: string; bg: string; color: string }> = {
 
 export default function BasesPage() {
   const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2025);
+  const [year, setYear] = useState(2026);
   const [selected, setSelected] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newBaseName, setNewBaseName] = useState('');

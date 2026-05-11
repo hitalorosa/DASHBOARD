@@ -59,7 +59,7 @@ function KpiCard({ label, value, sub, gold, roasColor, progress }: {
 
 export default function CentralPage() {
   const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2025);
+  const [year, setYear] = useState(2026);
   const { getDisparos } = useStore();
   const disparos = getDisparos(month, year);
 

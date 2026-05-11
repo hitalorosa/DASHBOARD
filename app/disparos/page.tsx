@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
-import { useStore, DisparoData } from '@/lib/store';
+import { useStore, DisparoData, BaseEntryData } from '@/lib/store';
 import { Disparo, CampaignType } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,15 +19,150 @@ function RoasBadge({ roas }: { roas: number }) {
   return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>{roas.toFixed(1)}x</span>;
 }
 
-const CARD = { backgroundColor: '#1A1A1A', borderColor: '#262626' };
-const INPUT = { backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', color: '#F9FAFB' };
-const MONO = { fontFamily: "'JetBrains Mono', monospace" };
+function roasColor(r: number) { return r >= 7 ? '#4ADE80' : r >= 4 ? '#FCD34D' : r > 0 ? '#F87171' : '#5E5E5E'; }
 
-function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
+const CARD = { backgroundColor: '#1A1A1A', borderColor: '#262626' };
+const INPUT: React.CSSProperties = { backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', color: '#F9FAFB' };
+const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
+
+// ── Compact base entry card ─────────────────────────────────────────────────
+function BaseEntryCard({ entry, onUpdate, onRemove }: {
+  entry: BaseEntryData;
+  onUpdate: (data: Partial<BaseEntryData>) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const inv = (entry.investimentoUsd ?? 0) * (entry.cotacaoUsd ?? 0);
+  const fat = entry.faturamentoPago ?? 0;
+  const roas = inv > 0 && fat > 0 ? fat / inv : 0;
+
+  const numField = (key: keyof BaseEntryData, placeholder: string) => (
+    <div>
+      <input
+        type="number"
+        placeholder={placeholder}
+        value={(entry[key] as number) ?? ''}
+        onChange={(e) => onUpdate({ [key]: e.target.value === '' ? undefined : Number(e.target.value) })}
+        className="w-full rounded-md px-2 py-1.5 text-xs outline-none border"
+        style={INPUT}
+      />
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border" style={{ backgroundColor: '#0D0D0D', borderColor: '#2A2A2A' }}>
+      {/* collapsed header — always visible */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <span className="text-xs font-semibold truncate flex-1" style={{ color: '#D4A843' }}>
+          {entry.base || '—'}
+        </span>
+        {!open && (
+          <div className="flex items-center gap-3 shrink-0">
+            {(entry.enviados ?? 0) > 0 && (
+              <span style={{ ...MONO, fontSize: 11, color: '#9A9A9A' }}>{(entry.enviados! / 1000).toFixed(1)}k env</span>
+            )}
+            {fat > 0 && (
+              <span style={{ ...MONO, fontSize: 11, color: '#D4A843' }}>{fmt(fat)}</span>
+            )}
+            {roas > 0 && (
+              <span style={{ ...MONO, fontSize: 11, fontWeight: 700, color: roasColor(roas) }}>{roas.toFixed(1)}x</span>
+            )}
+            {roas === 0 && fat === 0 && (
+              <span style={{ fontSize: 11, color: '#3A3A3A' }}>Vazio</span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => setOpen(!open)} className="p-1 rounded" style={{ color: '#5E5E5E' }}>
+            {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          <button onClick={onRemove} className="p-1 rounded" style={{ color: '#5E5E5E' }}>
+            <X size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* expanded fields */}
+      {open && (
+        <div className="px-3 pb-3 border-t" style={{ borderColor: '#1c1c1c' }}>
+          {/* base name */}
+          <div className="pt-3 mb-3">
+            <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Base</label>
+            <input
+              type="text"
+              value={entry.base}
+              onChange={(e) => onUpdate({ base: e.target.value })}
+              className="w-full rounded-md px-2 py-1.5 text-xs outline-none border"
+              style={INPUT}
+            />
+          </div>
+
+          {/* platform row */}
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {(['Enviados', 'Tx. Entrega', 'Tx. Leitura', 'Cliques'] as const).map((lbl, i) => {
+              const keys: (keyof BaseEntryData)[] = ['enviados', 'taxaEntrega', 'taxaLeitura', 'cliques'];
+              const phs = ['12500', '0.94', '0.62', '890'];
+              return (
+                <div key={lbl}>
+                  <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{lbl}</label>
+                  {numField(keys[i], phs[i])}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* cost + results row */}
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {(['Invest. USD', 'Cotação', 'Faturamento', 'Pedidos'] as const).map((lbl, i) => {
+              const keys: (keyof BaseEntryData)[] = ['investimentoUsd', 'cotacaoUsd', 'faturamentoPago', 'pedidos'];
+              const phs = ['48.50', '5.72', '18400', '142'];
+              return (
+                <div key={lbl}>
+                  <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{lbl}</label>
+                  {numField(keys[i], phs[i])}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* auto preview */}
+          {(inv > 0 || fat > 0) && (
+            <div className="flex items-center gap-4 mb-3 px-2 py-1.5 rounded-lg" style={{ backgroundColor: '#111111' }}>
+              {inv > 0 && <span style={{ ...MONO, fontSize: 10, color: '#8A8A8A' }}>Invest BRL: <span style={{ color: '#D8D8D8' }}>{fmt(inv)}</span></span>}
+              {roas > 0 && <span style={{ ...MONO, fontSize: 10, color: '#8A8A8A' }}>ROAS: <span style={{ fontWeight: 700, color: roasColor(roas) }}>{roas.toFixed(2)}x</span></span>}
+              {fat > 0 && (entry.pedidos ?? 0) > 0 && (
+                <span style={{ ...MONO, fontSize: 10, color: '#8A8A8A' }}>Ticket: <span style={{ color: '#D8D8D8' }}>{fmt(fat / entry.pedidos!)}</span></span>
+              )}
+            </div>
+          )}
+
+          {/* observation */}
+          <div>
+            <label className="block mb-1" style={{ ...MONO, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Observações</label>
+            <input
+              type="text"
+              placeholder="Insight sobre esta base..."
+              value={entry.observacoes ?? ''}
+              onChange={(e) => onUpdate({ observacoes: e.target.value })}
+              className="w-full rounded-md px-2 py-1.5 text-xs outline-none border"
+              style={INPUT}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main fill card ───────────────────────────────────────────────────────────
+function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBaseEntry, onRemoveBaseEntry, isCustom, onDelete }: {
   d: Disparo;
   onClose: () => void;
   onSave: (data: Partial<DisparoData>) => void;
-  onAddBase: (baseName: string) => void;
+  baseEntries: BaseEntryData[];
+  onAddBaseEntry: (entry: BaseEntryData) => void;
+  onUpdateBaseEntry: (idx: number, data: Partial<BaseEntryData>) => void;
+  onRemoveBaseEntry: (idx: number) => void;
   isCustom: boolean;
   onDelete?: () => void;
 }) {
@@ -43,7 +178,7 @@ function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
     pedidos: d.pedidos || undefined,
     observacoes: d.observacoes || '',
   });
-  const [novaBase, setNovaBase] = useState('');
+  const [newBaseName, setNewBaseName] = useState('');
 
   const inv = (form.investimentoUsd ?? 0) * (form.cotacaoUsd ?? 0);
   const fat = form.faturamentoPago ?? 0;
@@ -71,18 +206,30 @@ function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
     </div>
   );
 
+  function handleAddBase() {
+    if (!newBaseName.trim()) return;
+    onAddBaseEntry({ base: newBaseName.trim() });
+    setNewBaseName('');
+  }
+
   return (
     <div className="rounded-2xl border p-6 mt-1" style={{ backgroundColor: '#161616', borderColor: '#D4A843', borderWidth: 1.5 }}>
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="font-semibold" style={{ color: '#F2F2F2' }}>{d.campanha}</h3>
           <p className="text-xs mt-0.5" style={{ color: '#8A8A8A' }}>
-            {format(parseISO(d.data), "dd 'de' MMMM yyyy", { locale: ptBR })} — <span style={{ color: '#D4A843' }}>{d.base}</span>
+            {format(parseISO(d.data), "dd 'de' MMMM yyyy", { locale: ptBR })}
+            {' '}—{' '}
+            <span style={{ color: '#D4A843' }}>{d.base}</span>
+            {' '}
+            <span style={{ color: '#3A3A3A', ...MONO, fontSize: 10 }}>· valores gerais do dia</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           {isCustom && onDelete && (
-            <button onClick={onDelete} className="p-1.5 rounded-lg" style={{ color: '#F87171' }} title="Excluir este disparo">
+            <button onClick={onDelete} className="p-1.5 rounded-lg" style={{ color: '#F87171' }} title="Excluir">
               <Trash2 size={14} />
             </button>
           )}
@@ -90,9 +237,12 @@ function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
         </div>
       </div>
 
+      {/* ── General form ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
         <div className="col-span-full">
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#D4A843', ...MONO, letterSpacing: '0.14em' }}>Dados da Plataforma (Martz / Nextags)</p>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#D4A843', ...MONO, letterSpacing: '0.14em' }}>
+            Dados da Plataforma (Martz / Nextags)
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {field('Total da Base', 'tamanhoBase', 'Ex: 15000', 'Qtd de contatos na lista')}
             {field('Enviados', 'enviados', 'Ex: 12500')}
@@ -111,7 +261,9 @@ function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
         </div>
 
         <div className="col-span-full">
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#D4A843', ...MONO, letterSpacing: '0.14em' }}>Resultado Shopify (apenas status Pago)</p>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#D4A843', ...MONO, letterSpacing: '0.14em' }}>
+            Resultado Shopify (apenas status Pago)
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {field('Faturamento R$', 'faturamentoPago', 'Ex: 18400')}
             {field('Pedidos', 'pedidos', 'Ex: 142')}
@@ -135,16 +287,16 @@ function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
           </div>
           <div>
             <p className="text-xs mb-1" style={{ color: '#5E5E5E' }}>ROAS (auto)</p>
-            <p className="text-sm font-bold" style={{ color: roas >= 7 ? '#4ADE80' : roas >= 4 ? '#FCD34D' : roas > 0 ? '#F87171' : '#5E5E5E' }}>
-              {roas > 0 ? `${roas.toFixed(2)}x` : '—'}
-            </p>
+            <p className="text-sm font-bold" style={{ color: roasColor(roas) }}>{roas > 0 ? `${roas.toFixed(2)}x` : '—'}</p>
           </div>
         </div>
       )}
 
-      <div className="mb-5">{field('Observações do Disparo', 'observacoes', 'Como foi? Base nova testada? Algum insight de abertura ou rejeição...', '')}</div>
+      <div className="mb-5">
+        {field('Observações do Disparo', 'observacoes', 'Como foi o dia? Insights gerais de abertura, rejeição...', '')}
+      </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3">
         <button onClick={() => onSave(form)}
           className="px-5 py-2.5 rounded-xl text-sm font-semibold"
           style={{ backgroundColor: '#D4A843', color: '#0D0D0D' }}>
@@ -156,47 +308,69 @@ function FillCard({ d, onClose, onSave, onAddBase, isCustom, onDelete }: {
         </button>
       </div>
 
-      {/* Add parallel base */}
-      <div className="pt-5 border-t" style={{ borderColor: '#2A2A2A' }}>
-        <p className="text-xs mb-3" style={{ color: '#5E5E5E', ...MONO, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-          Este disparo foi para outra base também?
-        </p>
+      {/* ── Per-base section ── */}
+      <div className="mt-6 pt-5 border-t" style={{ borderColor: '#262626' }}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#D4A843' }}>
+              Detalhamento por Base
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: '#5E5E5E' }}>
+              Insira os números de cada base individualmente — os campos gerais acima são os totais do dia.
+            </p>
+          </div>
+          <span style={{ ...MONO, fontSize: 10, color: '#5E5E5E' }}>{baseEntries.length} base{baseEntries.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {/* existing base entries */}
+        <div className="flex flex-col gap-2 mb-3">
+          {baseEntries.map((entry, idx) => (
+            <BaseEntryCard
+              key={idx}
+              entry={entry}
+              onUpdate={(data) => onUpdateBaseEntry(idx, data)}
+              onRemove={() => onRemoveBaseEntry(idx)}
+            />
+          ))}
+        </div>
+
+        {/* add new base input */}
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="Nome da base paralela (ex: Carrinho Abandonado 60d)"
-            value={novaBase}
-            onChange={(e) => setNovaBase(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && novaBase.trim()) {
-                onAddBase(novaBase.trim());
-                setNovaBase('');
-              }
-            }}
+            placeholder="Nome da base (ex: Base Toda, Carrinho Abandonado 60d...)"
+            value={newBaseName}
+            onChange={(e) => setNewBaseName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddBase(); }}
             className="flex-1 rounded-lg px-3 py-2 text-sm outline-none border"
             style={INPUT}
           />
           <button
-            onClick={() => { if (novaBase.trim()) { onAddBase(novaBase.trim()); setNovaBase(''); } }}
-            disabled={!novaBase.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border"
-            style={{ borderColor: novaBase.trim() ? '#D4A843' : '#2A2A2A', color: novaBase.trim() ? '#D4A843' : '#5E5E5E', backgroundColor: 'transparent' }}>
-            <Plus size={13} /> Criar entrada
+            onClick={handleAddBase}
+            disabled={!newBaseName.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border"
+            style={{
+              borderColor: newBaseName.trim() ? '#D4A843' : '#2A2A2A',
+              color: newBaseName.trim() ? '#D4A843' : '#5E5E5E',
+              backgroundColor: 'transparent',
+            }}>
+            <Plus size={12} /> Adicionar Base
           </button>
         </div>
-        <p className="text-xs mt-2" style={{ color: '#3A3A3A' }}>
-          Cria uma nova linha na tabela com a mesma campanha e data, base diferente.
-        </p>
       </div>
     </div>
   );
 }
 
+// ── Page ─────────────────────────────────────────────────────────────────────
 export default function DisparosPage() {
   const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2025);
+  const [year, setYear] = useState(2026);
   const [openFill, setOpenFill] = useState<string | null>(null);
-  const { getDisparos, updateDisparo, addDisparo, removeDisparo } = useStore();
+  const {
+    getDisparos, updateDisparo, addDisparo, removeDisparo,
+    addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
+  } = useStore();
 
   const disparos = getDisparos(month, year);
   const customIds = new Set(disparos.filter((d) => d.id.startsWith('c-')).map((d) => d.id));
@@ -204,17 +378,6 @@ export default function DisparosPage() {
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
   const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
   const roasTotal = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
-
-  function handleAddBase(d: Disparo, baseName: string) {
-    const id = `c-${Date.now()}`;
-    addDisparo({
-      id, data: d.data, campanha: d.campanha, tipo: d.tipo, base: baseName,
-      tamanhoBase: 0, enviados: 0, taxaEntrega: 0, entregas: 0, taxaLeitura: 0,
-      cliques: 0, cotacaoUsd: 0, investimentoUsd: 0, investimentoBrl: 0,
-      faturamentoPago: 0, pedidos: 0, ticketMedio: 0, roas: 0, observacoes: '',
-    });
-    setOpenFill(id);
-  }
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
@@ -275,8 +438,11 @@ export default function DisparosPage() {
                             isCustom={customIds.has(d.id)}
                             onClose={() => setOpenFill(null)}
                             onSave={(data) => { updateDisparo(d.id, data); setOpenFill(null); }}
-                            onAddBase={(baseName) => handleAddBase(d, baseName)}
                             onDelete={() => { removeDisparo(d.id); setOpenFill(null); }}
+                            baseEntries={getBaseEntries(d.id)}
+                            onAddBaseEntry={(entry) => addBaseEntry(d.id, entry)}
+                            onUpdateBaseEntry={(idx, data) => updateBaseEntry(d.id, idx, data)}
+                            onRemoveBaseEntry={(idx) => removeBaseEntry(d.id, idx)}
                           />
                         </td>
                       </tr>

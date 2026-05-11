@@ -17,6 +17,20 @@ export interface DisparoData {
   observacoes: string;
 }
 
+export interface BaseEntryData {
+  base: string;
+  tamanhoBase?: number;
+  enviados?: number;
+  taxaEntrega?: number;
+  taxaLeitura?: number;
+  cliques?: number;
+  cotacaoUsd?: number;
+  investimentoUsd?: number;
+  faturamentoPago?: number;
+  pedidos?: number;
+  observacoes?: string;
+}
+
 export interface BaseData {
   decisao: DecisaoBase;
   notas: string;
@@ -26,6 +40,7 @@ interface StoreState {
   disparoData: Record<string, Partial<DisparoData>>;
   baseData: Record<string, Partial<BaseData>>;
   customDisparos: Disparo[];
+  baseEntries: Record<string, BaseEntryData[]>; // key = disparo ID
 }
 
 interface Store extends StoreState {
@@ -33,6 +48,10 @@ interface Store extends StoreState {
   updateBase: (nome: string, data: Partial<BaseData>) => void;
   addDisparo: (d: Disparo) => void;
   removeDisparo: (id: string) => void;
+  addBaseEntry: (disparoId: string, entry: BaseEntryData) => void;
+  updateBaseEntry: (disparoId: string, idx: number, data: Partial<BaseEntryData>) => void;
+  removeBaseEntry: (disparoId: string, idx: number) => void;
+  getBaseEntries: (disparoId: string) => BaseEntryData[];
   getDisparos: (month: number, year: number) => Disparo[];
   getBases: () => Base[];
 }
@@ -69,19 +88,19 @@ function merge(base: Disparo, override: Partial<DisparoData> = {}): Disparo {
 }
 
 const Ctx = createContext<Store | null>(null);
-
 const STORAGE_KEY = 'noue-dash-v1';
 
 function load(): StoreState {
-  if (typeof window === 'undefined') return { disparoData: {}, baseData: {}, customDisparos: [] };
+  if (typeof window === 'undefined') return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {} };
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     return {
       disparoData: parsed?.disparoData ?? {},
       baseData: parsed?.baseData ?? {},
       customDisparos: parsed?.customDisparos ?? [],
+      baseEntries: parsed?.baseEntries ?? {},
     };
-  } catch { return { disparoData: {}, baseData: {}, customDisparos: [] }; }
+  } catch { return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {} }; }
 }
 
 function save(state: StoreState) {
@@ -93,41 +112,66 @@ function allDisparos(state: StoreState): Disparo[] {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {}, customDisparos: [] });
+  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {} });
 
   useEffect(() => { setState(load()); }, []);
 
   const updateDisparo = useCallback((id: string, data: Partial<DisparoData>) => {
     setState((prev) => {
       const next = { ...prev, disparoData: { ...prev.disparoData, [id]: { ...(prev.disparoData?.[id] ?? {}), ...data } } };
-      save(next);
-      return next;
+      save(next); return next;
     });
   }, []);
 
   const updateBase = useCallback((nome: string, data: Partial<BaseData>) => {
     setState((prev) => {
       const next = { ...prev, baseData: { ...prev.baseData, [nome]: { ...(prev.baseData?.[nome] ?? {}), ...data } } };
-      save(next);
-      return next;
+      save(next); return next;
     });
   }, []);
 
   const addDisparo = useCallback((d: Disparo) => {
     setState((prev) => {
       const next = { ...prev, customDisparos: [...(prev.customDisparos ?? []), d] };
-      save(next);
-      return next;
+      save(next); return next;
     });
   }, []);
 
   const removeDisparo = useCallback((id: string) => {
     setState((prev) => {
       const next = { ...prev, customDisparos: (prev.customDisparos ?? []).filter((d) => d.id !== id) };
-      save(next);
-      return next;
+      save(next); return next;
     });
   }, []);
+
+  const addBaseEntry = useCallback((disparoId: string, entry: BaseEntryData) => {
+    setState((prev) => {
+      const existing = prev.baseEntries?.[disparoId] ?? [];
+      const next = { ...prev, baseEntries: { ...prev.baseEntries, [disparoId]: [...existing, entry] } };
+      save(next); return next;
+    });
+  }, []);
+
+  const updateBaseEntry = useCallback((disparoId: string, idx: number, data: Partial<BaseEntryData>) => {
+    setState((prev) => {
+      const existing = [...(prev.baseEntries?.[disparoId] ?? [])];
+      existing[idx] = { ...existing[idx], ...data };
+      const next = { ...prev, baseEntries: { ...prev.baseEntries, [disparoId]: existing } };
+      save(next); return next;
+    });
+  }, []);
+
+  const removeBaseEntry = useCallback((disparoId: string, idx: number) => {
+    setState((prev) => {
+      const existing = (prev.baseEntries?.[disparoId] ?? []).filter((_, i) => i !== idx);
+      const next = { ...prev, baseEntries: { ...prev.baseEntries, [disparoId]: existing } };
+      save(next); return next;
+    });
+  }, []);
+
+  const getBaseEntries = useCallback((disparoId: string): BaseEntryData[] => {
+    return state.baseEntries?.[disparoId] ?? [];
+  }, [state.baseEntries]);
 
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {
     return allDisparos(state)
@@ -146,11 +190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const roasMedio = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
       const override = state.baseData?.[b.nome] ?? {};
       return {
-        ...b,
-        entregas: totalEntregas,
-        faturamento: totalFat,
-        pedidos: totalPedidos,
-        roasMedio,
+        ...b, entregas: totalEntregas, faturamento: totalFat, pedidos: totalPedidos, roasMedio,
         decisao: (override.decisao as DecisaoBase) ?? b.decisao,
         notas: override.notas ?? b.notas,
       };
@@ -158,7 +198,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   return (
-    <Ctx.Provider value={{ ...state, updateDisparo, updateBase, addDisparo, removeDisparo, getDisparos, getBases }}>
+    <Ctx.Provider value={{
+      ...state, updateDisparo, updateBase, addDisparo, removeDisparo,
+      addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
+      getDisparos, getBases,
+    }}>
       {children}
     </Ctx.Provider>
   );

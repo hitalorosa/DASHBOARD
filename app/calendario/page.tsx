@@ -154,7 +154,7 @@ function NovoDisparoModal({ month, year, onSave, onClose }: {
 
 export default function CalendarioPage() {
   const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2025);
+  const [year, setYear] = useState(2026);
   const [selected, setSelected] = useState<Disparo | null>(null);
   const [showNewDisparo, setShowNewDisparo] = useState(false);
 
