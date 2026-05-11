@@ -16,14 +16,15 @@ export type DecisaoBase =
 
 export interface Disparo {
   id: string;
-  data: string; // ISO date string YYYY-MM-DD
+  data: string;
   campanha: string;
   tipo: CampaignType;
   base: string;
+  tamanhoBase: number;
   enviados: number;
-  taxaEntrega: number; // 0-1
+  taxaEntrega: number;
   entregas: number;
-  taxaLeitura: number; // 0-1
+  taxaLeitura: number;
   cliques: number;
   cotacaoUsd: number;
   investimentoUsd: number;
@@ -32,16 +33,19 @@ export interface Disparo {
   pedidos: number;
   ticketMedio: number;
   roas: number;
+  observacoes: string;
 }
 
 export interface Base {
   nome: string;
+  tamanho: number;
   disparos: number;
   entregas: number;
   faturamento: number;
   pedidos: number;
   roasMedio: number;
   decisao: DecisaoBase;
+  notas: string;
 }
 
 export interface DataSazonal {

@@ -2,19 +2,20 @@
 
 :root {
   --sidebar-bg: #0D0D0D;
-  --sidebar-text: #A0A0A0;
+  --sidebar-text: #6B7280;
   --sidebar-active: #D4A843;
-  --sidebar-active-bg: #1A1A1A;
-  --content-bg: #F5F5F5;
-  --card-bg: #FFFFFF;
+  --sidebar-active-bg: #1C1C1C;
+  --page-bg: #111111;
+  --card-bg: #1A1A1A;
+  --card-border: #2A2A2A;
   --noue-gold: #D4A843;
-  --noue-dark: #0D0D0D;
-  --background: #F5F5F5;
-  --foreground: #171717;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-muted: #4B5563;
 }
 
 body {
-  background-color: var(--content-bg);
+  background-color: var(--page-bg);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--foreground);
+  color: var(--text-primary);
 }

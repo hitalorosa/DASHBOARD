@@ -15,9 +15,9 @@ function fmt(n: number) {
 }
 
 function RoasChip({ roas }: { roas: number }) {
-  let bg = '#FEE2E2', color = '#B91C1C';
-  if (roas >= 7) { bg = '#DCFCE7'; color = '#15803D'; }
-  else if (roas >= 4) { bg = '#FEF9C3'; color = '#CA8A04'; }
+  let bg = '#3F1010', color = '#F87171';
+  if (roas >= 7) { bg = '#0F2E1A'; color = '#4ADE80'; }
+  else if (roas >= 4) { bg = '#2D2208'; color = '#FCD34D'; }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>
       {roas.toFixed(1)}x
@@ -25,33 +25,22 @@ function RoasChip({ roas }: { roas: number }) {
   );
 }
 
-function KpiCard({
-  label, value, sub, accent, roasColor, progress,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: boolean;
-  roasColor?: 'green' | 'yellow' | 'red' | 'gray';
-  progress?: number;
+function KpiCard({ label, value, sub, accent, roasColor, progress }: {
+  label: string; value: string; sub?: string; accent?: boolean;
+  roasColor?: 'green' | 'yellow' | 'red' | 'gray'; progress?: number;
 }) {
   const valueColor = roasColor
-    ? ({ green: '#15803D', yellow: '#CA8A04', red: '#DC2626', gray: '#9CA3AF' } as Record<string, string>)[roasColor]
-    : accent
-    ? '#D4A843'
-    : '#111827';
+    ? ({ green: '#4ADE80', yellow: '#FCD34D', red: '#F87171', gray: '#6B7280' } as Record<string, string>)[roasColor]
+    : accent ? '#D4A843' : '#F9FAFB';
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">{label}</p>
+    <div className="rounded-2xl p-5 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A' }}>
+      <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: '#6B7280' }}>{label}</p>
       <p className="text-2xl font-bold truncate" style={{ color: valueColor }}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1 truncate">{sub}</p>}
+      {sub && <p className="text-xs mt-1 truncate" style={{ color: '#4B5563' }}>{sub}</p>}
       {progress !== undefined && (
-        <div className="mt-3 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${Math.min(progress, 100)}%`, background: 'linear-gradient(90deg,#D4A843,#F0C060)' }}
-          />
+        <div className="mt-3 rounded-full h-1.5 overflow-hidden" style={{ backgroundColor: '#2A2A2A' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(progress, 100)}%`, background: 'linear-gradient(90deg,#D4A843,#F0C060)' }} />
         </div>
       )}
     </div>
@@ -113,18 +102,19 @@ export default function CentralPage() {
         </div>
 
         {/* Chart */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-6">
+        <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A' }}>
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-6" style={{ color: '#6B7280' }}>
             Investimento × Faturamento por Disparo
           </h2>
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={chartData} margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6B7280' }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
                 <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, color: '#F9FAFB' }}
                   formatter={(value, name) => {
                     if (name === 'roas') return [`${Number(value).toFixed(1)}x`, 'ROAS'];
                     return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
@@ -134,48 +124,48 @@ export default function CentralPage() {
                     return `${label}${camp ? ` — ${camp}` : ''}`;
                   }}
                 />
-                <Legend formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} />
-                <Bar yAxisId="left" dataKey="investimento" fill="#E5E7EB" radius={[4, 4, 0, 0]} />
+                <Legend formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} wrapperStyle={{ color: '#9CA3AF', fontSize: 12 }} />
+                <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[4, 4, 0, 0]} />
                 <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#0D0D0D" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#F9FAFB" strokeWidth={2} dot={{ r: 3, fill: '#F9FAFB' }} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#4B5563' }}>
               Nenhum disparo encontrado para este período.
             </div>
           )}
         </div>
 
         {/* Quick dispatch list */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+        <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A' }}>
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: '#6B7280' }}>
             Disparos do Mês
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b" style={{ borderColor: '#2A2A2A' }}>
                   {['Data', 'Campanha', 'Tipo', 'Base', 'Invest. R$', 'Fat. R$', 'ROAS'].map((h, i) => (
-                    <th key={h} className={`pb-3 text-xs text-gray-400 font-medium ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>
+                    <th key={h} className={`pb-3 text-xs font-medium ${i >= 4 ? 'text-right' : 'text-left'}`} style={{ color: '#6B7280' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {disparos.map((d) => (
-                  <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 text-gray-700 font-medium whitespace-nowrap">
+                  <tr key={d.id} className="border-b transition-colors" style={{ borderColor: '#2A2A2A' }}>
+                    <td className="py-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
                       {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
                     </td>
-                    <td className="py-3 text-gray-800 whitespace-nowrap">{d.campanha}</td>
+                    <td className="py-3 whitespace-nowrap" style={{ color: '#F9FAFB' }}>{d.campanha}</td>
                     <td className="py-3"><CampaignBadge type={d.tipo} /></td>
-                    <td className="py-3 text-gray-500 text-xs max-w-[140px] truncate">{d.base}</td>
-                    <td className="py-3 text-right text-gray-700 whitespace-nowrap">{fmt(d.investimentoBrl)}</td>
-                    <td className="py-3 text-right text-gray-700 whitespace-nowrap">
-                      {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : <span className="text-gray-300">—</span>}
+                    <td className="py-3 text-xs max-w-[140px] truncate" style={{ color: '#6B7280' }}>{d.base}</td>
+                    <td className="py-3 text-right whitespace-nowrap" style={{ color: '#9CA3AF' }}>{fmt(d.investimentoBrl)}</td>
+                    <td className="py-3 text-right whitespace-nowrap" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#4B5563' }}>
+                      {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
                     </td>
                     <td className="py-3 text-right">
-                      {d.roas > 0 ? <RoasChip roas={d.roas} /> : <span className="text-gray-300 text-xs">Aguardando</span>}
+                      {d.roas > 0 ? <RoasChip roas={d.roas} /> : <span className="text-xs" style={{ color: '#4B5563' }}>Aguardando</span>}
                     </td>
                   </tr>
                 ))}
