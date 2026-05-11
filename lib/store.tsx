@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Disparo, Base, DecisaoBase } from './types';
 import { disparosMaio } from './data';
+import { supabase } from './supabase';
 
 export interface DisparoData {
   tamanhoBase: number;
@@ -90,23 +91,58 @@ function merge(base: Disparo, override: Partial<DisparoData> = {}): Disparo {
 
 const Ctx = createContext<Store | null>(null);
 const STORAGE_KEY = 'noue-dash-v1';
+const EMPTY_STATE: StoreState = { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] };
 
-function load(): StoreState {
-  if (typeof window === 'undefined') return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] };
+function parseState(raw: unknown): StoreState {
+  const p = raw as Record<string, unknown> | null;
+  return {
+    disparoData: (p?.disparoData as StoreState['disparoData']) ?? {},
+    baseData: (p?.baseData as StoreState['baseData']) ?? {},
+    customDisparos: (p?.customDisparos as Disparo[]) ?? [],
+    baseEntries: (p?.baseEntries as StoreState['baseEntries']) ?? {},
+    hiddenIds: (p?.hiddenIds as string[]) ?? [],
+  };
+}
+
+function loadLocal(): StoreState {
+  if (typeof window === 'undefined') return EMPTY_STATE;
+  try { return parseState(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')); }
+  catch { return EMPTY_STATE; }
+}
+
+function saveLocal(state: StoreState) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
+}
+
+async function loadCloud(): Promise<StoreState | null> {
+  if (!supabase) return null;
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    return {
-      disparoData: parsed?.disparoData ?? {},
-      baseData: parsed?.baseData ?? {},
-      customDisparos: parsed?.customDisparos ?? [],
-      baseEntries: parsed?.baseEntries ?? {},
-      hiddenIds: parsed?.hiddenIds ?? [],
-    };
-  } catch { return { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] }; }
+    const { data, error } = await supabase.from('dash_store').select('data').eq('id', 1).single();
+    if (error || !data) return null;
+    const parsed = parseState(data.data);
+    // Only use cloud if it has actual content
+    const hasContent = Object.keys(parsed.disparoData).length > 0
+      || parsed.customDisparos.length > 0
+      || Object.keys(parsed.baseEntries).length > 0
+      || parsed.hiddenIds.length > 0;
+    return hasContent ? parsed : null;
+  } catch { return null; }
+}
+
+let cloudTimer: ReturnType<typeof setTimeout> | null = null;
+function saveCloud(state: StoreState) {
+  if (!supabase) return;
+  if (cloudTimer) clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(async () => {
+    try {
+      await supabase!.from('dash_store').upsert({ id: 1, data: state, updated_at: new Date().toISOString() });
+    } catch { /* noop */ }
+  }, 800);
 }
 
 function save(state: StoreState) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
+  saveLocal(state);
+  saveCloud(state);
 }
 
 function allDisparos(state: StoreState): Disparo[] {
@@ -114,9 +150,22 @@ function allDisparos(state: StoreState): Disparo[] {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoreState>({ disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] });
+  const [state, setState] = useState<StoreState>(EMPTY_STATE);
+  const [synced, setSynced] = useState(false);
 
-  useEffect(() => { setState(load()); }, []);
+  useEffect(() => {
+    // 1. Hydrate immediately from localStorage (fast, no flash)
+    const local = loadLocal();
+    setState(local);
+    // 2. Fetch from cloud and override (authoritative source)
+    loadCloud().then((cloud) => {
+      if (cloud) {
+        setState(cloud);
+        saveLocal(cloud);
+      }
+      setSynced(true);
+    }).catch(() => setSynced(true));
+  }, []);
 
   const updateDisparo = useCallback((id: string, data: Partial<DisparoData>) => {
     setState((prev) => {
