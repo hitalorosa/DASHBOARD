@@ -130,14 +130,15 @@ async function loadCloud(): Promise<StoreState | null> {
 }
 
 let cloudTimer: ReturnType<typeof setTimeout> | null = null;
-function saveCloud(state: StoreState) {
+function saveCloud(state: StoreState, immediate = false) {
   if (!supabase) return;
   if (cloudTimer) clearTimeout(cloudTimer);
+  const delay = immediate ? 0 : 800;
   cloudTimer = setTimeout(async () => {
     try {
       await supabase!.from('dash_store').upsert({ id: 1, data: state, updated_at: new Date().toISOString() });
     } catch { /* noop */ }
-  }, 800);
+  }, delay);
 }
 
 function save(state: StoreState) {
@@ -157,14 +158,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // 1. Hydrate immediately from localStorage (fast, no flash)
     const local = loadLocal();
     setState(local);
+
+    const hasLocal = Object.keys(local.disparoData).length > 0
+      || local.customDisparos.length > 0
+      || Object.keys(local.baseEntries).length > 0
+      || local.hiddenIds.length > 0;
+
     // 2. Fetch from cloud and override (authoritative source)
     loadCloud().then((cloud) => {
       if (cloud) {
+        // Cloud has data — use it
         setState(cloud);
         saveLocal(cloud);
+      } else if (hasLocal) {
+        // Cloud is empty but local has data — push local up immediately
+        saveCloud(local, true);
       }
       setSynced(true);
-    }).catch(() => setSynced(true));
+    }).catch(() => {
+      // Cloud unreachable — keep local, still try to push
+      if (hasLocal) saveCloud(local, true);
+      setSynced(true);
+    });
   }, []);
 
   const updateDisparo = useCallback((id: string, data: Partial<DisparoData>) => {
