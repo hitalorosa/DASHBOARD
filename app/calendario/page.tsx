@@ -166,7 +166,7 @@ export default function CalendarioPage() {
 
   const disparosDoMes = useMemo(() => getDisparos(month, year), [month, year, getDisparos]);
 
-  const getDisparosForDay = (day: Date) => disparosDoMes.filter((d) => isSameDay(parseISO(d.data), day));
+  const getDisparosForDay = (day: Date) => disparosDoMes.filter((d) => isSameDay(new Date(d.data + 'T12:00:00'), day));
 
   const today = new Date();
   const futureDates = datasazonais2025.filter((s) => parseISO(s.data) >= today).slice(0, 12);
@@ -245,7 +245,7 @@ export default function CalendarioPage() {
               const dayDisparos = getDisparosForDay(day);
               const hasDisparo = dayDisparos.length > 0;
               const isToday = isSameDay(day, today);
-              const isSelected = selected && isSameDay(parseISO(selected.data), day);
+              const isSelected = selected && isSameDay(new Date(selected.data + 'T12:00:00'), day);
 
               return (
                 <div

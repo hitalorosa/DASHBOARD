@@ -141,8 +141,9 @@ function saveCloud(rowId: number, state: StoreState, immediate = false) {
   }, delay);
 }
 
-function allDisparos(state: StoreState): Disparo[] {
-  return [...disparosMaio, ...(state.customDisparos ?? [])];
+function allDisparos(state: StoreState, brandId?: string): Disparo[] {
+  const fixed = brandId === 'noue' || brandId === undefined ? disparosMaio : [];
+  return [...fixed, ...(state.customDisparos ?? [])];
 }
 
 export function StoreProvider({ children, brand = DEFAULT_BRAND }: { children: ReactNode; brand?: Brand }) {
@@ -241,14 +242,15 @@ export function StoreProvider({ children, brand = DEFAULT_BRAND }: { children: R
 
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {
     const hidden = new Set(state.hiddenIds ?? []);
-    return allDisparos(state)
+    return allDisparos(state, brand.id)
       .filter((d) => !hidden.has(d.id))
-      .filter((d) => { const dt = new Date(d.data); return dt.getMonth() === month && dt.getFullYear() === year; })
-      .map((d) => merge(d, state.disparoData?.[d.id]));
-  }, [state]);
+      .filter((d) => { const dt = new Date(d.data + 'T12:00:00'); return dt.getMonth() === month && dt.getFullYear() === year; })
+      .map((d) => merge(d, state.disparoData?.[d.id]))
+      .sort((a, b) => a.data.localeCompare(b.data));
+  }, [state, brand.id]);
 
   const getBases = useCallback((start?: string, end?: string): Base[] => {
-    let merged = allDisparos(state).map((d) => merge(d, state.disparoData?.[d.id]));
+    let merged = allDisparos(state, brand.id).map((d) => merge(d, state.disparoData?.[d.id]));
     if (start && end) {
       merged = merged.filter((d) => d.data >= start && d.data <= end);
     }
