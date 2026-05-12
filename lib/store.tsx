@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Disparo, Base, DecisaoBase } from './types';
 import { disparosMaio } from './data';
 import { supabase } from './supabase';
+import { Brand, DEFAULT_BRAND } from './brands';
 
 export interface DisparoData {
   tamanhoBase: number;
@@ -90,7 +91,6 @@ function merge(base: Disparo, override: Partial<DisparoData> = {}): Disparo {
 }
 
 const Ctx = createContext<Store | null>(null);
-const STORAGE_KEY = 'noue-dash-v1';
 const EMPTY_STATE: StoreState = { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] };
 
 function parseState(raw: unknown): StoreState {
@@ -104,83 +104,80 @@ function parseState(raw: unknown): StoreState {
   };
 }
 
-function loadLocal(): StoreState {
+function hasData(s: StoreState) {
+  return Object.keys(s.disparoData).length > 0 || s.customDisparos.length > 0
+    || Object.keys(s.baseEntries).length > 0 || s.hiddenIds.length > 0;
+}
+
+function loadLocal(key: string): StoreState {
   if (typeof window === 'undefined') return EMPTY_STATE;
-  try { return parseState(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')); }
+  try { return parseState(JSON.parse(localStorage.getItem(key) ?? '{}')); }
   catch { return EMPTY_STATE; }
 }
 
-function saveLocal(state: StoreState) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* noop */ }
+function saveLocal(key: string, state: StoreState) {
+  try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* noop */ }
 }
 
-async function loadCloud(): Promise<StoreState | null> {
+async function loadCloud(rowId: number): Promise<StoreState | null> {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from('dash_store').select('data').eq('id', 1).single();
+    const { data, error } = await supabase.from('dash_store').select('data').eq('id', rowId).single();
     if (error || !data) return null;
     const parsed = parseState(data.data);
-    // Only use cloud if it has actual content
-    const hasContent = Object.keys(parsed.disparoData).length > 0
-      || parsed.customDisparos.length > 0
-      || Object.keys(parsed.baseEntries).length > 0
-      || parsed.hiddenIds.length > 0;
-    return hasContent ? parsed : null;
+    return hasData(parsed) ? parsed : null;
   } catch { return null; }
 }
 
 let cloudTimer: ReturnType<typeof setTimeout> | null = null;
-function saveCloud(state: StoreState, immediate = false) {
+function saveCloud(rowId: number, state: StoreState, immediate = false) {
   if (!supabase) return;
   if (cloudTimer) clearTimeout(cloudTimer);
   const delay = immediate ? 0 : 800;
   cloudTimer = setTimeout(async () => {
     try {
-      await supabase!.from('dash_store').upsert({ id: 1, data: state, updated_at: new Date().toISOString() });
+      await supabase!.from('dash_store').upsert({ id: rowId, data: state, updated_at: new Date().toISOString() });
     } catch { /* noop */ }
   }, delay);
-}
-
-function save(state: StoreState) {
-  saveLocal(state);
-  saveCloud(state);
 }
 
 function allDisparos(state: StoreState): Disparo[] {
   return [...disparosMaio, ...(state.customDisparos ?? [])];
 }
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({ children, brand = DEFAULT_BRAND }: { children: ReactNode; brand?: Brand }) {
   const [state, setState] = useState<StoreState>(EMPTY_STATE);
   const [synced, setSynced] = useState(false);
+  const storageKey = brand.storageKey;
+  const rowId = brand.supabaseRowId;
+  const keyRef = useRef(storageKey);
+  const rowRef = useRef(rowId);
+  useEffect(() => { keyRef.current = storageKey; rowRef.current = rowId; }, [storageKey, rowId]);
+
+  const save = useCallback((s: StoreState) => {
+    saveLocal(keyRef.current, s);
+    saveCloud(rowRef.current, s);
+  }, []);
 
   useEffect(() => {
-    // 1. Hydrate immediately from localStorage (fast, no flash)
-    const local = loadLocal();
+    setSynced(false);
+    setState(EMPTY_STATE);
+    const local = loadLocal(storageKey);
     setState(local);
 
-    const hasLocal = Object.keys(local.disparoData).length > 0
-      || local.customDisparos.length > 0
-      || Object.keys(local.baseEntries).length > 0
-      || local.hiddenIds.length > 0;
-
-    // 2. Fetch from cloud and override (authoritative source)
-    loadCloud().then((cloud) => {
+    loadCloud(rowId).then((cloud) => {
       if (cloud) {
-        // Cloud has data — use it
         setState(cloud);
-        saveLocal(cloud);
-      } else if (hasLocal) {
-        // Cloud is empty but local has data — push local up immediately
-        saveCloud(local, true);
+        saveLocal(storageKey, cloud);
+      } else if (hasData(local)) {
+        saveCloud(rowId, local, true);
       }
       setSynced(true);
     }).catch(() => {
-      // Cloud unreachable — keep local, still try to push
-      if (hasLocal) saveCloud(local, true);
+      if (hasData(local)) saveCloud(rowId, local, true);
       setSynced(true);
     });
-  }, []);
+  }, [storageKey, rowId]);
 
   const updateDisparo = useCallback((id: string, data: Partial<DisparoData>) => {
     setState((prev) => {

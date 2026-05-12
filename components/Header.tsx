@@ -1,5 +1,8 @@
 'use client';
 
+import Image from 'next/image';
+import { useBrand } from '@/lib/brand-context';
+
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
@@ -15,17 +18,30 @@ interface HeaderProps {
   onYearChange: (year: number) => void;
 }
 
-export default function Header({ title, month, year, onMonthChange, onYearChange }: HeaderProps) {
+export default function Header({ month, year, onMonthChange, onYearChange }: HeaderProps) {
+  const { brand } = useBrand();
+
   return (
     <header
-      className="flex items-center justify-between px-8 py-4 border-b"
+      className="flex items-center justify-between px-8 py-3 border-b"
       style={{ backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', minHeight: 64 }}
     >
       <div className="flex-1" />
 
-      <h1 className="flex-1 text-center text-base font-semibold tracking-wide" style={{ color: '#F9FAFB' }}>
-        {title}
-      </h1>
+      {/* brand logo centered */}
+      <div className="flex-1 flex items-center justify-center">
+        <Image
+          src={brand.logo}
+          alt={brand.name}
+          width={90}
+          height={36}
+          style={{ objectFit: 'contain' }}
+          priority
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      </div>
 
       <div className="flex-1 flex items-center justify-end gap-2">
         <select
