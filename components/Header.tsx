@@ -10,16 +10,8 @@ const MONTHS = [
 
 const YEARS = [2026, 2027];
 
-interface HeaderProps {
-  title: string;
-  month: number;
-  year: number;
-  onMonthChange: (month: number) => void;
-  onYearChange: (year: number) => void;
-}
-
-export default function Header({ month, year, onMonthChange, onYearChange }: HeaderProps) {
-  const { brand } = useBrand();
+export default function Header({ title }: { title: string }) {
+  const { brand, month, year, setMonth, setYear } = useBrand();
 
   return (
     <header
@@ -37,16 +29,14 @@ export default function Header({ month, year, onMonthChange, onYearChange }: Hea
           height={36}
           style={{ objectFit: 'contain' }}
           priority
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
       </div>
 
       <div className="flex-1 flex items-center justify-end gap-2">
         <select
           value={month}
-          onChange={(e) => onMonthChange(Number(e.target.value))}
+          onChange={(e) => setMonth(Number(e.target.value))}
           className="text-sm rounded-lg px-3 py-1.5 outline-none cursor-pointer border"
           style={{ borderColor: '#2A2A2A', color: '#D4A843', backgroundColor: '#1A1A1A' }}
         >
@@ -54,7 +44,7 @@ export default function Header({ month, year, onMonthChange, onYearChange }: Hea
         </select>
         <select
           value={year}
-          onChange={(e) => onYearChange(Number(e.target.value))}
+          onChange={(e) => setYear(Number(e.target.value))}
           className="text-sm rounded-lg px-3 py-1.5 outline-none cursor-pointer border"
           style={{ borderColor: '#2A2A2A', color: '#D4A843', backgroundColor: '#1A1A1A' }}
         >

@@ -5,6 +5,7 @@ import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
 import { useStore, DisparoData, BaseEntryData } from '@/lib/store';
 import { Disparo, CampaignType } from '@/lib/types';
+import { useBrand } from '@/lib/brand-context';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
@@ -430,8 +431,7 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function DisparosPage() {
-  const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2026);
+  const { month, year } = useBrand();
   const [openFill, setOpenFill] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const {
@@ -448,7 +448,7 @@ export default function DisparosPage() {
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Disparos" month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+      <Header title="Disparos" />
       <main className="p-8 flex flex-col gap-4">
 
         <div className="rounded-2xl border overflow-hidden" style={CARD}>

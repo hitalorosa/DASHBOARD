@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
 import { useStore } from '@/lib/store';
 import { META_MENSAL } from '@/lib/data';
+import { useBrand } from '@/lib/brand-context';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -58,8 +58,7 @@ function KpiCard({ label, value, sub, gold, roasColor, progress }: {
 }
 
 export default function CentralPage() {
-  const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2026);
+  const { month, year } = useBrand();
   const { getDisparos } = useStore();
   const disparos = getDisparos(month, year);
 
@@ -82,7 +81,7 @@ export default function CentralPage() {
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Central" month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+      <Header title="Central" />
       <main className="p-8 flex flex-col gap-6">
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">

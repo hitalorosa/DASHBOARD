@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Header from '@/components/Header';
 import { useStore } from '@/lib/store';
 import { DecisaoBase } from '@/lib/types';
+import { useBrand } from '@/lib/brand-context';
 
 function fmt(n: number) { return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
 
@@ -19,8 +20,7 @@ const MONO = { fontFamily: "'JetBrains Mono', monospace" };
 const INPUT_STYLE = { backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', color: '#F9FAFB' };
 
 export default function BasesPage() {
-  const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2026);
+  const { month, year } = useBrand();
   const [selected, setSelected] = useState<string | null>(null);
   const [periodoAtivo, setPeriodoAtivo] = useState(false);
   const [periodoStart, setPeriodoStart] = useState('');
@@ -41,7 +41,7 @@ export default function BasesPage() {
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Bases" month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+      <Header title="Bases" />
       <main className="p-8 flex flex-col gap-6">
 
         {/* status pills + period toggle */}

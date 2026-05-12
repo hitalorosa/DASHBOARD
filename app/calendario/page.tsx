@@ -6,6 +6,7 @@ import CampaignBadge from '@/components/CampaignBadge';
 import { useStore } from '@/lib/store';
 import { datasazonais2025 } from '@/lib/data';
 import { Disparo, CampaignType } from '@/lib/types';
+import { useBrand } from '@/lib/brand-context';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X, Plus } from 'lucide-react';
@@ -153,8 +154,7 @@ function NovoDisparoModal({ month, year, onSave, onClose }: {
 }
 
 export default function CalendarioPage() {
-  const [month, setMonth] = useState(4);
-  const [year, setYear] = useState(2026);
+  const { month, year } = useBrand();
   const [selected, setSelected] = useState<Disparo | null>(null);
   const [showNewDisparo, setShowNewDisparo] = useState(false);
 
@@ -180,7 +180,7 @@ export default function CalendarioPage() {
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Calendário" month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />
+      <Header title="Calendário" />
 
       {showNewDisparo && (
         <NovoDisparoModal
