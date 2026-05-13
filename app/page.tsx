@@ -3,7 +3,6 @@
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
 import { useStore } from '@/lib/store';
-import { META_MENSAL } from '@/lib/data';
 import { useBrand } from '@/lib/brand-context';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format, parseISO } from 'date-fns';
@@ -58,14 +57,14 @@ function KpiCard({ label, value, sub, gold, roasColor, progress }: {
 }
 
 export default function CentralPage() {
-  const { month, year } = useBrand();
+  const { brand, month, year } = useBrand();
   const { getDisparos } = useStore();
   const disparos = getDisparos(month, year);
 
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
   const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
   const roasGeral = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
-  const metaPct = (totalFat / META_MENSAL) * 100;
+  const metaPct = (totalFat / brand.metaMensal) * 100;
 
   const melhor = disparos.filter((d) => d.roas > 0).sort((a, b) => b.roas - a.roas)[0] ?? null;
 
@@ -89,7 +88,7 @@ export default function CentralPage() {
           <KpiCard label="Faturamento" value={totalFat > 0 ? fmt(totalFat) : 'A preencher'} sub="Status Pago" gold />
           <KpiCard label="ROAS Geral" value={roasGeral > 0 ? `${roasGeral.toFixed(1)}x` : 'A preencher'} sub="Meta: 7x"
             roasColor={roasGeral >= 7 ? 'green' : roasGeral >= 4 ? 'yellow' : roasGeral > 0 ? 'red' : 'muted'} />
-          <KpiCard label="Meta %" value={metaPct > 0 ? `${metaPct.toFixed(1)}%` : '0%'} sub={`de ${fmt(META_MENSAL)}`} progress={metaPct} />
+          <KpiCard label="Meta %" value={metaPct > 0 ? `${metaPct.toFixed(1)}%` : '0%'} sub={`de ${fmt(brand.metaMensal)}`} progress={metaPct} />
           <KpiCard label="Disparos" value={String(disparos.length)} sub="no mês" />
           <KpiCard label="Melhor Disparo" value={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'Aguardando dados'} />
         </div>

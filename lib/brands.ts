@@ -6,6 +6,7 @@ export interface Brand {
   logo: string;        // path in /public
   storageKey: string;  // localStorage key
   supabaseRowId: number;
+  metaMensal: number;  // monthly revenue goal in BRL
 }
 
 export const BRANDS: Brand[] = [
@@ -15,6 +16,7 @@ export const BRANDS: Brand[] = [
     logo: '/logo-noue.png',
     storageKey: 'noue-dash-v1',
     supabaseRowId: 1,
+    metaMensal: 200000,
   },
   {
     id: 'dryskin',
@@ -22,6 +24,7 @@ export const BRANDS: Brand[] = [
     logo: '/logo-dryskin.png',
     storageKey: 'dryskin-dash-v1',
     supabaseRowId: 2,
+    metaMensal: 25000,
   },
 ];
 
