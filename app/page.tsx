@@ -153,30 +153,37 @@ export default function CentralPage() {
               </p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="text-sm" style={{ borderCollapse: 'collapse', width: 'auto', minWidth: '100%', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 'auto' }} />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 100 }} />
+                </colgroup>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #262626' }}>
-                    <th className="pb-3 pl-5 pr-4 text-left w-[130px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Data</th>
-                    <th className="pb-3 px-4 text-left" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Campanha</th>
-                    <th className="pb-3 px-4 text-right w-[120px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Invest. R$</th>
-                    <th className="pb-3 px-4 text-right w-[120px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Fat. R$</th>
-                    <th className="pb-3 pl-4 pr-5 text-right w-[90px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>ROAS</th>
+                    <th className="pb-3 pl-5 pr-3 text-left" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Data</th>
+                    <th className="pb-3 px-3 text-left" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Campanha</th>
+                    <th className="pb-3 px-3 text-right" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Invest. R$</th>
+                    <th className="pb-3 px-3 text-right" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Fat. R$</th>
+                    <th className="pb-3 pl-3 pr-5 text-right" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>ROAS</th>
                   </tr>
                 </thead>
                 <tbody>
                   {disparos.map((d) => (
                     <tr key={d.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                      <td className="py-3 pl-5 pr-4 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
+                      <td className="py-2.5 pl-5 pr-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
                         {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
                       </td>
-                      <td className="py-3 px-4 whitespace-nowrap" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
+                      <td className="py-2.5 px-3 truncate" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
                         {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
                       </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
                         {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
                       </td>
-                      <td className="py-3 pl-4 pr-5 text-right"><RoasChip roas={d.roas} /></td>
+                      <td className="py-2.5 pl-3 pr-5 text-right"><RoasChip roas={d.roas} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -203,12 +210,12 @@ export default function CentralPage() {
                 Top 3 Bases
               </p>
               {top3.length > 0 ? (
-                <ResponsiveContainer width="100%" height={170}>
-                  <ComposedChart data={top3} margin={{ top: 4, right: 16, left: -10, bottom: 4 }}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <ComposedChart data={top3} margin={{ top: 4, right: 36, left: -10, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
                     <XAxis dataKey="nome" tick={{ fontSize: 9, fill: '#5E5E5E' }} />
                     <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#818CF8' }} tickFormatter={(v) => `${v}x`} />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 11 }}
                       formatter={(value, name) => {
@@ -218,9 +225,9 @@ export default function CentralPage() {
                     />
                     <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 10 }}
                       formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
-                    <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[3, 3, 0, 0]} />
-                    <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[3, 3, 0, 0]} />
-                    <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
+                    <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[3, 3, 0, 0]} barSize={28} />
+                    <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[3, 3, 0, 0]} barSize={28} />
+                    <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[3, 3, 0, 0]} barSize={28} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
