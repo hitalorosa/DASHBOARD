@@ -42,7 +42,7 @@ export default function BasesPage() {
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
       <Header title="Bases" />
-      <main className="p-8 flex flex-col gap-6">
+      <main className="p-4 md:p-8 flex flex-col gap-4 md:gap-6">
 
         {/* status pills + period toggle */}
         <div className="flex flex-wrap gap-3 items-center justify-between">

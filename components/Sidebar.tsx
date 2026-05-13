@@ -21,7 +21,7 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <aside className="flex flex-col" style={{ width: 220, minHeight: '100vh', backgroundColor: '#0E0E0E', borderRight: '1px solid #262626', flexShrink: 0 }}>
+    <aside className="hidden md:flex flex-col" style={{ width: 220, minHeight: '100vh', backgroundColor: '#0E0E0E', borderRight: '1px solid #262626', flexShrink: 0 }}>
 
       {/* Brand selector */}
       <div className="relative px-3 py-4">

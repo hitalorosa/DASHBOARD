@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
+import BottomNav from '@/components/BottomNav';
 import { StoreProvider } from '@/lib/store';
 import AuthGuard from '@/components/AuthGuard';
 import { BrandProvider } from '@/lib/brand-context';
@@ -19,9 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <BrandProvider>
             <BrandStoreWrapper>
               <Sidebar />
-              <div className="flex flex-col flex-1 min-h-screen overflow-auto">
+              <div className="flex flex-col flex-1 min-h-screen overflow-auto pb-16 md:pb-0">
                 {children}
               </div>
+              <BottomNav />
             </BrandStoreWrapper>
           </BrandProvider>
         </AuthGuard>

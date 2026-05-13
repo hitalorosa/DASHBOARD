@@ -81,7 +81,7 @@ export default function CentralPage() {
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
       <Header title="Central" />
-      <main className="p-8 flex flex-col gap-6">
+      <main className="p-4 md:p-8 flex flex-col gap-4 md:gap-6">
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard label="Investimento" value={totalInvest > 0 ? fmt(totalInvest) : 'A preencher'} sub="BRL acumulado" />
@@ -93,7 +93,7 @@ export default function CentralPage() {
           <KpiCard label="Melhor Disparo" value={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'Aguardando dados'} />
         </div>
 
-        <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+        <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
           <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 24 }}>
             Investimento × Faturamento por Disparo
           </p>
@@ -126,7 +126,7 @@ export default function CentralPage() {
           )}
         </div>
 
-        <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+        <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
           <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
             Disparos do Mês
           </p>

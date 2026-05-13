@@ -449,7 +449,7 @@ export default function DisparosPage() {
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
       <Header title="Disparos" />
-      <main className="p-8 flex flex-col gap-4">
+      <main className="p-4 md:p-8 flex flex-col gap-4">
 
         <div className="rounded-2xl border overflow-hidden" style={CARD}>
           <div className="overflow-x-auto">

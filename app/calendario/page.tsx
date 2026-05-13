@@ -191,11 +191,11 @@ export default function CalendarioPage() {
         />
       )}
 
-      <main className="p-8 flex flex-col gap-8">
+      <main className="p-4 md:p-8 flex flex-col gap-6 md:gap-8">
 
         {/* Calendar grid */}
-        <div className="rounded-2xl p-6 border relative overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <div className="flex items-center justify-between mb-5">
+        <div className="rounded-2xl p-3 md:p-6 border relative overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+          <div className="flex items-center justify-between mb-4 md:mb-5">
             <div>
               <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#8A8A8A' }}>
                 Calendário de disparos
@@ -239,7 +239,7 @@ export default function CalendarioPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-7 gap-0.5 md:gap-1.5">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
             {days.map((day) => {
               const dayDisparos = getDisparosForDay(day);
@@ -251,7 +251,7 @@ export default function CalendarioPage() {
                 <div
                   key={day.toISOString()}
                   onClick={() => hasDisparo ? setSelected(dayDisparos[0]) : setSelected(null)}
-                  className={`relative overflow-hidden transition-all min-h-[72px] rounded-xl p-2 ${isToday ? 'cal-cell-today' : ''}`}
+                  className={`relative overflow-hidden transition-all min-h-[44px] md:min-h-[72px] rounded-lg md:rounded-xl p-1 md:p-2 ${isToday ? 'cal-cell-today' : ''}`}
                   style={{
                     background: isSelected
                       ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.22), transparent 60%), #1a1814'
@@ -265,18 +265,18 @@ export default function CalendarioPage() {
                       : hasDisparo ? '1px solid #1f1f1f' : '1px solid transparent',
                     cursor: hasDisparo ? 'pointer' : 'default',
                   }}>
-                  <span className="cal-num">{format(day, 'd')}</span>
+                  <span className="cal-num-mobile md:cal-num">{format(day, 'd')}</span>
 
                   {dayDisparos.map((d) => (
-                    <div key={d.id} className="mt-1 truncate" style={{ fontSize: 9, color: CAMPAIGN_COLOR[d.tipo], opacity: 0.85 }}>
+                    <div key={d.id} className="mt-0.5 truncate hidden md:block" style={{ fontSize: 9, color: CAMPAIGN_COLOR[d.tipo], opacity: 0.85 }}>
                       {d.campanha}
                     </div>
                   ))}
 
                   {hasDisparo && (
-                    <div style={{ position: 'absolute', left: 7, right: 7, bottom: 7, display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                    <div style={{ position: 'absolute', left: 4, right: 4, bottom: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                       {dayDisparos.map((d) => (
-                        <span key={d.id} style={{ height: 4, borderRadius: 2, flex: 1, minWidth: 8, background: CAMPAIGN_COLOR[d.tipo] }} />
+                        <span key={d.id} style={{ height: 3, borderRadius: 2, flex: 1, minWidth: 4, background: CAMPAIGN_COLOR[d.tipo] }} />
                       ))}
                     </div>
                   )}
@@ -288,7 +288,7 @@ export default function CalendarioPage() {
 
         {/* Selected day detail */}
         {selected && (
-          <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#D4A843' }}>
+          <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#D4A843' }}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <h3 className="font-semibold" style={{ color: '#ECECEC' }}>

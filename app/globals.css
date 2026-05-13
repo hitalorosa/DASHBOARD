@@ -57,10 +57,28 @@ body {
   line-height: 1;
   color: #D0D0D0;
 }
-.cal-cell-today .cal-num { color: #D4A843; }
+.cal-num-mobile {
+  font-family: 'Instrument Serif', serif;
+  font-size: 14px;
+  line-height: 1;
+  color: #D0D0D0;
+}
+.cal-cell-today .cal-num,
+.cal-cell-today .cal-num-mobile { color: #D4A843; }
 .cal-cell-today::after {
   content: "HOJE";
-  position: absolute; right: 7px; top: 7px;
+  position: absolute; right: 4px; top: 4px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 8px; letter-spacing: 0.18em; color: #D4A843;
+  font-size: 6px; letter-spacing: 0.18em; color: #D4A843;
+}
+@media (min-width: 768px) {
+  .cal-cell-today::after {
+    right: 7px; top: 7px;
+    font-size: 8px;
+  }
+}
+
+/* Mobile scroll helper */
+@media (max-width: 767px) {
+  .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
