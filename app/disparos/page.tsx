@@ -3,12 +3,12 @@
 import React, { useState } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
-import { useStore, DisparoData, BaseEntryData } from '@/lib/store';
+import { useStore, DisparoData, BaseEntryData, DisparoContent } from '@/lib/store';
 import { Disparo, CampaignType } from '@/lib/types';
 import { useBrand } from '@/lib/brand-context';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { X, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Plus, Trash2, Copy, Check } from 'lucide-react';
 
 function fmt(n: number) { return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
 
@@ -160,8 +160,116 @@ function BaseEntryCard({ entry, onUpdate, onRemove }: {
   );
 }
 
+// ── Content tab (copy + UTM + cupom) ─────────────────────────────────────────
+function ContentTab({ content, onChange }: {
+  content: Partial<DisparoContent>;
+  onChange: (data: Partial<DisparoContent>) => void;
+}) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  function copy(text: string, key: string) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1800);
+    });
+  }
+
+  const msgField = (key: 'msg1' | 'msg2' | 'msg3', label: string, hint: string) => (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>{label}</label>
+        <button
+          onClick={() => copy(content[key] ?? '', key)}
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+          style={{ color: copied === key ? '#4ADE80' : '#5E5E5E', backgroundColor: 'transparent' }}
+          title="Copiar">
+          {copied === key ? <Check size={11} /> : <Copy size={11} />}
+          <span style={{ fontSize: 10 }}>{copied === key ? 'Copiado' : 'Copiar'}</span>
+        </button>
+      </div>
+      <textarea
+        rows={4}
+        placeholder={hint}
+        value={content[key] ?? ''}
+        onChange={(e) => onChange({ [key]: e.target.value })}
+        className="w-full rounded-lg px-3 py-2 text-xs outline-none resize-none border"
+        style={{ ...INPUT, lineHeight: 1.6 }}
+      />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Messages */}
+      <div>
+        <p className="mb-3" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A' }}>
+          Mensagens do Disparo
+        </p>
+        <div className="flex flex-col gap-4">
+          {msgField('msg1', 'Mensagem 1', 'Cole aqui o texto da primeira mensagem do disparo...')}
+          {msgField('msg2', 'Mensagem 2', 'Cole aqui o texto da segunda mensagem...')}
+          {msgField('msg3', 'Mensagem 3', 'Cole aqui o texto da terceira mensagem...')}
+        </div>
+      </div>
+
+      {/* UTM + Cupom */}
+      <div>
+        <p className="mb-3" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A' }}>
+          Link & Cupom
+        </p>
+        <div className="flex flex-col gap-3">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>UTM / Link do Disparo</label>
+              <button
+                onClick={() => copy(content.utm ?? '', 'utm')}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                style={{ color: copied === 'utm' ? '#4ADE80' : '#5E5E5E' }}
+                title="Copiar link">
+                {copied === 'utm' ? <Check size={11} /> : <Copy size={11} />}
+                <span style={{ fontSize: 10 }}>{copied === 'utm' ? 'Copiado' : 'Copiar'}</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="https://sualoja.com.br/produto?utm_source=whatsapp&utm_campaign=..."
+              value={content.utm ?? ''}
+              onChange={(e) => onChange({ utm: e.target.value })}
+              className="w-full rounded-lg px-3 py-2 text-xs outline-none border font-mono"
+              style={INPUT}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>Cupom</label>
+              <button
+                onClick={() => copy(content.cupom ?? '', 'cupom')}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                style={{ color: copied === 'cupom' ? '#4ADE80' : '#5E5E5E' }}
+                title="Copiar cupom">
+                {copied === 'cupom' ? <Check size={11} /> : <Copy size={11} />}
+                <span style={{ fontSize: 10 }}>{copied === 'cupom' ? 'Copiado' : 'Copiar'}</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Ex: WELCOME10, MAIO15, FRETEGRATIS..."
+              value={content.cupom ?? ''}
+              onChange={(e) => onChange({ cupom: e.target.value })}
+              className="w-full rounded-lg px-3 py-2 text-sm font-bold outline-none border tracking-widest"
+              style={{ ...INPUT, color: content.cupom ? '#D4A843' : '#5E5E5E', letterSpacing: content.cupom ? '0.12em' : undefined }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main fill card ───────────────────────────────────────────────────────────
-function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBaseEntry, onRemoveBaseEntry, isCustom, onDelete }: {
+function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBaseEntry, onRemoveBaseEntry, isCustom, onDelete, content, onContentChange }: {
   d: Disparo;
   onClose: () => void;
   onSave: (data: Partial<DisparoData>) => void;
@@ -171,7 +279,10 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
   onRemoveBaseEntry: (idx: number) => void;
   isCustom: boolean;
   onDelete?: () => void;
+  content: Partial<DisparoContent>;
+  onContentChange: (data: Partial<DisparoContent>) => void;
 }) {
+  const [tab, setTab] = useState<'resultado' | 'conteudo'>('resultado');
   const [form, setForm] = useState<Partial<DisparoData>>({
     tamanhoBase: d.tamanhoBase || undefined,
     enviados: d.enviados || undefined,
@@ -240,18 +351,16 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
   }
 
   return (
-    <div className="rounded-2xl border p-6 mt-1" style={{ backgroundColor: '#161616', borderColor: '#D4A843', borderWidth: 1.5 }}>
+    <div className="rounded-2xl border p-4 md:p-6 mt-1" style={{ backgroundColor: '#161616', borderColor: '#D4A843', borderWidth: 1.5 }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="font-semibold" style={{ color: '#F2F2F2' }}>{d.campanha}</h3>
           <p className="text-xs mt-0.5" style={{ color: '#8A8A8A' }}>
             {format(parseISO(d.data), "dd 'de' MMMM yyyy", { locale: ptBR })}
             {' '}—{' '}
             <span style={{ color: '#D4A843' }}>{d.base}</span>
-            {' '}
-            <span style={{ color: '#3A3A3A', ...MONO, fontSize: 10 }}>· valores gerais do dia</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -263,6 +372,31 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
           <button onClick={onClose} className="p-1 rounded-lg" style={{ color: '#8A8A8A' }}><X size={16} /></button>
         </div>
       </div>
+
+      {/* ── Tabs ── */}
+      <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ backgroundColor: '#0D0D0D' }}>
+        {(['resultado', 'conteudo'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              backgroundColor: tab === t ? '#1A1A1A' : 'transparent',
+              color: tab === t ? '#D4A843' : '#5E5E5E',
+              border: tab === t ? '1px solid #2A2A2A' : '1px solid transparent',
+            }}>
+            {t === 'resultado' ? 'Resultado' : 'Conteúdo'}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Conteúdo tab ── */}
+      {tab === 'conteudo' && (
+        <ContentTab content={content} onChange={onContentChange} />
+      )}
+
+      {/* ── Resultado tab ── */}
+      {tab === 'resultado' && (<>
 
       {/* ── General form ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
@@ -425,6 +559,7 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
           </>
         )}
       </div>
+      </>)}
     </div>
   );
 }
@@ -437,6 +572,7 @@ export default function DisparosPage() {
   const {
     getDisparos, updateDisparo, addDisparo, removeDisparo,
     addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
+    updateDisparoContent, getDisparoContent,
   } = useStore();
 
   const disparos = getDisparos(month, year);
@@ -532,6 +668,8 @@ export default function DisparosPage() {
                             onDelete={() => { removeDisparo(d.id); setOpenFill(null); }}
                             baseEntries={getBaseEntries(d.id)}
                             onAddBaseEntry={(entry) => addBaseEntry(d.id, entry)}
+                            content={getDisparoContent(d.id)}
+                            onContentChange={(data) => updateDisparoContent(d.id, data)}
                             onUpdateBaseEntry={(idx, data) => updateBaseEntry(d.id, idx, data)}
                             onRemoveBaseEntry={(idx) => removeBaseEntry(d.id, idx)}
                           />

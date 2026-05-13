@@ -38,12 +38,21 @@ export interface BaseData {
   notas: string;
 }
 
+export interface DisparoContent {
+  msg1: string;
+  msg2: string;
+  msg3: string;
+  utm: string;
+  cupom: string;
+}
+
 interface StoreState {
   disparoData: Record<string, Partial<DisparoData>>;
   baseData: Record<string, Partial<BaseData>>;
   customDisparos: Disparo[];
   baseEntries: Record<string, BaseEntryData[]>; // key = disparo ID
   hiddenIds: string[]; // fixed dispatches marked as removed
+  disparoContent: Record<string, Partial<DisparoContent>>; // copy + utm + cupom
 }
 
 interface Store extends StoreState {
@@ -55,6 +64,8 @@ interface Store extends StoreState {
   updateBaseEntry: (disparoId: string, idx: number, data: Partial<BaseEntryData>) => void;
   removeBaseEntry: (disparoId: string, idx: number) => void;
   getBaseEntries: (disparoId: string) => BaseEntryData[];
+  updateDisparoContent: (id: string, data: Partial<DisparoContent>) => void;
+  getDisparoContent: (id: string) => Partial<DisparoContent>;
   getDisparos: (month: number, year: number) => Disparo[];
   getBases: (start?: string, end?: string) => Base[];
 }
@@ -91,7 +102,7 @@ function merge(base: Disparo, override: Partial<DisparoData> = {}): Disparo {
 }
 
 const Ctx = createContext<Store | null>(null);
-const EMPTY_STATE: StoreState = { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [] };
+const EMPTY_STATE: StoreState = { disparoData: {}, baseData: {}, customDisparos: [], baseEntries: {}, hiddenIds: [], disparoContent: {} };
 
 function parseState(raw: unknown): StoreState {
   const p = raw as Record<string, unknown> | null;
@@ -101,6 +112,7 @@ function parseState(raw: unknown): StoreState {
     customDisparos: (p?.customDisparos as Disparo[]) ?? [],
     baseEntries: (p?.baseEntries as StoreState['baseEntries']) ?? {},
     hiddenIds: (p?.hiddenIds as string[]) ?? [],
+    disparoContent: (p?.disparoContent as StoreState['disparoContent']) ?? {},
   };
 }
 
@@ -240,6 +252,17 @@ export function StoreProvider({ children, brand = DEFAULT_BRAND }: { children: R
     return state.baseEntries?.[disparoId] ?? [];
   }, [state.baseEntries]);
 
+  const updateDisparoContent = useCallback((id: string, data: Partial<DisparoContent>) => {
+    setState((prev) => {
+      const next = { ...prev, disparoContent: { ...prev.disparoContent, [id]: { ...(prev.disparoContent?.[id] ?? {}), ...data } } };
+      save(next); return next;
+    });
+  }, [save]);
+
+  const getDisparoContent = useCallback((id: string): Partial<DisparoContent> => {
+    return state.disparoContent?.[id] ?? {};
+  }, [state.disparoContent]);
+
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {
     const hidden = new Set(state.hiddenIds ?? []);
     return allDisparos(state, brand.id)
@@ -313,6 +336,7 @@ export function StoreProvider({ children, brand = DEFAULT_BRAND }: { children: R
     <Ctx.Provider value={{
       ...state, updateDisparo, updateBase, addDisparo, removeDisparo,
       addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
+      updateDisparoContent, getDisparoContent,
       getDisparos, getBases,
     }}>
       {children}
