@@ -19,19 +19,17 @@ function RoasChip({ roas }: { roas: number }) {
   return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>{roas.toFixed(1)}x</span>;
 }
 
-function KpiCard({ label, value, sub, gold, roasColor, progress, centered }: {
+function KpiCard({ label, value, sub, gold, roasColor, progress }: {
   label: string; value: string; sub?: string; gold?: boolean;
   roasColor?: 'green' | 'yellow' | 'red' | 'muted'; progress?: number;
-  centered?: boolean;
 }) {
   const col = roasColor
     ? ({ green: '#4ADE80', yellow: '#FCD34D', red: '#F87171', muted: '#5E5E5E' } as Record<string, string>)[roasColor]
     : gold ? '#D4A843' : '#ECECEC';
 
   return (
-    <div className={`kpi-card ${centered ? 'flex flex-col items-center justify-center text-center' : ''}`}
-      style={centered ? { paddingTop: 18, paddingBottom: 18 } : undefined}>
-      <p className={`flex items-center gap-2 mb-2 ${centered ? 'justify-center' : 'mb-3.5'}`} style={{
+    <div className="kpi-card">
+      <p className="flex items-center gap-2 mb-3.5" style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A',
       }}>
@@ -52,6 +50,27 @@ function KpiCard({ label, value, sub, gold, roasColor, progress, centered }: {
           <div className="h-full rounded-full" style={{ width: `${Math.min(progress, 100)}%`, background: 'linear-gradient(90deg,#D4A843,#F0C060)' }} />
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStatCard({ label, value, sub, valueColor = '#ECECEC' }: {
+  label: string; value: string; sub?: string; valueColor?: string;
+}) {
+  return (
+    <div style={{
+      background: 'linear-gradient(180deg, #1c1c1c 0%, #181818 100%)',
+      border: '1px solid #262626', borderRadius: 14,
+      padding: '12px 18px', textAlign: 'center',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, height: 2, width: 42, background: 'linear-gradient(90deg,#D4A843,transparent)' }} />
+      <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <span style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: '#D4A843' }} />
+        {label}
+      </p>
+      <p style={{ fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '-0.02em', color: valueColor, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+      {sub && <p style={{ fontSize: 11, color: '#5E5E5E', marginTop: 4 }}>{sub}</p>}
     </div>
   );
 }
@@ -195,54 +214,48 @@ export default function CentralPage() {
 
           {/* Side cards — 1/3 */}
           <div className="flex flex-col gap-4">
-            <KpiCard
+            <MiniStatCard
               label="Pedidos Gerados"
-              value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : 'A preencher'}
+              value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : '—'}
               sub="pedidos via disparos no mês"
-              centered
             />
-            <KpiCard
+            <MiniStatCard
               label="Leads Utilizados"
-              value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
+              value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : '—'}
               sub="contatos nas bases do mês"
-              centered
             />
 
             {/* Top 3 Bases mini chart */}
-            <div className="rounded-2xl border flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-              <div className="px-4 pt-4 pb-2 shrink-0">
-                <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E' }}>
-                  Top 3 Bases
-                </p>
-              </div>
-              <div className="flex-1 min-h-0 pb-3 px-1">
-                {top3.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={top3} margin={{ top: 8, right: 42, left: -4, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                      <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8A8A8A', fontWeight: 500 }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#818CF8' }} tickFormatter={(v) => `${v}x`} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 12 }}
-                        formatter={(value, name) => {
-                          if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
-                          return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
-                        }}
-                      />
-                      <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
-                        formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
-                      <Bar yAxisId="left" dataKey="investimento" fill="#3A3A3A" radius={[4, 4, 0, 0]} barSize={40} />
-                      <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} barSize={40} />
-                      <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={40} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full" style={{ color: '#5E5E5E' }}>
-                    <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
-                  </div>
-                )}
-              </div>
+            <div className="rounded-2xl border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626', padding: '16px 12px 12px' }}>
+              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12, paddingLeft: 4 }}>
+                Top 3 Bases
+              </p>
+              {top3.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <ComposedChart data={top3} margin={{ top: 8, right: 42, left: -4, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
+                    <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8A8A8A', fontWeight: 500 }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#818CF8' }} tickFormatter={(v) => `${v}x`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 12 }}
+                      formatter={(value, name) => {
+                        if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
+                        return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
+                      formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
+                    <Bar yAxisId="left" dataKey="investimento" fill="#3A3A3A" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={40} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center" style={{ height: 260, color: '#5E5E5E' }}>
+                  <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
