@@ -745,21 +745,21 @@ export default function DisparosPage() {
               <tfoot>
                 <tr style={{ borderTop: '2px solid #3A3A3A', backgroundColor: '#161616' }}>
                   {/* Totais label — covers button + data + campanha + tipo + base */}
-                  <td colSpan={5} className="px-4 py-3 text-xs font-bold uppercase" style={{ color: '#6B7280' }}>Totais</td>
+                  <td colSpan={5} className="px-4 py-3.5 text-sm font-bold uppercase" style={{ color: '#6B7280' }}>Totais</td>
                   {/* Tam. Base total */}
-                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalTamanhoBase > 0 ? '#9CA3AF' : '#374151' }}>
+                  <td className="px-4 py-3.5 text-right text-sm font-bold" style={{ color: totalTamanhoBase > 0 ? '#9CA3AF' : '#374151' }}>
                     {totalTamanhoBase > 0 ? totalTamanhoBase.toLocaleString('pt-BR') : '—'}
                   </td>
                   {/* Invest */}
-                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalInvest > 0 ? '#9CA3AF' : '#374151' }}>
+                  <td className="px-4 py-3.5 text-right text-sm font-bold" style={{ color: totalInvest > 0 ? '#9CA3AF' : '#374151' }}>
                     {totalInvest > 0 ? fmt(totalInvest) : '—'}
                   </td>
                   {/* Fat */}
-                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalFat > 0 ? '#D4A843' : '#374151' }}>
+                  <td className="px-4 py-3.5 text-right text-sm font-bold" style={{ color: totalFat > 0 ? '#D4A843' : '#374151' }}>
                     {totalFat > 0 ? fmt(totalFat) : '—'}
                   </td>
                   {/* Pedidos */}
-                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalPedidos > 0 ? '#D8D8D8' : '#374151' }}>
+                  <td className="px-4 py-3.5 text-right text-sm font-bold" style={{ color: totalPedidos > 0 ? '#D8D8D8' : '#374151' }}>
                     {totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : '—'}
                   </td>
                   {/* ROAS */}
@@ -767,7 +767,7 @@ export default function DisparosPage() {
                     {roasTotal > 0 ? <RoasBadge roas={roasTotal} /> : <span className="text-xs" style={{ color: '#374151' }}>—</span>}
                   </td>
                   {/* Leitura média */}
-                  <td className="px-4 py-3 text-xs font-bold" style={{ color: avgLeitura > 0 ? '#D8D8D8' : '#374151' }}>
+                  <td className="px-4 py-3.5 text-sm font-bold" style={{ color: avgLeitura > 0 ? '#D8D8D8' : '#374151' }}>
                     {avgLeitura > 0 ? `${(avgLeitura * 100).toFixed(0)}% média` : '—'}
                   </td>
                   {/* Cliques — sem total */}
