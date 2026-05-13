@@ -42,7 +42,7 @@ export interface DisparoContent {
   msg1: string;
   msg2: string;
   msg3: string;
-  utm: string;
+  utms: string[];   // list of UTM links, one per base
   cupom: string;
 }
 

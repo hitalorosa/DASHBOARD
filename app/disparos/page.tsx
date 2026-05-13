@@ -160,12 +160,25 @@ function BaseEntryCard({ entry, onUpdate, onRemove }: {
   );
 }
 
-// ── Content tab (copy + UTM + cupom) ─────────────────────────────────────────
+// ── Content tab (copy + UTMs + cupom) ────────────────────────────────────────
 function ContentTab({ content, onChange }: {
   content: Partial<DisparoContent>;
   onChange: (data: Partial<DisparoContent>) => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+
+  // normalise: support legacy single `utm` string + new `utms` array
+  const utms: string[] = content.utms?.length ? content.utms : [''];
+
+  function setUtms(next: string[]) { onChange({ utms: next }); }
+  function updateUtm(idx: number, val: string) {
+    const next = [...utms]; next[idx] = val; setUtms(next);
+  }
+  function addUtm() { setUtms([...utms, '']); }
+  function removeUtm(idx: number) {
+    const next = utms.filter((_, i) => i !== idx);
+    setUtms(next.length ? next : ['']);
+  }
 
   function copy(text: string, key: string) {
     if (!text) return;
@@ -213,55 +226,80 @@ function ContentTab({ content, onChange }: {
         </div>
       </div>
 
-      {/* UTM + Cupom */}
+      {/* UTMs */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A' }}>
+            UTM / Links ({utms.length})
+          </p>
+          <button
+            onClick={addUtm}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+            style={{ borderColor: '#D4A843', color: '#D4A843', backgroundColor: 'rgba(212,168,67,0.06)' }}>
+            <Plus size={11} /> + UTM
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {utms.map((utm, idx) => (
+            <div key={idx} className="rounded-xl border p-3" style={{ backgroundColor: '#111111', borderColor: '#2A2A2A' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>
+                  UTM {utms.length > 1 ? idx + 1 : ''}
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => copy(utm, `utm-${idx}`)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                    style={{ color: copied === `utm-${idx}` ? '#4ADE80' : '#5E5E5E' }}>
+                    {copied === `utm-${idx}` ? <Check size={11} /> : <Copy size={11} />}
+                    <span style={{ fontSize: 10 }}>{copied === `utm-${idx}` ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                  {utms.length > 1 && (
+                    <button
+                      onClick={() => removeUtm(idx)}
+                      className="p-0.5 rounded"
+                      style={{ color: '#5E5E5E' }}
+                      title="Remover">
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <input
+                type="text"
+                placeholder="https://sualoja.com.br/produto?utm_source=whatsapp&utm_campaign=..."
+                value={utm}
+                onChange={(e) => updateUtm(idx, e.target.value)}
+                className="w-full rounded-lg px-3 py-2 text-xs outline-none border"
+                style={{ ...INPUT, fontFamily: 'monospace' }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cupom */}
       <div>
         <p className="mb-3" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A' }}>
-          Link & Cupom
+          Cupom
         </p>
-        <div className="flex flex-col gap-3">
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>UTM / Link do Disparo</label>
-              <button
-                onClick={() => copy(content.utm ?? '', 'utm')}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                style={{ color: copied === 'utm' ? '#4ADE80' : '#5E5E5E' }}
-                title="Copiar link">
-                {copied === 'utm' ? <Check size={11} /> : <Copy size={11} />}
-                <span style={{ fontSize: 10 }}>{copied === 'utm' ? 'Copiado' : 'Copiar'}</span>
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="https://sualoja.com.br/produto?utm_source=whatsapp&utm_campaign=..."
-              value={content.utm ?? ''}
-              onChange={(e) => onChange({ utm: e.target.value })}
-              className="w-full rounded-lg px-3 py-2 text-xs outline-none border font-mono"
-              style={INPUT}
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>Cupom</label>
-              <button
-                onClick={() => copy(content.cupom ?? '', 'cupom')}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
-                style={{ color: copied === 'cupom' ? '#4ADE80' : '#5E5E5E' }}
-                title="Copiar cupom">
-                {copied === 'cupom' ? <Check size={11} /> : <Copy size={11} />}
-                <span style={{ fontSize: 10 }}>{copied === 'cupom' ? 'Copiado' : 'Copiar'}</span>
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Ex: WELCOME10, MAIO15, FRETEGRATIS..."
-              value={content.cupom ?? ''}
-              onChange={(e) => onChange({ cupom: e.target.value })}
-              className="w-full rounded-lg px-3 py-2 text-sm font-bold outline-none border tracking-widest"
-              style={{ ...INPUT, color: content.cupom ? '#D4A843' : '#5E5E5E', letterSpacing: content.cupom ? '0.12em' : undefined }}
-            />
-          </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Ex: WELCOME10, MAIO15, FRETEGRATIS..."
+            value={content.cupom ?? ''}
+            onChange={(e) => onChange({ cupom: e.target.value })}
+            className="flex-1 rounded-lg px-3 py-2 text-sm font-bold outline-none border"
+            style={{ ...INPUT, color: content.cupom ? '#D4A843' : '#5E5E5E', letterSpacing: content.cupom ? '0.12em' : undefined }}
+          />
+          <button
+            onClick={() => copy(content.cupom ?? '', 'cupom')}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs border shrink-0"
+            style={{ color: copied === 'cupom' ? '#4ADE80' : '#5E5E5E', borderColor: '#2A2A2A', backgroundColor: '#111111' }}>
+            {copied === 'cupom' ? <Check size={11} /> : <Copy size={11} />}
+            <span>{copied === 'cupom' ? 'Copiado' : 'Copiar'}</span>
+          </button>
         </div>
       </div>
     </div>
