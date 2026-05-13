@@ -618,7 +618,10 @@ export default function DisparosPage() {
 
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
   const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
+  const totalPedidos = disparos.reduce((s, d) => s + d.pedidos, 0);
   const roasTotal = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
+  const leituraVals = disparos.filter((d) => d.taxaLeitura > 0).map((d) => d.taxaLeitura);
+  const avgLeitura = leituraVals.length > 0 ? leituraVals.reduce((s, v) => s + v, 0) / leituraVals.length : 0;
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
@@ -630,9 +633,24 @@ export default function DisparosPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: '#161616', borderBottom: '1px solid #262626' }}>
-                  {['','Data','Campanha','Tipo','Base','Invest. R$','Fat. R$','Pedidos','ROAS','Leitura','Observações',''].map((h, i) => (
-                    <th key={`${h}-${i}`} className={`px-4 py-3.5 ${i >= 5 && i <= 8 ? 'text-right' : 'text-left'}`}
-                      style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A', fontWeight: 500 }}>{h}</th>
+                  {([
+                    { label: '', right: false },
+                    { label: 'Data', right: false },
+                    { label: 'Campanha', right: false },
+                    { label: 'Tipo', right: false },
+                    { label: 'Base', right: false },
+                    { label: 'Tam. Base', right: true },
+                    { label: 'Invest. R$', right: true },
+                    { label: 'Fat. R$', right: true },
+                    { label: 'Pedidos', right: true },
+                    { label: 'ROAS', right: true },
+                    { label: 'Leitura', right: false },
+                    { label: 'Cliques', right: true },
+                    { label: 'Observações', right: false },
+                    { label: '', right: false },
+                  ] as { label: string; right: boolean }[]).map(({ label, right }, i) => (
+                    <th key={`${label}-${i}`} className={`px-4 py-3.5 ${right ? 'text-right' : 'text-left'}`}
+                      style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A', fontWeight: 500 }}>{label}</th>
                   ))}
                 </tr>
               </thead>
@@ -654,6 +672,9 @@ export default function DisparosPage() {
                       <td className="px-4 py-3.5 whitespace-nowrap font-medium" style={{ color: '#F2F2F2' }}>{d.campanha}</td>
                       <td className="px-4 py-3.5"><CampaignBadge type={d.tipo} /></td>
                       <td className="px-4 py-3.5 max-w-[140px] truncate text-xs" style={{ color: '#9A9A9A' }}>{d.base}</td>
+                      <td className="px-4 py-3.5 text-right text-xs" style={{ color: d.tamanhoBase > 0 ? '#9CA3AF' : '#3A3A3A' }}>
+                        {d.tamanhoBase > 0 ? d.tamanhoBase.toLocaleString('pt-BR') : '—'}
+                      </td>
                       <td className="px-4 py-3.5 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
                       </td>
@@ -666,6 +687,9 @@ export default function DisparosPage() {
                       <td className="px-4 py-3.5 text-right"><RoasBadge roas={d.roas} /></td>
                       <td className="px-4 py-3.5 text-xs" style={{ color: d.taxaLeitura > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.taxaLeitura > 0 ? `${(d.taxaLeitura * 100).toFixed(0)}%` : '—'}
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-xs" style={{ color: d.cliques > 0 ? '#9CA3AF' : '#3A3A3A' }}>
+                        {d.cliques > 0 ? d.cliques.toLocaleString('pt-BR') : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-xs max-w-[200px] truncate" style={{ color: '#9A9A9A' }}>
                         {d.observacoes || <span style={{ color: '#3A3A3A' }}>—</span>}
@@ -697,7 +721,7 @@ export default function DisparosPage() {
                     </tr>
                     {openFill === d.id && (
                       <tr>
-                        <td colSpan={12} className="px-4 pb-4">
+                        <td colSpan={14} className="px-4 pb-4">
                           <FillCard
                             d={d}
                             isCustom={customIds.has(d.id)}
@@ -719,17 +743,29 @@ export default function DisparosPage() {
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '2px solid #3A3A3A', backgroundColor: '#161616' }}>
-                  <td colSpan={5} className="px-4 py-3 text-xs font-bold uppercase" style={{ color: '#6B7280' }}>Totais</td>
+                  {/* Totais label — covers button + data + campanha + tipo + base + tam.base */}
+                  <td colSpan={6} className="px-4 py-3 text-xs font-bold uppercase" style={{ color: '#6B7280' }}>Totais</td>
+                  {/* Invest */}
                   <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalInvest > 0 ? '#9CA3AF' : '#374151' }}>
                     {totalInvest > 0 ? fmt(totalInvest) : '—'}
                   </td>
+                  {/* Fat */}
                   <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalFat > 0 ? '#D4A843' : '#374151' }}>
                     {totalFat > 0 ? fmt(totalFat) : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right text-xs" style={{ color: '#374151' }}>—</td>
+                  {/* Pedidos */}
+                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalPedidos > 0 ? '#D8D8D8' : '#374151' }}>
+                    {totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : '—'}
+                  </td>
+                  {/* ROAS */}
                   <td className="px-4 py-3 text-right">
                     {roasTotal > 0 ? <RoasBadge roas={roasTotal} /> : <span className="text-xs" style={{ color: '#374151' }}>—</span>}
                   </td>
+                  {/* Leitura média */}
+                  <td className="px-4 py-3 text-xs font-bold" style={{ color: avgLeitura > 0 ? '#D8D8D8' : '#374151' }}>
+                    {avgLeitura > 0 ? `${(avgLeitura * 100).toFixed(0)}% média` : '—'}
+                  </td>
+                  {/* Cliques + Obs + trash */}
                   <td colSpan={3} />
                 </tr>
               </tfoot>
