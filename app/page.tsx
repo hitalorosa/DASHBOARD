@@ -1,7 +1,6 @@
 'use client';
 
 import Header from '@/components/Header';
-import CampaignBadge from '@/components/CampaignBadge';
 import { useStore } from '@/lib/store';
 import { useBrand } from '@/lib/brand-context';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -30,7 +29,6 @@ function KpiCard({ label, value, sub, gold, roasColor, progress }: {
 
   return (
     <div className="kpi-card">
-      {/* mono label + gold dot */}
       <p className="flex items-center gap-2 mb-3.5" style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A',
@@ -63,11 +61,12 @@ export default function CentralPage() {
 
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
   const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
+  const totalPedidos = disparos.reduce((s, d) => s + d.pedidos, 0);
+  const totalLeads = disparos.reduce((s, d) => s + d.tamanhoBase, 0);
   const roasGeral = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
   const metaPct = (totalFat / brand.metaMensal) * 100;
 
   const melhor = disparos.filter((d) => d.roas > 0).sort((a, b) => b.roas - a.roas)[0] ?? null;
-
   const hasFinancialData = disparos.some((d) => d.faturamentoPago > 0 || d.investimentoBrl > 0);
 
   const chartData = disparos.map((d) => ({
@@ -78,11 +77,14 @@ export default function CentralPage() {
     roas: d.roas > 0 ? d.roas : null,
   }));
 
+  const MONO = { fontFamily: "'JetBrains Mono', monospace" };
+
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
       <Header title="Central" />
       <main className="p-4 md:p-8 flex flex-col gap-4 md:gap-6">
 
+        {/* KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard label="Investimento" value={totalInvest > 0 ? fmt(totalInvest) : 'A preencher'} sub="BRL acumulado" />
           <KpiCard label="Faturamento" value={totalFat > 0 ? fmt(totalFat) : 'A preencher'} sub="Status Pago" gold />
@@ -93,50 +95,70 @@ export default function CentralPage() {
           <KpiCard label="Melhor Disparo" value={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'Aguardando dados'} />
         </div>
 
-        <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 24 }}>
-            Investimento × Faturamento por Disparo
-          </p>
-          {hasFinancialData ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5E5E5E' }} />
-                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC' }}
-                  formatter={(value, name) => {
-                    if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
-                    return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
-                  }}
-                  labelFormatter={(label, p) => `${label} — ${p?.[0]?.payload?.campanha ?? ''}`}
-                />
-                <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 12 }}
-                  formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} />
-                <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: '#5E5E5E' }}>
-              <p className="text-sm">Nenhum dado financeiro preenchido ainda.</p>
-              <p className="text-xs" style={{ color: '#2A2A2A' }}>Vá em Disparos e clique em Preencher Resultado para adicionar os dados de cada disparo.</p>
-            </div>
-          )}
+        {/* Chart + side cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Chart — 2/3 */}
+          <div className="lg:col-span-2 rounded-2xl p-4 md:p-5 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+            <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 16 }}>
+              Investimento × Faturamento por Disparo
+            </p>
+            {hasFinancialData ? (
+              <ResponsiveContainer width="100%" height={210}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#5E5E5E' }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC' }}
+                    formatter={(value, name) => {
+                      if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
+                      return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
+                    }}
+                    labelFormatter={(label, p) => `${label} — ${p?.[0]?.payload?.campanha ?? ''}`}
+                  />
+                  <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
+                    formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} />
+                  <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: '#5E5E5E' }}>
+                <p className="text-sm">Nenhum dado financeiro preenchido ainda.</p>
+                <p className="text-xs" style={{ color: '#2A2A2A' }}>Vá em Disparos e clique em Preencher Resultado.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Side cards — 1/3 */}
+          <div className="flex flex-col gap-4">
+            <KpiCard
+              label="Pedidos Gerados"
+              value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : 'A preencher'}
+              sub="pedidos via disparos no mês"
+            />
+            <KpiCard
+              label="Leads Utilizados"
+              value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
+              sub="contatos nas bases do mês"
+            />
+          </div>
         </div>
 
+        {/* Disparos do Mês — sem Tipo e Base */}
         <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
+          <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
             Disparos do Mês
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid #262626' }}>
-                  {['Data','Campanha','Tipo','Base','Invest. R$','Fat. R$','ROAS'].map((h, i) => (
-                    <th key={h} className={`pb-3 ${i >= 4 ? 'text-right' : 'text-left'}`}
-                      style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>{h}</th>
+                  {(['Data', 'Campanha', 'Invest. R$', 'Fat. R$', 'ROAS'] as const).map((h, i) => (
+                    <th key={h} className={`pb-3 ${i >= 2 ? 'text-right' : 'text-left'}`}
+                      style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -147,8 +169,6 @@ export default function CentralPage() {
                       {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
                     </td>
                     <td className="py-3 whitespace-nowrap" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
-                    <td className="py-3"><CampaignBadge type={d.tipo} /></td>
-                    <td className="py-3 text-xs max-w-[140px] truncate" style={{ color: '#9A9A9A' }}>{d.base}</td>
                     <td className="py-3 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
                       {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
                     </td>
@@ -162,6 +182,7 @@ export default function CentralPage() {
             </table>
           </div>
         </div>
+
       </main>
     </div>
   );

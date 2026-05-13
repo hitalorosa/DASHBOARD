@@ -619,6 +619,7 @@ export default function DisparosPage() {
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
   const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
   const totalPedidos = disparos.reduce((s, d) => s + d.pedidos, 0);
+  const totalCliques = disparos.reduce((s, d) => s + d.cliques, 0);
   const roasTotal = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
   const leituraVals = disparos.filter((d) => d.taxaLeitura > 0).map((d) => d.taxaLeitura);
   const avgLeitura = leituraVals.length > 0 ? leituraVals.reduce((s, v) => s + v, 0) / leituraVals.length : 0;
@@ -672,7 +673,7 @@ export default function DisparosPage() {
                       <td className="px-4 py-3.5 whitespace-nowrap font-medium" style={{ color: '#F2F2F2' }}>{d.campanha}</td>
                       <td className="px-4 py-3.5"><CampaignBadge type={d.tipo} /></td>
                       <td className="px-4 py-3.5 max-w-[140px] truncate text-xs" style={{ color: '#9A9A9A' }}>{d.base}</td>
-                      <td className="px-4 py-3.5 text-right text-xs" style={{ color: d.tamanhoBase > 0 ? '#9CA3AF' : '#3A3A3A' }}>
+                      <td className="px-4 py-3.5 text-right" style={{ color: d.tamanhoBase > 0 ? '#9CA3AF' : '#3A3A3A' }}>
                         {d.tamanhoBase > 0 ? d.tamanhoBase.toLocaleString('pt-BR') : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#3A3A3A' }}>
@@ -688,7 +689,7 @@ export default function DisparosPage() {
                       <td className="px-4 py-3.5 text-xs" style={{ color: d.taxaLeitura > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.taxaLeitura > 0 ? `${(d.taxaLeitura * 100).toFixed(0)}%` : '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-right text-xs" style={{ color: d.cliques > 0 ? '#9CA3AF' : '#3A3A3A' }}>
+                      <td className="px-4 py-3.5 text-right" style={{ color: d.cliques > 0 ? '#9CA3AF' : '#3A3A3A' }}>
                         {d.cliques > 0 ? d.cliques.toLocaleString('pt-BR') : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-xs max-w-[200px] truncate" style={{ color: '#9A9A9A' }}>
@@ -765,8 +766,12 @@ export default function DisparosPage() {
                   <td className="px-4 py-3 text-xs font-bold" style={{ color: avgLeitura > 0 ? '#D8D8D8' : '#374151' }}>
                     {avgLeitura > 0 ? `${(avgLeitura * 100).toFixed(0)}% média` : '—'}
                   </td>
-                  {/* Cliques + Obs + trash */}
-                  <td colSpan={3} />
+                  {/* Cliques total */}
+                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalCliques > 0 ? '#9CA3AF' : '#374151' }}>
+                    {totalCliques > 0 ? totalCliques.toLocaleString('pt-BR') : '—'}
+                  </td>
+                  {/* Obs + trash */}
+                  <td colSpan={2} />
                 </tr>
               </tfoot>
             </table>
