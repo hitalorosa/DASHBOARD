@@ -54,26 +54,6 @@ function KpiCard({ label, value, sub, gold, roasColor, progress }: {
   );
 }
 
-function MiniStatCard({ label, value, sub, valueColor = '#ECECEC' }: {
-  label: string; value: string; sub?: string; valueColor?: string;
-}) {
-  return (
-    <div style={{
-      background: 'linear-gradient(180deg, #1c1c1c 0%, #181818 100%)',
-      border: '1px solid #262626', borderRadius: 14,
-      padding: '12px 18px', textAlign: 'center',
-      position: 'relative', overflow: 'hidden',
-    }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, height: 2, width: 42, background: 'linear-gradient(90deg,#D4A843,transparent)' }} />
-      <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-        <span style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: '#D4A843' }} />
-        {label}
-      </p>
-      <p style={{ fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '-0.02em', color: valueColor, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-      {sub && <p style={{ fontSize: 11, color: '#5E5E5E', marginTop: 4 }}>{sub}</p>}
-    </div>
-  );
-}
 
 export default function CentralPage() {
   const { brand, month, year } = useBrand();
@@ -214,25 +194,25 @@ export default function CentralPage() {
 
           {/* Side cards — 1/3 */}
           <div className="flex flex-col gap-4">
-            <MiniStatCard
+            <KpiCard
               label="Pedidos Gerados"
-              value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : '—'}
+              value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : 'A preencher'}
               sub="pedidos via disparos no mês"
             />
-            <MiniStatCard
+            <KpiCard
               label="Leads Utilizados"
-              value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : '—'}
+              value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
               sub="contatos nas bases do mês"
             />
 
             {/* Top 3 Bases mini chart */}
-            <div className="rounded-2xl border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626', padding: '16px 12px 12px' }}>
-              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12, paddingLeft: 4 }}>
+            <div className="rounded-2xl border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626', padding: '16px 16px 12px' }}>
+              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
                 Top 3 Bases
               </p>
               {top3.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
-                  <ComposedChart data={top3} margin={{ top: 8, right: 42, left: -4, bottom: 8 }}>
+                  <ComposedChart data={top3} margin={{ top: 8, right: 44, left: 8, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
                     <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8A8A8A', fontWeight: 500 }} />
                     <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
