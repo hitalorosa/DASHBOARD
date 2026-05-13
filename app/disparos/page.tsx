@@ -619,7 +619,7 @@ export default function DisparosPage() {
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
   const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
   const totalPedidos = disparos.reduce((s, d) => s + d.pedidos, 0);
-  const totalCliques = disparos.reduce((s, d) => s + d.cliques, 0);
+  const totalTamanhoBase = disparos.reduce((s, d) => s + d.tamanhoBase, 0);
   const roasTotal = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
   const leituraVals = disparos.filter((d) => d.taxaLeitura > 0).map((d) => d.taxaLeitura);
   const avgLeitura = leituraVals.length > 0 ? leituraVals.reduce((s, v) => s + v, 0) / leituraVals.length : 0;
@@ -744,8 +744,12 @@ export default function DisparosPage() {
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '2px solid #3A3A3A', backgroundColor: '#161616' }}>
-                  {/* Totais label — covers button + data + campanha + tipo + base + tam.base */}
-                  <td colSpan={6} className="px-4 py-3 text-xs font-bold uppercase" style={{ color: '#6B7280' }}>Totais</td>
+                  {/* Totais label — covers button + data + campanha + tipo + base */}
+                  <td colSpan={5} className="px-4 py-3 text-xs font-bold uppercase" style={{ color: '#6B7280' }}>Totais</td>
+                  {/* Tam. Base total */}
+                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalTamanhoBase > 0 ? '#9CA3AF' : '#374151' }}>
+                    {totalTamanhoBase > 0 ? totalTamanhoBase.toLocaleString('pt-BR') : '—'}
+                  </td>
                   {/* Invest */}
                   <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalInvest > 0 ? '#9CA3AF' : '#374151' }}>
                     {totalInvest > 0 ? fmt(totalInvest) : '—'}
@@ -766,10 +770,8 @@ export default function DisparosPage() {
                   <td className="px-4 py-3 text-xs font-bold" style={{ color: avgLeitura > 0 ? '#D8D8D8' : '#374151' }}>
                     {avgLeitura > 0 ? `${(avgLeitura * 100).toFixed(0)}% média` : '—'}
                   </td>
-                  {/* Cliques total */}
-                  <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: totalCliques > 0 ? '#9CA3AF' : '#374151' }}>
-                    {totalCliques > 0 ? totalCliques.toLocaleString('pt-BR') : '—'}
-                  </td>
+                  {/* Cliques — sem total */}
+                  <td className="px-4 py-3" />
                   {/* Obs + trash */}
                   <td colSpan={2} />
                 </tr>
