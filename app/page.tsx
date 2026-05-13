@@ -56,7 +56,7 @@ function KpiCard({ label, value, sub, gold, roasColor, progress }: {
 
 export default function CentralPage() {
   const { brand, month, year } = useBrand();
-  const { getDisparos } = useStore();
+  const { getDisparos, getBases } = useStore();
   const disparos = getDisparos(month, year);
 
   const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
@@ -76,6 +76,19 @@ export default function CentralPage() {
     faturamento: d.faturamentoPago > 0 ? Math.round(d.faturamentoPago) : 0,
     roas: d.roas > 0 ? d.roas : null,
   }));
+
+  // Top 3 bases by faturamento
+  const allBases = getBases();
+  const top3 = allBases.slice(0, 3).map((b) => {
+    const investimento = b.roasMedio > 0 ? Math.round(b.faturamento / b.roasMedio) : 0;
+    const shortName = b.nome.length > 14 ? b.nome.substring(0, 13) + '…' : b.nome;
+    return {
+      nome: shortName,
+      faturamento: Math.round(b.faturamento),
+      investimento,
+      roas: b.roasMedio > 0 ? b.roasMedio : null,
+    };
+  });
 
   const MONO = { fontFamily: "'JetBrains Mono', monospace" };
 
@@ -133,34 +146,37 @@ export default function CentralPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Table — 2/3 */}
-          <div className="lg:col-span-2 rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-            <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
-              Disparos do Mês
-            </p>
+          <div className="lg:col-span-2 rounded-2xl border overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+            <div className="px-5 pt-5 pb-3">
+              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E' }}>
+                Disparos do Mês
+              </p>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid #262626' }}>
-                    {(['Data', 'Campanha', 'Invest. R$', 'Fat. R$', 'ROAS'] as const).map((h, i) => (
-                      <th key={h} className={`pb-3 ${i >= 2 ? 'text-right' : 'text-left'}`}
-                        style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>{h}</th>
-                    ))}
+                    <th className="pb-3 pl-5 pr-4 text-left w-[130px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Data</th>
+                    <th className="pb-3 px-4 text-left" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Campanha</th>
+                    <th className="pb-3 px-4 text-right w-[120px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Invest. R$</th>
+                    <th className="pb-3 px-4 text-right w-[120px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Fat. R$</th>
+                    <th className="pb-3 pl-4 pr-5 text-right w-[90px]" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>ROAS</th>
                   </tr>
                 </thead>
                 <tbody>
                   {disparos.map((d) => (
                     <tr key={d.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                      <td className="py-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
+                      <td className="py-3 pl-5 pr-4 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
                         {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
                       </td>
-                      <td className="py-3 whitespace-nowrap" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
-                      <td className="py-3 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
+                      <td className="py-3 px-4 whitespace-nowrap" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
                         {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
                       </td>
-                      <td className="py-3 text-right" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
+                      <td className="py-3 px-4 text-right whitespace-nowrap" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
                         {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
                       </td>
-                      <td className="py-3 text-right"><RoasChip roas={d.roas} /></td>
+                      <td className="py-3 pl-4 pr-5 text-right"><RoasChip roas={d.roas} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -180,6 +196,39 @@ export default function CentralPage() {
               value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
               sub="contatos nas bases do mês"
             />
+
+            {/* Top 3 Bases mini chart */}
+            <div className="rounded-2xl p-4 border flex-1" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 14 }}>
+                Top 3 Bases
+              </p>
+              {top3.length > 0 ? (
+                <ResponsiveContainer width="100%" height={170}>
+                  <ComposedChart data={top3} margin={{ top: 4, right: 16, left: -10, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
+                    <XAxis dataKey="nome" tick={{ fontSize: 9, fill: '#5E5E5E' }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 11 }}
+                      formatter={(value, name) => {
+                        if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
+                        return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 10 }}
+                      formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
+                    <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[3, 3, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[3, 3, 0, 0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-32" style={{ color: '#5E5E5E' }}>
+                  <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
