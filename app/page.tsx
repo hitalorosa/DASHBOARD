@@ -153,10 +153,10 @@ export default function CentralPage() {
               </p>
             </div>
             <div className="overflow-x-auto">
-              <table className="text-sm" style={{ borderCollapse: 'collapse', width: 'auto', minWidth: '100%', tableLayout: 'fixed' }}>
+              <table className="text-sm" style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
                 <colgroup>
                   <col style={{ width: 130 }} />
-                  <col style={{ width: 'auto' }} />
+                  <col style={{ width: 210 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 100 }} />
@@ -205,36 +205,40 @@ export default function CentralPage() {
             />
 
             {/* Top 3 Bases mini chart */}
-            <div className="rounded-2xl p-4 border flex-1" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 14 }}>
-                Top 3 Bases
-              </p>
-              {top3.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <ComposedChart data={top3} margin={{ top: 4, right: 36, left: -10, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                    <XAxis dataKey="nome" tick={{ fontSize: 9, fill: '#5E5E5E' }} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#818CF8' }} tickFormatter={(v) => `${v}x`} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 11 }}
-                      formatter={(value, name) => {
-                        if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
-                        return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
-                      }}
-                    />
-                    <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 10 }}
-                      formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
-                    <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[3, 3, 0, 0]} barSize={28} />
-                    <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[3, 3, 0, 0]} barSize={28} />
-                    <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[3, 3, 0, 0]} barSize={28} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-32" style={{ color: '#5E5E5E' }}>
-                  <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
-                </div>
-              )}
+            <div className="rounded-2xl border flex-1 flex flex-col" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626', minHeight: 280 }}>
+              <div className="px-4 pt-4">
+                <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E' }}>
+                  Top 3 Bases
+                </p>
+              </div>
+              <div className="flex-1 flex flex-col justify-end px-2 pb-4">
+                {top3.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart data={top3} margin={{ top: 8, right: 40, left: -4, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
+                      <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8A8A8A', fontWeight: 500 }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#818CF8' }} tickFormatter={(v) => `${v}x`} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 12 }}
+                        formatter={(value, name) => {
+                          if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
+                          return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
+                        }}
+                      />
+                      <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
+                        formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
+                      <Bar yAxisId="left" dataKey="investimento" fill="#3A3A3A" radius={[4, 4, 0, 0]} barSize={36} />
+                      <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} barSize={36} />
+                      <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={36} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-32" style={{ color: '#5E5E5E' }}>
+                    <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
