@@ -19,17 +19,19 @@ function RoasChip({ roas }: { roas: number }) {
   return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>{roas.toFixed(1)}x</span>;
 }
 
-function KpiCard({ label, value, sub, gold, roasColor, progress }: {
+function KpiCard({ label, value, sub, gold, roasColor, progress, centered }: {
   label: string; value: string; sub?: string; gold?: boolean;
   roasColor?: 'green' | 'yellow' | 'red' | 'muted'; progress?: number;
+  centered?: boolean;
 }) {
   const col = roasColor
     ? ({ green: '#4ADE80', yellow: '#FCD34D', red: '#F87171', muted: '#5E5E5E' } as Record<string, string>)[roasColor]
     : gold ? '#D4A843' : '#ECECEC';
 
   return (
-    <div className="kpi-card">
-      <p className="flex items-center gap-2 mb-3.5" style={{
+    <div className={`kpi-card ${centered ? 'flex flex-col items-center justify-center text-center' : ''}`}
+      style={centered ? { paddingTop: 18, paddingBottom: 18 } : undefined}>
+      <p className={`flex items-center gap-2 mb-2 ${centered ? 'justify-center' : 'mb-3.5'}`} style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A',
       }}>
@@ -197,24 +199,26 @@ export default function CentralPage() {
               label="Pedidos Gerados"
               value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : 'A preencher'}
               sub="pedidos via disparos no mês"
+              centered
             />
             <KpiCard
               label="Leads Utilizados"
               value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
               sub="contatos nas bases do mês"
+              centered
             />
 
             {/* Top 3 Bases mini chart */}
-            <div className="rounded-2xl border flex-1 flex flex-col" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626', minHeight: 280 }}>
-              <div className="px-4 pt-4">
+            <div className="rounded-2xl border flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+              <div className="px-4 pt-4 pb-2 shrink-0">
                 <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E' }}>
                   Top 3 Bases
                 </p>
               </div>
-              <div className="flex-1 flex flex-col justify-end px-2 pb-4">
+              <div className="flex-1 min-h-0 pb-3 px-1">
                 {top3.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <ComposedChart data={top3} margin={{ top: 8, right: 40, left: -4, bottom: 8 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={top3} margin={{ top: 8, right: 42, left: -4, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
                       <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8A8A8A', fontWeight: 500 }} />
                       <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
@@ -228,13 +232,13 @@ export default function CentralPage() {
                       />
                       <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
                         formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
-                      <Bar yAxisId="left" dataKey="investimento" fill="#3A3A3A" radius={[4, 4, 0, 0]} barSize={36} />
-                      <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} barSize={36} />
-                      <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={36} />
+                      <Bar yAxisId="left" dataKey="investimento" fill="#3A3A3A" radius={[4, 4, 0, 0]} barSize={40} />
+                      <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} barSize={40} />
+                      <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={40} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-32" style={{ color: '#5E5E5E' }}>
+                  <div className="flex items-center justify-center h-full" style={{ color: '#5E5E5E' }}>
                     <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
                   </div>
                 )}
