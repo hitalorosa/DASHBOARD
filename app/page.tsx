@@ -95,41 +95,77 @@ export default function CentralPage() {
           <KpiCard label="Melhor Disparo" value={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'Aguardando dados'} />
         </div>
 
-        {/* Chart + side cards */}
+        {/* Chart — full width */}
+        <div className="rounded-2xl p-4 md:p-5 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+          <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 16 }}>
+            Investimento × Faturamento por Disparo
+          </p>
+          {hasFinancialData ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#5E5E5E' }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC' }}
+                  formatter={(value, name) => {
+                    if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
+                    return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
+                  }}
+                  labelFormatter={(label, p) => `${label} — ${p?.[0]?.payload?.campanha ?? ''}`}
+                />
+                <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
+                  formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} />
+                <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: '#5E5E5E' }}>
+              <p className="text-sm">Nenhum dado financeiro preenchido ainda.</p>
+              <p className="text-xs" style={{ color: '#2A2A2A' }}>Vá em Disparos e clique em Preencher Resultado.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Disparos do Mês + side cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Chart — 2/3 */}
-          <div className="lg:col-span-2 rounded-2xl p-4 md:p-5 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-            <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 16 }}>
-              Investimento × Faturamento por Disparo
+          {/* Table — 2/3 */}
+          <div className="lg:col-span-2 rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+            <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
+              Disparos do Mês
             </p>
-            {hasFinancialData ? (
-              <ResponsiveContainer width="100%" height={210}>
-                <ComposedChart data={chartData} margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#5E5E5E' }} />
-                  <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC' }}
-                    formatter={(value, name) => {
-                      if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
-                      return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
-                    }}
-                    labelFormatter={(label, p) => `${label} — ${p?.[0]?.payload?.campanha ?? ''}`}
-                  />
-                  <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
-                    formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} />
-                  <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[4, 4, 0, 0]} />
-                  <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: '#5E5E5E' }}>
-                <p className="text-sm">Nenhum dado financeiro preenchido ainda.</p>
-                <p className="text-xs" style={{ color: '#2A2A2A' }}>Vá em Disparos e clique em Preencher Resultado.</p>
-              </div>
-            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #262626' }}>
+                    {(['Data', 'Campanha', 'Invest. R$', 'Fat. R$', 'ROAS'] as const).map((h, i) => (
+                      <th key={h} className={`pb-3 ${i >= 2 ? 'text-right' : 'text-left'}`}
+                        style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {disparos.map((d) => (
+                    <tr key={d.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
+                      <td className="py-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
+                        {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
+                      </td>
+                      <td className="py-3 whitespace-nowrap" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
+                      <td className="py-3 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
+                        {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
+                      </td>
+                      <td className="py-3 text-right" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
+                        {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
+                      </td>
+                      <td className="py-3 text-right"><RoasChip roas={d.roas} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Side cards — 1/3 */}
@@ -144,42 +180,6 @@ export default function CentralPage() {
               value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
               sub="contatos nas bases do mês"
             />
-          </div>
-        </div>
-
-        {/* Disparos do Mês — sem Tipo e Base */}
-        <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
-            Disparos do Mês
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid #262626' }}>
-                  {(['Data', 'Campanha', 'Invest. R$', 'Fat. R$', 'ROAS'] as const).map((h, i) => (
-                    <th key={h} className={`pb-3 ${i >= 2 ? 'text-right' : 'text-left'}`}
-                      style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {disparos.map((d) => (
-                  <tr key={d.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                    <td className="py-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
-                      {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
-                    </td>
-                    <td className="py-3 whitespace-nowrap" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
-                    <td className="py-3 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
-                      {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
-                    </td>
-                    <td className="py-3 text-right" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
-                      {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
-                    </td>
-                    <td className="py-3 text-right"><RoasChip roas={d.roas} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
 
