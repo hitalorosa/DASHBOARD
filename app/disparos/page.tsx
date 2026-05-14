@@ -222,8 +222,14 @@ function ContentTab({ content, onChange }: {
           lineHeight: 1.7,
           whiteSpace: 'pre-wrap',
           overflowY: 'hidden',
+          overflowX: 'hidden',
           resize: 'none',
           minHeight: '5rem',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+          overflowWrap: 'break-word',
+          wordBreak: 'break-word',
         }}
       />
     </div>
