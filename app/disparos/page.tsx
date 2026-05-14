@@ -188,6 +188,12 @@ function ContentTab({ content, onChange }: {
     });
   }
 
+  const autoGrow = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  };
+
   const msgField = (key: 'msg1' | 'msg2' | 'msg3', label: string, hint: string) => (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -202,12 +208,23 @@ function ContentTab({ content, onChange }: {
         </button>
       </div>
       <textarea
-        rows={4}
+        ref={autoGrow}
+        rows={1}
         placeholder={hint}
         value={content[key] ?? ''}
-        onChange={(e) => onChange({ [key]: e.target.value })}
-        className="w-full rounded-lg px-3 py-2 text-xs outline-none resize-none border"
-        style={{ ...INPUT, lineHeight: 1.6 }}
+        onChange={(e) => {
+          onChange({ [key]: e.target.value });
+          autoGrow(e.target);
+        }}
+        className="w-full rounded-lg px-3 pb-4 pt-2 text-xs outline-none border"
+        style={{
+          ...INPUT,
+          lineHeight: 1.7,
+          whiteSpace: 'pre-wrap',
+          overflowY: 'hidden',
+          resize: 'none',
+          minHeight: '5rem',
+        }}
       />
     </div>
   );
