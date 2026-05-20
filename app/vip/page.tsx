@@ -11,7 +11,7 @@ import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle } from 
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
-import { aggregateOrders, cartValue } from '@/lib/yampi';
+import { aggregateOrders, cartValue, toIso } from '@/lib/yampi';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -387,9 +387,9 @@ export default function VipPage() {
                 </thead>
                 <tbody>
                   {[...orders]
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime())
                     .map((o) => {
-                      const dt = new Date(o.created_at);
+                      const dt = new Date(toIso(o.created_at));
                       const prodNames = (o.items ?? [])
                         .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
                       const state = o.address?.[0]?.uf ?? o.address?.[0]?.state ?? '—';

@@ -16,13 +16,23 @@ const PAID_STATUS_ALIASES = new Set([
   'ready_for_shipping', 'on_carriage', 'shipped', 'delivered',
 ]);
 
-// Normaliza created_at: pode vir como string ISO ou Unix timestamp (segundos)
-function toIso(createdAt: string | number): string {
+// Formato real da Dooki v2: { date: "2026-05-20 09:39:07.000000", timezone: "America/Sao_Paulo", timezone_type: 3 }
+type DookiDate = { date: string; timezone?: string; timezone_type?: number };
+
+// Normaliza created_at para string ISO, suportando todos os formatos da Dooki
+export function toIso(createdAt: string | number | DookiDate | unknown): string {
+  if (!createdAt) return '';
+  // Objeto Dooki: { date: "YYYY-MM-DD HH:MM:SS...", timezone: "..." }
+  if (typeof createdAt === 'object' && 'date' in (createdAt as object)) {
+    return (createdAt as DookiDate).date.replace(' ', 'T');
+  }
+  // Unix timestamp em segundos
   if (typeof createdAt === 'number') {
-    // Unix timestamp em segundos → ms
     return new Date(createdAt * 1000).toISOString();
   }
-  return createdAt;
+  // String ISO normal
+  if (typeof createdAt === 'string') return createdAt;
+  return String(createdAt);
 }
 
 // Helpers de data
@@ -45,7 +55,7 @@ export interface YampiOrder {
   value_total?:    number;
   value_products?: number;
   total?:          string;
-  created_at:      string | number;
+  created_at:      string | number | DookiDate;
   status?: {
     data?: { id: number; name: string; alias: string };
   };
@@ -66,7 +76,7 @@ export interface YampiOrder {
 
 export interface YampiCart {
   id:            number;
-  created_at?:   string;
+  created_at?:   string | number | DookiDate;
   utm_source?:   string;
   utm_campaign?: string;
   totalizers?: {
