@@ -1,9 +1,21 @@
 // ── Yampi API client ─────────────────────────────────────────────────────────
+//
+// Fluxo:
+//   Vercel (Next.js API route)
+//     → Cloudflare Worker  (YAMPI_PROXY_URL)   ← resolve bloqueio de IP datacenter
+//       → api.yampi.io
+//
+// Se YAMPI_PROXY_URL não estiver definido, tenta direto (funciona em dev local).
 
-const ALIAS      = process.env.YAMPI_ALIAS      ?? '';
-const TOKEN      = process.env.YAMPI_TOKEN      ?? '';
-const SECRET_KEY = process.env.YAMPI_SECRET_KEY ?? '';
-const BASE_URL   = `https://api.yampi.io/v1/${ALIAS}`;
+const ALIAS        = process.env.YAMPI_ALIAS        ?? '';
+const TOKEN        = process.env.YAMPI_TOKEN        ?? '';
+const SECRET_KEY   = process.env.YAMPI_SECRET_KEY   ?? '';
+const PROXY_URL    = process.env.YAMPI_PROXY_URL    ?? '';   // URL do Cloudflare Worker
+const PROXY_SECRET = process.env.YAMPI_PROXY_SECRET ?? '';   // segredo compartilhado
+
+const BASE_URL = PROXY_URL
+  ? `${PROXY_URL.replace(/\/$/, '')}/v1/${ALIAS}`   // via Worker
+  : `https://api.yampi.io/v1/${ALIAS}`;             // direto (dev)
 
 export const VIP_UTM = { source: 'grupo_vip', campaign: 'whatsapp' } as const;
 
@@ -51,31 +63,21 @@ export interface VipStats {
 // ── Fetch helpers ────────────────────────────────────────────────────────────
 
 function buildHeaders(): HeadersInit {
+  if (PROXY_URL) {
+    // Chamada vai para o Worker — só precisa do segredo de autenticação
+    return {
+      'X-Dashboard-Key': PROXY_SECRET,
+      'Accept':          'application/json',
+      'Content-Type':    'application/json',
+    };
+  }
+
+  // Fallback: chamada direta (dev local ou se Worker não estiver configurado)
   return {
-    // ── Autenticação Yampi ───────────────────────────────────────────────────
     'User-Token':      TOKEN,
     'User-Secret-Key': SECRET_KEY,
-
-    // ── Simula cliente de navegador legítimo para passar pelo Cloudflare WAF ──
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
-      'AppleWebKit/537.36 (KHTML, like Gecko) ' +
-      'Chrome/124.0.0.0 Safari/537.36',
-    'Accept':           'application/json, text/plain, */*',
-    'Accept-Language':  'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Accept-Encoding':  'gzip, deflate, br',
-    'Content-Type':     'application/json',
-    'Referer':          'https://api.yampi.io/',
-    'Origin':           'https://api.yampi.io',
-    'sec-ch-ua':        '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Sec-Fetch-Dest':   'empty',
-    'Sec-Fetch-Mode':   'cors',
-    'Sec-Fetch-Site':   'same-origin',
-    'Connection':       'keep-alive',
-    'Cache-Control':    'no-cache',
-    'Pragma':           'no-cache',
+    'Accept':          'application/json',
+    'Content-Type':    'application/json',
   };
 }
 
