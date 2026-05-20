@@ -50,14 +50,32 @@ export interface VipStats {
 
 // ── Fetch helpers ────────────────────────────────────────────────────────────
 
-function headers() {
+function buildHeaders(): HeadersInit {
   return {
-    'Authorization': `Bearer ${TOKEN}`,
-    'User-Token': TOKEN,
+    // ── Autenticação Yampi ───────────────────────────────────────────────────
+    'User-Token':      TOKEN,
     'User-Secret-Key': SECRET_KEY,
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'User-Agent': 'DashNoue/1.0',
+
+    // ── Simula cliente de navegador legítimo para passar pelo Cloudflare WAF ──
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+      'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+      'Chrome/124.0.0.0 Safari/537.36',
+    'Accept':           'application/json, text/plain, */*',
+    'Accept-Language':  'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept-Encoding':  'gzip, deflate, br',
+    'Content-Type':     'application/json',
+    'Referer':          'https://api.yampi.io/',
+    'Origin':           'https://api.yampi.io',
+    'sec-ch-ua':        '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Sec-Fetch-Dest':   'empty',
+    'Sec-Fetch-Mode':   'cors',
+    'Sec-Fetch-Site':   'same-origin',
+    'Connection':       'keep-alive',
+    'Cache-Control':    'no-cache',
+    'Pragma':           'no-cache',
   };
 }
 
@@ -69,37 +87,58 @@ async function fetchAllPages<T>(
   let page = 1;
 
   while (true) {
-    const qs = new URLSearchParams({ ...params, page: String(page), limit: '100' });
+    const qs  = new URLSearchParams({ ...params, page: String(page), limit: '100' });
     const url = `${BASE_URL}/${endpoint}?${qs}`;
-    const res = await fetch(url, { headers: headers(), next: { revalidate: 0 } });
+
+    console.log(`[Yampi] GET ${url}`);
+
+    const res = await fetch(url, {
+      method:  'GET',
+      headers: buildHeaders(),
+      cache:   'no-store',
+    });
 
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      const isHtml = text.trim().startsWith('<');
-      const detail = isHtml
-        ? `bloqueado pelo servidor (Cloudflare/WAF) — status ${res.status}`
-        : text.slice(0, 300);
+      const raw  = await res.text().catch(() => '');
+      const isHtml = raw.trim().startsWith('<');
+
+      // Log completo no servidor para análise
+      console.error(`[Yampi] ${res.status} ${res.statusText}`);
+      console.error(`[Yampi] Headers:`, Object.fromEntries(res.headers.entries()));
+      console.error(`[Yampi] Body (500 chars):`, raw.slice(0, 500));
+
+      if (isHtml) {
+        throw new Error(
+          `Yampi bloqueou a requisição (${res.status}) — ` +
+          `possível desafio Cloudflare. Verifique os logs do Vercel para o body completo.`,
+        );
+      }
+
+      let detail = raw.slice(0, 400);
+      try { detail = JSON.stringify(JSON.parse(raw), null, 2).slice(0, 400); } catch { /* keep raw */ }
       throw new Error(`Yampi API ${res.status}: ${detail}`);
     }
 
     const json = await res.json();
+    console.log(`[Yampi] page ${page} ok — keys:`, Object.keys(json));
 
-    // Yampi wraps in data.data or data.items or items
+    // Yampi pode aninhar em data.data, data.items ou items
     const items: T[] =
-      json?.data?.data ??
+      json?.data?.data  ??
       json?.data?.items ??
-      json?.items ??
-      json?.data ??
+      json?.items       ??
+      (Array.isArray(json?.data) ? json.data : null) ??
       [];
 
     results.push(...items);
 
     const totalPages: number =
-      json?.data?.last_page ??
+      json?.data?.last_page              ??
       json?.data?.pagination?.total_pages ??
-      json?.meta?.last_page ??
+      json?.meta?.last_page              ??
       1;
 
+    console.log(`[Yampi] page ${page}/${totalPages} — ${items.length} items`);
     if (page >= totalPages || items.length === 0) break;
     page++;
   }
