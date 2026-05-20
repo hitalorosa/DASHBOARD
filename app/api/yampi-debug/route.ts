@@ -20,8 +20,6 @@ export async function GET() {
       hasToken:     !!TOKEN,
       hasSecretKey: !!SECRET_KEY,
       alias:        ALIAS || '(vazio)',
-      tokenPrefix:  TOKEN     ? TOKEN.slice(0, 6)      + '...' : '(vazio)',
-      secretPrefix: SECRET_KEY ? SECRET_KEY.slice(0, 6) + '...' : '(vazio)',
     },
   };
 
@@ -37,74 +35,85 @@ export async function GET() {
 
   const base = `https://api.dooki.com.br/v2/${ALIAS}`;
 
-  // Teste 1 — pedido simples sem filtros (só limit=1)
-  try {
-    const url = `${base}/orders?limit=1`;
-    const res = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
-    const raw = await res.text();
-    results['test1_orders_no_filter'] = {
-      url,
-      status:  res.status,
-      ok:      res.ok,
-      body:    raw.slice(0, 800),
-    };
-  } catch (e) {
-    results['test1_orders_no_filter'] = { error: String(e) };
-  }
-
-  // Teste 2 — pedidos com filtro de data usando filters[date]
+  // Teste 1 — search/orders com UTM VIP (sem filtro de data)
   try {
     const params = new URLSearchParams();
-    params.set('filters[date]', 'created_at:2026-05-01|2026-05-31');
-    params.set('limit', '1');
-    const url = `${base}/orders?${params}`;
+    params.append('utm_source[]', 'grupo_vip');
+    params.append('utm_campaign[]', 'whatsapp');
+    params.set('include', 'status');
+    params.set('limit', '2');
+    const url = `${base}/search/orders?${params}`;
     const res = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
     const raw = await res.text();
-    results['test2_orders_date_filter'] = {
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(raw); } catch { /* ignore */ }
+    // Extrair apenas os campos de diagnóstico dos primeiros itens
+    let sample: unknown = null;
+    if (parsed && typeof parsed === 'object') {
+      const p = parsed as Record<string, unknown>;
+      const data = Array.isArray(p.data) ? p.data : [];
+      sample = data.slice(0, 2).map((o: unknown) => {
+        if (!o || typeof o !== 'object') return o;
+        const obj = o as Record<string, unknown>;
+        return {
+          id:           obj.id,
+          created_at:   obj.created_at,
+          created_at_type: typeof obj.created_at,
+          utm_source:   obj.utm_source,
+          utm_campaign: obj.utm_campaign,
+          status:       obj.status,
+          value_total:  obj.value_total,
+          tracking:     obj.tracking,
+        };
+      });
+    }
+    results['test1_search_orders'] = {
       url,
       status:  res.status,
       ok:      res.ok,
-      body:    raw.slice(0, 800),
+      body_raw: raw.slice(0, 600),
+      sample,
     };
   } catch (e) {
-    results['test2_orders_date_filter'] = { error: String(e) };
+    results['test1_search_orders'] = { error: String(e) };
   }
 
-  // Teste 3 — pedidos com include=status
+  // Teste 2 — orders normais com filtro de data (para comparar created_at format)
   try {
     const params = new URLSearchParams();
     params.set('filters[date]', 'created_at:2026-05-01|2026-05-31');
     params.set('include', 'status');
-    params.set('limit', '1');
+    params.set('limit', '2');
     const url = `${base}/orders?${params}`;
     const res = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
     const raw = await res.text();
-    results['test3_orders_with_include'] = {
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(raw); } catch { /* ignore */ }
+    let sample: unknown = null;
+    if (parsed && typeof parsed === 'object') {
+      const p = parsed as Record<string, unknown>;
+      const dataEnv = (p.data as Record<string, unknown> | undefined);
+      const arr = Array.isArray(p.data) ? p.data : (Array.isArray(dataEnv?.data) ? dataEnv!.data as unknown[] : []);
+      sample = arr.slice(0, 2).map((o: unknown) => {
+        if (!o || typeof o !== 'object') return o;
+        const obj = o as Record<string, unknown>;
+        return {
+          id:           obj.id,
+          created_at:   obj.created_at,
+          created_at_type: typeof obj.created_at,
+          utm_source:   obj.utm_source,
+          utm_campaign: obj.utm_campaign,
+        };
+      });
+    }
+    results['test2_orders_normal'] = {
       url,
       status:  res.status,
       ok:      res.ok,
-      body:    raw.slice(0, 800),
+      sample,
     };
   } catch (e) {
-    results['test3_orders_with_include'] = { error: String(e) };
-  }
-
-  // Teste 4 — carrinhos abandonados
-  try {
-    const params = new URLSearchParams();
-    params.set('date', 'created_at:2026-05-01|2026-05-31');
-    params.set('limit', '1');
-    const url = `${base}/checkout/carts?${params}`;
-    const res = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
-    const raw = await res.text();
-    results['test4_carts'] = {
-      url,
-      status:  res.status,
-      ok:      res.ok,
-      body:    raw.slice(0, 800),
-    };
-  } catch (e) {
-    results['test4_carts'] = { error: String(e) };
+    results['test2_orders_normal'] = { error: String(e) };
   }
 
   return NextResponse.json(results, { status: 200 });
