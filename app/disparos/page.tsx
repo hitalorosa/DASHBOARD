@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
 import { useStore, DisparoData, BaseEntryData, DisparoContent } from '@/lib/store';
@@ -360,11 +360,61 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
   const [baseUnica, setBaseUnica] = useState(false);
   const [baseUnicaNome, setBaseUnicaNome] = useState(d.base);
 
-  const inv = (form.investimentoUsd ?? 0) * (form.cotacaoUsd ?? 0);
-  const fat = form.faturamentoPago ?? 0;
-  const roas = inv > 0 && fat > 0 ? fat / inv : 0;
+  // ── Auto-calc when 2+ bases ─────────────────────────────────────────────────
+  const isMultiBase = baseEntries.length >= 2;
+
+  useEffect(() => {
+    if (!isMultiBase) return;
+
+    const totalBase    = baseEntries.reduce((s, e) => s + (e.tamanhoBase ?? 0), 0);
+    const totalEnv     = baseEntries.reduce((s, e) => s + (e.enviados ?? 0), 0);
+    const totalEntreg  = baseEntries.reduce((s, e) => s + (e.enviados ?? 0) * (e.taxaEntrega ?? 0), 0);
+    const totalLeit    = baseEntries.reduce((s, e) => s + (e.enviados ?? 0) * (e.taxaLeitura ?? 0), 0);
+    const totalCliques = baseEntries.reduce((s, e) => s + (e.cliques ?? 0), 0);
+    const totalInvBRL  = baseEntries.reduce((s, e) => s + (e.investimentoUsd ?? 0) * (e.cotacaoUsd ?? 0), 0);
+    const totalFat     = baseEntries.reduce((s, e) => s + (e.faturamentoPago ?? 0), 0);
+    const totalPed     = baseEntries.reduce((s, e) => s + (e.pedidos ?? 0), 0);
+
+    setForm({
+      tamanhoBase:     totalBase    || undefined,
+      enviados:        totalEnv     || undefined,
+      taxaEntrega:     totalEnv > 0 ? totalEntreg / totalEnv : undefined,
+      taxaLeitura:     totalEnv > 0 ? totalLeit   / totalEnv : undefined,
+      cliques:         totalCliques || undefined,
+      // Armazena invest BRL total como investimentoUsd com cotacao=1
+      investimentoUsd: totalInvBRL  || undefined,
+      cotacaoUsd:      totalInvBRL > 0 ? 1 : undefined,
+      faturamentoPago: totalFat     || undefined,
+      pedidos:         totalPed     || undefined,
+      observacoes:     form.observacoes,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseEntries, isMultiBase]);
+
+  const inv    = (form.investimentoUsd ?? 0) * (form.cotacaoUsd ?? 0);
+  const fat    = form.faturamentoPago ?? 0;
+  const roas   = inv > 0 && fat > 0 ? fat / inv : 0;
   const ticket = fat > 0 && (form.pedidos ?? 0) > 0 ? fat / (form.pedidos ?? 1) : 0;
   const entregas = (form.enviados ?? 0) * (form.taxaEntrega ?? 0);
+
+  // ── Read-only display for locked fields ──────────────────────────────────────
+  const lockedField = (label: string, value: string | number | undefined, isPercent = false) => {
+    const display = value !== undefined && value !== 0
+      ? (isPercent ? `${(Number(value) * 100).toFixed(1)}%` : String(value))
+      : '—';
+    return (
+      <div>
+        <label className="block text-xs font-medium mb-1.5 flex items-center gap-1.5" style={{ color: '#5E5E5E' }}>
+          <span style={{ fontSize: 9, color: '#D4A843', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em' }}>AUTO</span>
+          {label}
+        </label>
+        <div className="w-full rounded-lg px-3 py-2 text-sm border select-none"
+          style={{ backgroundColor: '#0A0A0A', borderColor: '#1E1E1E', color: '#9CA3AF', cursor: 'not-allowed', fontVariantNumeric: 'tabular-nums' }}>
+          {display}
+        </div>
+      </div>
+    );
+  };
 
   const field = (label: string, key: keyof DisparoData, placeholder: string, hint?: string) => (
     <div>
@@ -459,6 +509,19 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
       {/* ── Resultado tab ── */}
       {tab === 'resultado' && (<>
 
+      {/* ── Banner modo multi-base ── */}
+      {isMultiBase && (
+        <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-3" style={{ backgroundColor: 'rgba(212,168,67,0.07)', border: '1px solid rgba(212,168,67,0.2)' }}>
+          <span style={{ fontSize: 16 }}>🔒</span>
+          <div>
+            <p className="text-xs font-semibold" style={{ color: '#D4A843' }}>Resultado Geral — Calculado automaticamente</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8A8A8A' }}>
+              {baseEntries.length} bases ativas · Os campos abaixo são a soma proporcional de todas as bases. Edite os valores nas bases individuais.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── General form ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
         <div className="col-span-full">
@@ -466,19 +529,32 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
             Dados da Plataforma (Martz / Nextags)
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {field('Total da Base', 'tamanhoBase', 'Ex: 15000', 'Qtd de contatos na lista')}
-            {field('Enviados', 'enviados', 'Ex: 12500')}
-            {field('Taxa de Entrega (0-1)', 'taxaEntrega', 'Ex: 0.94', 'Decimal. Ex: 0.94 = 94%')}
-            {field('Taxa de Leitura (0-1)', 'taxaLeitura', 'Ex: 0.62')}
-            {field('Cliques', 'cliques', 'Ex: 890')}
+            {isMultiBase ? <>
+              {lockedField('Total da Base',        form.tamanhoBase)}
+              {lockedField('Enviados',             form.enviados)}
+              {lockedField('Taxa de Entrega',      form.taxaEntrega, true)}
+              {lockedField('Taxa de Leitura',      form.taxaLeitura, true)}
+              {lockedField('Cliques',              form.cliques)}
+            </> : <>
+              {field('Total da Base',        'tamanhoBase',  'Ex: 15000', 'Qtd de contatos na lista')}
+              {field('Enviados',             'enviados',     'Ex: 12500')}
+              {field('Taxa de Entrega (0-1)','taxaEntrega',  'Ex: 0.94', 'Decimal. Ex: 0.94 = 94%')}
+              {field('Taxa de Leitura (0-1)','taxaLeitura',  'Ex: 0.62')}
+              {field('Cliques',              'cliques',      'Ex: 890')}
+            </>}
           </div>
         </div>
 
         <div className="col-span-full">
           <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#D4A843', ...MONO, letterSpacing: '0.14em' }}>Custo da API</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {field('Investimento USD', 'investimentoUsd', 'Ex: 48.50')}
-            {field('Cotação USD/BRL', 'cotacaoUsd', 'Ex: 5.72', 'Cotação no dia do disparo')}
+            {isMultiBase ? <>
+              {lockedField('Invest. BRL Total (soma)', form.investimentoUsd)}
+              <div />
+            </> : <>
+              {field('Investimento USD', 'investimentoUsd', 'Ex: 48.50')}
+              {field('Cotação USD/BRL',  'cotacaoUsd',      'Ex: 5.72', 'Cotação no dia do disparo')}
+            </>}
           </div>
         </div>
 
@@ -487,8 +563,13 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
             Resultado Shopify (apenas status Pago)
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {field('Faturamento R$', 'faturamentoPago', 'Ex: 18400')}
-            {field('Pedidos', 'pedidos', 'Ex: 142')}
+            {isMultiBase ? <>
+              {lockedField('Faturamento R$', form.faturamentoPago)}
+              {lockedField('Pedidos',        form.pedidos)}
+            </> : <>
+              {field('Faturamento R$', 'faturamentoPago', 'Ex: 18400')}
+              {field('Pedidos',        'pedidos',         'Ex: 142')}
+            </>}
           </div>
         </div>
       </div>
