@@ -11,7 +11,7 @@ import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle } from 
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
-import { aggregateOrders, cartValue, toIso } from '@/lib/yampi';
+import { aggregateOrders, cartValue, toIso, unwrapArray } from '@/lib/yampi';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -390,9 +390,10 @@ export default function VipPage() {
                     .sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime())
                     .map((o) => {
                       const dt = new Date(toIso(o.created_at));
-                      const prodNames = (o.items ?? [])
+                      const prodNames = unwrapArray<{ sku?: { title?: string }; name?: string }>(o.items)
                         .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
-                      const state = o.address?.[0]?.uf ?? o.address?.[0]?.state ?? '—';
+                      const addrArr = unwrapArray<{ uf?: string; state?: string }>(o.address);
+                      const state = addrArr[0]?.uf ?? addrArr[0]?.state ?? '—';
                       return (
                         <tr key={o.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
                           <td className="py-2.5 pr-2 whitespace-nowrap" style={{ color: '#D4A843' }}>

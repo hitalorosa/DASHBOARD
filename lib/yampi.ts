@@ -104,6 +104,19 @@ function authHeaders(): HeadersInit {
   };
 }
 
+// Dooki v2 envolve todas as relacoes em { data: [...] } — mesmo quando nao solicitadas
+// Ex: items: { data: [] }, address: { data: [] }
+export function unwrapArray<T>(val: unknown): T[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val as T[];
+  if (typeof val === 'object') {
+    const v = val as Record<string, unknown>;
+    if (Array.isArray(v.data))  return v.data  as T[];
+    if (Array.isArray(v.items)) return v.items as T[];
+  }
+  return [];
+}
+
 // Filtros client-side
 function orderIsVip(o: YampiOrder): boolean {
   const src  = o.utm_source   ?? o.tracking?.utm_source;
@@ -296,7 +309,7 @@ export function aggregateOrders(orders: YampiOrder[]) {
 
   const byState = new Map<string, { pedidos: number; faturamento: number }>();
   for (const o of orders) {
-    const addr = o.address?.[0];
+    const addr = unwrapArray<{ uf?: string; state?: string }>(o.address)[0];
     const st   = addr?.uf ?? addr?.state ?? 'N/A';
     const cur  = byState.get(st) ?? { pedidos: 0, faturamento: 0 };
     cur.pedidos++;
@@ -306,7 +319,7 @@ export function aggregateOrders(orders: YampiOrder[]) {
 
   const byProduct = new Map<string, { quantidade: number; faturamento: number }>();
   for (const o of orders) {
-    for (const item of o.items ?? []) {
+    for (const item of unwrapArray<{ name?: string; quantity?: number; price?: number | string; sku?: { title?: string } }>(o.items)) {
       const name  = item.sku?.title ?? item.name ?? 'Produto';
       const price = typeof item.price === 'number' ? item.price : parseFloat(String(item.price ?? 0));
       const qty   = item.quantity ?? 1;
