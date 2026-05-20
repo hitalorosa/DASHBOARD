@@ -335,40 +335,33 @@ export default function VipPage() {
             </div>
           </Section>
 
-          {/* ── Abandoned carts ── */}
-          {carts.length > 0 && (
-            <Section title={`Carrinhos Abandonados VIP · ${carts.length}`}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #262626' }}>
-                      {['Data', 'Produto(s)', 'Valor'].map((h, i) => (
-                        <th key={h} className={`pb-3 ${i === 2 ? 'text-right' : 'text-left'}`}
-                          style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {carts.map((c) => (
-                      <tr key={c.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                        <td className="py-2.5 pr-4 whitespace-nowrap" style={{ color: '#F87171' }}>
-                          {format(new Date(c.created_at), 'dd/MM HH:mm')}
-                        </td>
-                        <td className="py-2.5 pr-4 truncate" style={{ color: '#8A8A8A', fontSize: 12 }}>
-                          {(c.items ?? []).map((it) => it.name).join(', ') || '—'}
-                        </td>
-                        <td className="py-2.5 text-right font-semibold" style={{ color: '#F87171' }}>
-                          {fmt(parseFloat(c.total || '0'))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Section>
-          )}
+          {/* ── Quebra Faturado vs Líquido ── */}
+          {carts.length > 0 && (() => {
+            const totalCarts   = carts.length;
+            const totalOrders  = orders.length;
+            const totalEntries = totalCarts + totalOrders;
+            const convRate     = totalEntries > 0 ? (totalOrders / totalEntries) * 100 : 0;
+            const cartValue    = carts.reduce((s, c) => s + parseFloat(c.total || '0'), 0);
+
+            return (
+              <Section title="Quebra · Faturado vs Líquido (Grupo VIP)">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Pedidos Pagos',        value: totalOrders.toString(),         color: GOLD,      sub: 'faturados com UTM VIP' },
+                    { label: 'Carrinhos Abandonados', value: totalCarts.toString(),          color: '#F87171', sub: 'não converteram' },
+                    { label: 'Taxa de Conversão',     value: `${convRate.toFixed(1)}%`,      color: convRate >= 50 ? '#4ADE80' : '#F87171', sub: 'pedidos ÷ total' },
+                    { label: 'Valor em Risco',        value: fmt(cartValue),                 color: '#8A8A8A', sub: 'valor dos carrinhos' },
+                  ].map(({ label, value, color, sub }) => (
+                    <div key={label} className="rounded-xl p-4" style={{ backgroundColor: '#111111', border: '1px solid #262626' }}>
+                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 8 }}>{label}</p>
+                      <p style={{ fontSize: 26, fontWeight: 600, color, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{value}</p>
+                      <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 4 }}>{sub}</p>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            );
+          })()}
 
         </>)}
       </main>
