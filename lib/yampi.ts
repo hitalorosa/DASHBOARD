@@ -66,6 +66,7 @@ export interface YampiOrder {
     quantity?: number;
     price?:    number | string;
     sku_id?:   number;
+    sku?:      { title?: string; sku?: string };
   }[];
   // Campos que a página usa via aggregateOrders
   tracking?: {
@@ -288,7 +289,7 @@ export function aggregateOrders(orders: YampiOrder[]) {
   const byProduct = new Map<string, { quantidade: number; faturamento: number }>();
   for (const o of orders) {
     for (const item of o.items ?? []) {
-      const name  = item.name ?? 'Produto';
+      const name  = item.sku?.title ?? item.name ?? 'Produto';
       const price = typeof item.price === 'number' ? item.price : parseFloat(String(item.price ?? 0));
       const qty   = item.quantity ?? 1;
       const cur   = byProduct.get(name) ?? { quantidade: 0, faturamento: 0 };

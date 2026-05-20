@@ -390,7 +390,7 @@ export default function VipPage() {
                       const dt = new Date(o.created_at);
                       const prodNames = (o.items ?? [])
                         .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
-                      const state = o.customer?.addresses?.[0]?.state ?? '—';
+                      const state = o.address?.[0]?.uf ?? o.address?.[0]?.state ?? '—';
                       return (
                         <tr key={o.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
                           <td className="py-2.5 pr-2 whitespace-nowrap" style={{ color: '#D4A843' }}>
@@ -400,7 +400,7 @@ export default function VipPage() {
                             #{o.number}
                           </td>
                           <td className="py-2.5 pr-2 truncate" style={{ color: '#F2F2F2' }}>
-                            {o.customer?.name ?? '—'}
+                            {o.customer?.data?.name ?? '—'}
                           </td>
                           <td className="py-2.5 pr-2" style={{ color: '#9CA3AF', fontWeight: 600 }}>
                             {state}
