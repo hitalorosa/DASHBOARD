@@ -16,6 +16,15 @@ const PAID_STATUS_ALIASES = new Set([
   'ready_for_shipping', 'on_carriage', 'shipped', 'delivered',
 ]);
 
+// Normaliza created_at: pode vir como string ISO ou Unix timestamp (segundos)
+function toIso(createdAt: string | number): string {
+  if (typeof createdAt === 'number') {
+    // Unix timestamp em segundos → ms
+    return new Date(createdAt * 1000).toISOString();
+  }
+  return createdAt;
+}
+
 // Helpers de data
 export function getMonthRange(month: number, year: number) {
   const pad  = (n: number) => String(n).padStart(2, '0');
@@ -36,7 +45,7 @@ export interface YampiOrder {
   value_total?:    number;
   value_products?: number;
   total?:          string;
-  created_at:      string;
+  created_at:      string | number;
   status?: {
     data?: { id: number; name: string; alias: string };
   };
@@ -222,7 +231,7 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
   const vip = all.filter(o => {
     if (!orderIsPaid(o)) return false;
     if (!o.created_at) return false;
-    const date = o.created_at.slice(0, 10); // YYYY-MM-DD
+    const date = toIso(o.created_at).slice(0, 10); // YYYY-MM-DD
     return date >= dateMin && date <= dateMax;
   });
 
@@ -269,7 +278,7 @@ export function aggregateOrders(orders: YampiOrder[]) {
     const h = parseInt(
       new Intl.DateTimeFormat('pt-BR', {
         timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
-      }).format(new Date(o.created_at)),
+      }).format(new Date(toIso(o.created_at))),
       10,
     );
     if (h >= 0 && h < 24) byHour[h]++;
