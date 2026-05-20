@@ -52,10 +52,12 @@ export interface VipStats {
 
 function headers() {
   return {
+    'Authorization': `Bearer ${TOKEN}`,
     'User-Token': TOKEN,
     'User-Secret-Key': SECRET_KEY,
     'Accept': 'application/json',
     'Content-Type': 'application/json',
+    'User-Agent': 'DashNoue/1.0',
   };
 }
 
@@ -73,7 +75,11 @@ async function fetchAllPages<T>(
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Yampi ${endpoint} page ${page}: ${res.status} — ${text.slice(0, 200)}`);
+      const isHtml = text.trim().startsWith('<');
+      const detail = isHtml
+        ? `bloqueado pelo servidor (Cloudflare/WAF) — status ${res.status}`
+        : text.slice(0, 300);
+      throw new Error(`Yampi API ${res.status}: ${detail}`);
     }
 
     const json = await res.json();
