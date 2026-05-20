@@ -115,17 +115,38 @@ export default function VipPage() {
 
   const fetchData = useCallback(async (force = false) => {
     const url = `/api/yampi?month=${m}&year=${year}${force ? '&force=1' : ''}`;
-    const res  = await fetch(url);
-    const json = await res.json();
 
-    if (!json.ok) {
-      throw new Error(json.error ?? `HTTP ${res.status}`);
+    // Timeout de 30s — evita loading infinito se a API travar
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30_000);
+
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } catch (e: unknown) {
+      clearTimeout(timer);
+      const msg = e instanceof Error && e.name === 'AbortError'
+        ? 'Timeout — a API demorou mais de 30s para responder.'
+        : (e instanceof Error ? e.message : String(e));
+      throw new Error(msg);
+    }
+    clearTimeout(timer);
+
+    let json: Record<string, unknown>;
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error(`Resposta inválida do servidor (HTTP ${res.status})`);
     }
 
-    setOrders(json.orders   ?? []);
-    setCarts(json.carts     ?? []);
-    setAgg(aggregateOrders(json.orders ?? []));
-    setFetchedAt(json.fetchedAt);
+    if (!json.ok) {
+      throw new Error((json.error as string) ?? `HTTP ${res.status}`);
+    }
+
+    setOrders((json.orders as YampiOrder[])   ?? []);
+    setCarts((json.carts   as YampiCart[])    ?? []);
+    setAgg(aggregateOrders((json.orders as YampiOrder[]) ?? []));
+    setFetchedAt(json.fetchedAt as string);
     setError(null);
   }, [m, year]);
 

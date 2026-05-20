@@ -261,9 +261,10 @@ async function fetchAllPages<T>(
  * Usa URLSearchParams para encoding correto (brackets, pipe, colon).
  */
 export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<YampiOrder[]> {
+  // Só include=status (leve) — customer/items/address são joins pesados que travam
   const all = await fetchAllPages<YampiOrder>('orders', {
     'filters[date]': `created_at:${dateMin}|${dateMax}`,
-    'include':       'customer,status,items,shipping_address',
+    'include':       'status',
   });
   const vip = all.filter(o => orderIsPaid(o) && orderIsVip(o));
   console.log(`[Dooki] ${all.length} pedidos no mês → ${vip.length} VIP pagos`);
