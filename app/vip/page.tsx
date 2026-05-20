@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Header from '@/components/Header';
 import { useBrand } from '@/lib/brand-context';
 import {
@@ -65,37 +65,78 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function VipPage() {
   const { month, year } = useBrand();
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState('Sincronizando…');
+  const [error, setError]           = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt]   = useState<string | null>(null);
 
-  const [orders, setOrders]   = useState<YampiOrder[]>([]);
-  const [carts, setCarts]     = useState<YampiCart[]>([]);
-  const [agg, setAgg]         = useState<ReturnType<typeof aggregateOrders> | null>(null);
+  const [orders, setOrders] = useState<YampiOrder[]>([]);
+  const [carts, setCarts]   = useState<YampiCart[]>([]);
+  const [agg, setAgg]       = useState<ReturnType<typeof aggregateOrders> | null>(null);
 
-  // Date range based on selected month/year
-  const dateMin = startOfMonth(new Date(year, month)).toISOString();
-  const dateMax = endOfMonth(new Date(year, month)).toISOString();
+  const m = month + 1; // useBrand é 0-indexed
+
+  // Carrega dados em cache ao montar / trocar mês-ano
+  const loadCache = useCallback(async () => {
+    try {
+      const res  = await fetch(`/api/yampi?month=${m}&year=${year}`);
+      const json = await res.json();
+      if (json.ok && json.fetchedAt) {
+        setOrders(json.orders ?? []);
+        setCarts(json.carts  ?? []);
+        setAgg(aggregateOrders(json.orders ?? []));
+        setFetchedAt(json.fetchedAt);
+      }
+    } catch { /* silencioso */ }
+  }, [m, year]);
+
+  useEffect(() => { loadCache(); }, [loadCache]);
 
   const sync = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLoadingMsg('Disparando sincronização…');
+
     try {
-      const res = await fetch(
-        `/api/yampi?dateMin=${encodeURIComponent(dateMin)}&dateMax=${encodeURIComponent(dateMax)}`,
-      );
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error ?? 'Erro desconhecido');
-      setOrders(json.orders ?? []);
-      setCarts(json.carts ?? []);
-      setAgg(aggregateOrders(json.orders ?? []));
-      setFetchedAt(json.fetchedAt);
+      // 1. Aciona o GitHub Action
+      const trigRes  = await fetch('/api/yampi-trigger', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ month: m, year }),
+      });
+      const trigJson = await trigRes.json();
+      if (!trigJson.ok) throw new Error(trigJson.error ?? 'Erro ao acionar GitHub Action');
+
+      setLoadingMsg('Buscando dados na Yampi… (~20s)');
+
+      // 2. Poll a cada 5s por até 2 min aguardando dado novo
+      const syncStart = Date.now();
+      while (Date.now() - syncStart < 120_000) {
+        await new Promise(r => setTimeout(r, 5_000));
+
+        const dataRes  = await fetch(`/api/yampi?month=${m}&year=${year}`);
+        const dataJson = await dataRes.json();
+
+        if (dataJson.ok && dataJson.fetchedAt) {
+          const dataTime = new Date(dataJson.fetchedAt).getTime();
+          if (dataTime >= syncStart - 10_000) {          // dado é desta sincronização
+            setOrders(dataJson.orders ?? []);
+            setCarts(dataJson.carts   ?? []);
+            setAgg(aggregateOrders(dataJson.orders ?? []));
+            setFetchedAt(dataJson.fetchedAt);
+            return;
+          }
+        }
+        setLoadingMsg(`Aguardando… (${Math.round((Date.now() - syncStart) / 1000)}s)`);
+      }
+
+      throw new Error('Timeout: sincronização demorou mais de 2 minutos.');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [dateMin, dateMax]);
+  }, [m, year]);
 
   const hasData = orders.length > 0;
   const monthLabel = format(new Date(year, month), 'MMMM yyyy', { locale: ptBR });
@@ -139,7 +180,7 @@ export default function VipPage() {
               cursor: loading ? 'wait' : 'pointer',
             }}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            {loading ? 'Sincronizando…' : 'Sincronizar VIP'}
+            {loading ? loadingMsg : 'Sincronizar VIP'}
           </button>
         </div>
 
