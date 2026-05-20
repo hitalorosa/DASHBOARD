@@ -19,9 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Instalar dependências
-        run: pip install curl_cffi
+        run: pip install requests
 
-      - name: Sincronizar dados da Yampi
+      - name: Sincronizar dados da Yampi (Dooki v2)
         env:
           YAMPI_TOKEN:      ${{ secrets.YAMPI_TOKEN }}
           YAMPI_SECRET_KEY: ${{ secrets.YAMPI_SECRET_KEY }}
@@ -32,9 +32,9 @@ jobs:
           INPUT_YEAR:       ${{ github.event.inputs.year }}
         run: |
           python - <<'EOF'
-          from curl_cffi import requests
-          from datetime import datetime
-          import calendar, os, sys, json
+          import requests
+          from datetime import datetime, timezone, timedelta
+          import calendar, os, sys, json, time
 
           YAMPI_ALIAS  = os.environ['YAMPI_ALIAS']
           YAMPI_TOKEN  = os.environ['YAMPI_TOKEN']
@@ -42,68 +42,126 @@ jobs:
           WORKER_URL   = os.environ['WORKER_URL'].rstrip('/')
           WORKER_KEY   = os.environ['WORKER_SECRET']
 
-          now = datetime.now()
+          # Fuso de Brasília (UTC-3)
+          BRT = timezone(timedelta(hours=-3))
+          now = datetime.now(BRT)
           MONTH = int(os.environ.get('INPUT_MONTH') or now.month)
           YEAR  = int(os.environ.get('INPUT_YEAR')  or now.year)
 
           last_day = calendar.monthrange(YEAR, MONTH)[1]
           date_min = f'{YEAR}-{MONTH:02d}-01'
           date_max = f'{YEAR}-{MONTH:02d}-{last_day}'
-          BASE_URL = f'https://api.yampi.io/v1/{YAMPI_ALIAS}'
 
-          HEADERS = {
+          # Dooki v2 — endpoint correto
+          BASE_URL = f'https://api.dooki.com.br/v2/{YAMPI_ALIAS}'
+          HEADERS  = {
             'User-Token':      YAMPI_TOKEN,
             'User-Secret-Key': YAMPI_SECRET,
             'Accept':          'application/json',
             'Content-Type':    'application/json',
           }
 
+          PAID_STATUSES = {
+            'paid', 'payment_approved', 'approved',
+            'handling_products', 'in_separation', 'invoiced',
+            'ready_for_shipping', 'on_carriage', 'shipped', 'delivered',
+          }
+
+          def is_vip(tracking):
+            return (
+              (tracking or {}).get('utm_source')   == 'grupo_vip' and
+              (tracking or {}).get('utm_campaign')  == 'whatsapp'
+            )
+
           def fetch_pages(endpoint, params):
             results = []
-            page = 1
-            while True:
-              p = {**params, 'page': page, 'limit': 100}
-              res = requests.get(f'{BASE_URL}/{endpoint}', headers=HEADERS, params=p,
-                                 timeout=30, impersonate='chrome')
-              if not res.ok:
-                print(f'[ERRO] {endpoint} p{page}: {res.status_code}')
-                break
-              data = res.json()
-              items = (data.get('data', {}).get('data')
-                    or data.get('data', {}).get('items')
-                    or data.get('items')
-                    or (data['data'] if isinstance(data.get('data'), list) else None)
-                    or [])
-              results.extend(items)
-              total = ((data.get('data') or {}).get('last_page')
-                    or (data.get('meta') or {}).get('last_page') or 1)
-              print(f'  p{page}/{total} — {len(items)} itens')
-              if page >= total or not items:
-                break
-              page += 1
+            page    = 1
+            LIMIT   = 50
+            BATCH   = 3
+
+            # Página 1 para descobrir total de páginas
+            p = {**params, 'page': 1, 'limit': LIMIT, 'skipCache': 'true',
+                 'include': 'customer,status,transactions'}
+            for attempt in range(5):
+              res = requests.get(f'{BASE_URL}/{endpoint}', headers=HEADERS,
+                                 params=p, timeout=30)
+              if res.status_code == 429:
+                wait = (attempt + 1) * 2
+                print(f'  429 rate-limit — aguardando {wait}s...')
+                time.sleep(wait)
+                continue
+              break
+
+            if not res.ok:
+              print(f'[ERRO] {endpoint} p1: {res.status_code} — {res.text[:300]}')
+              return []
+
+            data       = res.json()
+            items      = extract_items(data)
+            results.extend(items)
+            last_page  = (
+              (data.get('data') or {}).get('last_page') or
+              (data.get('meta') or {}).get('last_page') or 1
+            )
+            print(f'  p1/{last_page} — {len(items)} itens')
+
+            # Demais páginas em lotes de BATCH
+            for start in range(2, last_page + 1, BATCH):
+              batch_pages = range(start, min(start + BATCH, last_page + 1))
+              for bp in batch_pages:
+                pp = {**params, 'page': bp, 'limit': LIMIT, 'skipCache': 'true',
+                      'include': 'customer,status,transactions'}
+                for attempt in range(5):
+                  r = requests.get(f'{BASE_URL}/{endpoint}', headers=HEADERS,
+                                   params=pp, timeout=30)
+                  if r.status_code == 429:
+                    wait = (attempt + 1) * 2
+                    print(f'  p{bp} 429 — aguardando {wait}s...')
+                    time.sleep(wait)
+                    continue
+                  break
+                if r.ok:
+                  d = r.json()
+                  bi = extract_items(d)
+                  results.extend(bi)
+                  print(f'  p{bp}/{last_page} — {len(bi)} itens')
+                else:
+                  print(f'  [ERRO] p{bp}: {r.status_code}')
+
             return results
 
+          def extract_items(data):
+            d = data.get('data') or {}
+            if isinstance(d, list):
+              return d
+            return d.get('data') or d.get('items') or data.get('items') or []
+
           print(f'=== VIP {MONTH:02d}/{YEAR} ===')
+          print(f'Período: {date_min} → {date_max}')
+
           print('Buscando pedidos...')
-          orders = fetch_pages('orders', {
-            'utm_source':     'grupo_vip',
-            'utm_campaign':   'whatsapp',
-            'status':         'paid',
-            'created_at_min': date_min,
-            'created_at_max': date_max,
+          raw_orders = fetch_pages('orders', {
+            'date':         f'created_at:{date_min}|{date_max}',
+            'utm_source':   'grupo_vip',
+            'utm_campaign': 'whatsapp',
           })
-          print(f'✓ {len(orders)} pedidos')
+          # Filtro duplo: status pago + ambas UTMs
+          orders = [
+            o for o in raw_orders
+            if o.get('status') in PAID_STATUSES and is_vip(o.get('tracking'))
+          ]
+          print(f'✓ {len(orders)} pedidos pagos VIP (de {len(raw_orders)} retornados)')
 
           print('Buscando carrinhos...')
           carts = []
           try:
-            carts = fetch_pages('carts', {
-              'utm_source':     'grupo_vip',
-              'utm_campaign':   'whatsapp',
-              'created_at_min': date_min,
-              'created_at_max': date_max,
+            raw_carts = fetch_pages('carts', {
+              'date':         f'created_at:{date_min}|{date_max}',
+              'utm_source':   'grupo_vip',
+              'utm_campaign': 'whatsapp',
             })
-            print(f'✓ {len(carts)} carrinhos')
+            carts = [c for c in raw_carts if is_vip(c.get('tracking'))]
+            print(f'✓ {len(carts)} carrinhos VIP (de {len(raw_carts)} retornados)')
           except Exception as e:
             print(f'(carrinhos indisponível: {e})')
 
@@ -112,12 +170,12 @@ jobs:
             f'{WORKER_URL}/store',
             json={'orders': orders, 'carts': carts, 'month': MONTH, 'year': YEAR},
             headers={'X-Dashboard-Key': WORKER_KEY, 'Content-Type': 'application/json'},
-            timeout=30, impersonate='chrome'
+            timeout=60,
           )
           if res.ok:
             r = res.json()
             print(f'✓ Salvo! {r.get("orders")} pedidos | {r.get("carts")} carrinhos')
           else:
-            print(f'✗ Erro ao salvar: {res.status_code}')
+            print(f'✗ Erro ao salvar: {res.status_code} — {res.text[:300]}')
             sys.exit(1)
           EOF

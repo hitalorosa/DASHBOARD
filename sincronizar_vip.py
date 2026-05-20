@@ -5,10 +5,9 @@ Rode este script no seu computador para sincronizar os dados do Grupo VIP.
 Requisito: pip install requests
 """
 
-import cloudscraper
-import requests
-from datetime import datetime
-import calendar
+import requests as req_lib
+from datetime import datetime, timezone, timedelta
+import calendar, time, json
 
 # ── Configurações ─────────────────────────────────────────────────────────────
 
@@ -21,8 +20,10 @@ WORKER_SECRET = 'noue-vip-2026-xK9mP'
 
 # ── Mês/ano a sincronizar ─────────────────────────────────────────────────────
 
-MONTH = datetime.now().month   # mês atual (mude se quiser outro mês)
-YEAR  = datetime.now().year    # ano atual
+BRT   = timezone(timedelta(hours=-3))
+now   = datetime.now(BRT)
+MONTH = now.month   # mude se quiser outro mês
+YEAR  = now.year    # mude se quiser outro ano
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,43 +34,72 @@ YAMPI_HEADERS = {
     'Content-Type':    'application/json',
 }
 
-BASE_URL = f'https://api.yampi.io/v1/{YAMPI_ALIAS}'
+# Dooki v2 — endpoint correto (não api.yampi.io)
+BASE_URL = f'https://api.dooki.com.br/v2/{YAMPI_ALIAS}'
 
-# cloudscraper resolve o desafio JS do Cloudflare automaticamente
-scraper = cloudscraper.create_scraper(browser='chrome')
+PAID_STATUSES = {
+    'paid', 'payment_approved', 'approved',
+    'handling_products', 'in_separation', 'invoiced',
+    'ready_for_shipping', 'on_carriage', 'shipped', 'delivered',
+}
 
+def is_vip(tracking):
+    return (
+        (tracking or {}).get('utm_source')   == 'grupo_vip' and
+        (tracking or {}).get('utm_campaign') == 'whatsapp'
+    )
+
+def fetch_with_retry(url, params):
+    for attempt in range(5):
+        res = req_lib.get(url, headers=YAMPI_HEADERS, params=params, timeout=30)
+        if res.status_code != 429:
+            return res
+        wait = (attempt + 1) * 2
+        print(f'    429 rate-limit — aguardando {wait}s...')
+        time.sleep(wait)
+    return res
+
+def extract_items(data):
+    d = data.get('data') or {}
+    if isinstance(d, list):
+        return d
+    return d.get('data') or d.get('items') or data.get('items') or []
 
 def fetch_all_pages(endpoint: str, params: dict) -> list:
     results = []
-    page = 1
-    while True:
-        p = {**params, 'page': page, 'limit': 100}
-        res = scraper.get(f'{BASE_URL}/{endpoint}', headers=YAMPI_HEADERS, params=p, timeout=30)
+    LIMIT   = 50
+    BATCH   = 3
 
-        if not res.ok:
-            print(f'  [ERRO] {endpoint} página {page}: {res.status_code} — {res.text[:200]}')
-            break
+    # Página 1 → descobrir total de páginas
+    p1 = {**params, 'page': 1, 'limit': LIMIT, 'skipCache': 'true',
+          'include': 'customer,status,transactions'}
+    res = fetch_with_retry(f'{BASE_URL}/{endpoint}', p1)
 
-        data = res.json()
-        items = (
-            data.get('data', {}).get('data')
-            or data.get('data', {}).get('items')
-            or data.get('items')
-            or (data['data'] if isinstance(data.get('data'), list) else None)
-            or []
-        )
-        results.extend(items)
+    if not res.ok:
+        print(f'  [ERRO] {endpoint} p1: {res.status_code} — {res.text[:300]}')
+        return []
 
-        total_pages = (
-            (data.get('data') or {}).get('last_page')
-            or (data.get('data') or {}).get('pagination', {}).get('total_pages')
-            or (data.get('meta') or {}).get('last_page')
-            or 1
-        )
-        print(f'  Página {page}/{total_pages} — {len(items)} itens')
-        if page >= total_pages or not items:
-            break
-        page += 1
+    data       = res.json()
+    items      = extract_items(data)
+    results.extend(items)
+    last_page  = (
+        (data.get('data') or {}).get('last_page') or
+        (data.get('meta') or {}).get('last_page') or 1
+    )
+    print(f'  Página 1/{last_page} — {len(items)} itens')
+
+    for start in range(2, last_page + 1, BATCH):
+        for bp in range(start, min(start + BATCH, last_page + 1)):
+            pp = {**params, 'page': bp, 'limit': LIMIT, 'skipCache': 'true',
+                  'include': 'customer,status,transactions'}
+            r  = fetch_with_retry(f'{BASE_URL}/{endpoint}', pp)
+            if r.ok:
+                bi = extract_items(r.json())
+                results.extend(bi)
+                print(f'  Página {bp}/{last_page} — {len(bi)} itens')
+            else:
+                print(f'  [ERRO] p{bp}: {r.status_code}')
+
     return results
 
 
@@ -82,37 +112,40 @@ def main():
     print(f'Período: {date_min} → {date_max}\n')
 
     # Pedidos pagos com UTM do grupo VIP
-    print('Buscando pedidos...')
-    orders = fetch_all_pages('orders', {
-        'utm_source':     'grupo_vip',
-        'utm_campaign':   'whatsapp',
-        'status':         'paid',
-        'created_at_min': date_min,
-        'created_at_max': date_max,
+    print('Buscando pedidos (Dooki v2)...')
+    raw_orders = fetch_all_pages('orders', {
+        'date':         f'created_at:{date_min}|{date_max}',
+        'utm_source':   'grupo_vip',
+        'utm_campaign': 'whatsapp',
     })
-    print(f'  ✓ {len(orders)} pedidos encontrados\n')
+    # Filtro duplo: status pago + ambas UTMs
+    orders = [
+        o for o in raw_orders
+        if o.get('status') in PAID_STATUSES and is_vip(o.get('tracking'))
+    ]
+    print(f'  ✓ {len(orders)} pedidos VIP pagos (de {len(raw_orders)} retornados)\n')
 
     # Carrinhos abandonados
     print('Buscando carrinhos abandonados...')
     carts = []
     try:
-        carts = fetch_all_pages('carts', {
-            'utm_source':     'grupo_vip',
-            'utm_campaign':   'whatsapp',
-            'created_at_min': date_min,
-            'created_at_max': date_max,
+        raw_carts = fetch_all_pages('carts', {
+            'date':         f'created_at:{date_min}|{date_max}',
+            'utm_source':   'grupo_vip',
+            'utm_campaign': 'whatsapp',
         })
-        print(f'  ✓ {len(carts)} carrinhos encontrados\n')
+        carts = [c for c in raw_carts if is_vip(c.get('tracking'))]
+        print(f'  ✓ {len(carts)} carrinhos VIP (de {len(raw_carts)} retornados)\n')
     except Exception as e:
         print(f'  (carrinhos não disponíveis: {e})\n')
 
     # Envia para o Worker → salva no KV
     print('Enviando dados para o dashboard...')
-    res = requests.post(
+    res = req_lib.post(
         f'{WORKER_URL}/store',
         json={'orders': orders, 'carts': carts, 'month': MONTH, 'year': YEAR},
         headers={'X-Dashboard-Key': WORKER_SECRET, 'Content-Type': 'application/json'},
-        timeout=30,
+        timeout=60,
     )
 
     if res.ok:
