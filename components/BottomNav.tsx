@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Zap, Database } from 'lucide-react';
+import { LayoutDashboard, Calendar, Zap, Database, Crown } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Central', icon: LayoutDashboard },
   { href: '/calendario', label: 'Calendário', icon: Calendar },
   { href: '/disparos', label: 'Disparos', icon: Zap },
   { href: '/bases', label: 'Bases', icon: Database },
+  { href: '/vip', label: 'VIP', icon: Crown },
 ];
 
 export default function BottomNav() {

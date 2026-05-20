@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Zap, Database, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Calendar, Zap, Database, ChevronDown, Crown } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import { useBrand } from '@/lib/brand-context';
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/calendario', label: 'Calendário', icon: Calendar },
   { href: '/disparos', label: 'Disparos', icon: Zap },
   { href: '/bases', label: 'Bases', icon: Database },
+  { href: '/vip', label: 'Grupo VIP', icon: Crown },
 ];
 
 export default function Sidebar() {
