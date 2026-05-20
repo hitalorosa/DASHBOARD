@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import { useBrand } from '@/lib/brand-context';
 import {
@@ -8,10 +8,13 @@ import {
   CartesianGrid, Tooltip, Cell,
 } from 'recharts';
 import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
 import { aggregateOrders } from '@/lib/yampi';
+
+// Intervalo de atualização automática em segundo plano (5 minutos)
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -60,15 +63,47 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// ── Skeleton loader ───────────────────────────────────────────────────────────
+
+function Skeleton() {
+  return (
+    <div className="flex flex-col gap-4 animate-pulse">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="kpi-card">
+            <div className="h-3 rounded mb-4" style={{ backgroundColor: '#2A2A2A', width: '60%' }} />
+            <div className="h-8 rounded" style={{ backgroundColor: '#2A2A2A', width: '80%' }} />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border p-5 h-48" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+        <div className="h-3 rounded mb-4" style={{ backgroundColor: '#2A2A2A', width: '30%' }} />
+        <div className="h-32 rounded" style={{ backgroundColor: '#1F1F1F' }} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="rounded-2xl border p-5 h-48" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
+            <div className="h-3 rounded mb-4" style={{ backgroundColor: '#2A2A2A', width: '40%' }} />
+            {[...Array(4)].map((_, j) => (
+              <div key={j} className="h-4 rounded mb-3" style={{ backgroundColor: '#2A2A2A', width: `${70 - j * 10}%` }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function VipPage() {
   const { month, year } = useBrand();
 
-  const [loading, setLoading]       = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState('Sincronizando…');
-  const [error, setError]           = useState<string | null>(null);
-  const [fetchedAt, setFetchedAt]   = useState<string | null>(null);
+  // 'idle' = ainda não carregou, 'loading' = carregando, 'done' = tem dados, 'error' = falhou
+  const [status, setStatus]     = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [syncing, setSyncing]   = useState(false); // atualização manual pelo botão
+  const [error, setError]       = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
   const [orders, setOrders] = useState<YampiOrder[]>([]);
   const [carts, setCarts]   = useState<YampiCart[]>([]);
@@ -76,44 +111,83 @@ export default function VipPage() {
 
   const m = month + 1; // useBrand é 0-indexed
 
-  // Carrega dados em cache ao montar / trocar mês-ano
-  const loadCache = useCallback(async () => {
-    try {
-      const res  = await fetch(`/api/yampi?month=${m}&year=${year}`);
-      const json = await res.json();
-      if (json.ok && json.fetchedAt) {
-        setOrders(json.orders ?? []);
-        setCarts(json.carts  ?? []);
-        setAgg(aggregateOrders(json.orders ?? []));
-        setFetchedAt(json.fetchedAt);
-      }
-    } catch { /* silencioso */ }
+  // ── Fetch ───────────────────────────────────────────────────────────────────
+
+  const fetchData = useCallback(async (force = false) => {
+    const url = `/api/yampi?month=${m}&year=${year}${force ? '&force=1' : ''}`;
+    const res  = await fetch(url);
+    const json = await res.json();
+
+    if (!json.ok) {
+      throw new Error(json.error ?? `HTTP ${res.status}`);
+    }
+
+    setOrders(json.orders   ?? []);
+    setCarts(json.carts     ?? []);
+    setAgg(aggregateOrders(json.orders ?? []));
+    setFetchedAt(json.fetchedAt);
+    setError(null);
   }, [m, year]);
 
-  useEffect(() => { loadCache(); }, [loadCache]);
+  // ── Carga inicial ────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    setStatus('loading');
+    setError(null);
+    fetchData()
+      .then(() => setStatus('done'))
+      .catch(e => {
+        setError(e instanceof Error ? e.message : String(e));
+        setStatus('error');
+      });
+  }, [fetchData]);
+
+  // ── Atualização automática em segundo plano ───────────────────────────────
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      // Atualiza silenciosamente sem alterar o estado visual
+      fetchData()
+        .then(() => setStatus('done'))
+        .catch(() => { /* silencioso em background */ });
+    }, AUTO_REFRESH_MS);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [fetchData]);
+
+  // ── Sincronização manual ──────────────────────────────────────────────────
 
   const sync = useCallback(async () => {
-    setLoading(true);
+    setSyncing(true);
     setError(null);
-    setLoadingMsg('Atualizando…');
     try {
-      await loadCache();
+      await fetchData(true); // force=1 ignora cache servidor
+      setStatus('done');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      setStatus('error');
     } finally {
-      setLoading(false);
+      setSyncing(false);
     }
-  }, [loadCache]);
+  }, [fetchData]);
 
-  const hasData = orders.length > 0;
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const hasData    = orders.length > 0;
   const monthLabel = format(new Date(year, month), 'MMMM yyyy', { locale: ptBR });
 
-  // Hourly chart data
   const hourlyData = (agg?.byHour ?? Array(24).fill(0)).map((count, h) => ({
     hora: `${String(h).padStart(2, '0')}h`,
     pedidos: count,
   }));
   const peakHour = agg ? agg.byHour.indexOf(Math.max(...agg.byHour)) : -1;
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
@@ -130,46 +204,56 @@ export default function VipPage() {
                 Grupo VIP · {monthLabel}
               </span>
             </div>
-            {fetchedAt && (
+            {fetchedAt && !syncing && (
               <span style={{ fontSize: 11, color: '#5E5E5E' }}>
-                Sincronizado às {format(parseISO(fetchedAt), 'HH:mm', { locale: ptBR })}
+                Atualizado às {format(parseISO(fetchedAt), 'HH:mm', { locale: ptBR })}
+              </span>
+            )}
+            {(status === 'loading' || syncing) && (
+              <span style={{ fontSize: 11, color: '#5E5E5E' }}>
+                {syncing ? 'Atualizando…' : 'Carregando…'}
               </span>
             )}
           </div>
           <button
             onClick={sync}
-            disabled={loading}
+            disabled={syncing || status === 'loading'}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
             style={{
-              backgroundColor: loading ? '#1A1A1A' : GOLD,
-              color: loading ? '#5E5E5E' : '#0D0D0D',
-              border: loading ? '1px solid #2A2A2A' : 'none',
-              cursor: loading ? 'wait' : 'pointer',
+              backgroundColor: (syncing || status === 'loading') ? '#1A1A1A' : GOLD,
+              color:           (syncing || status === 'loading') ? '#5E5E5E' : '#0D0D0D',
+              border:          (syncing || status === 'loading') ? '1px solid #2A2A2A' : 'none',
+              cursor:          (syncing || status === 'loading') ? 'wait' : 'pointer',
             }}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            {loading ? loadingMsg : 'Sincronizar VIP'}
+            <RefreshCw size={14} className={(syncing || status === 'loading') ? 'animate-spin' : ''} />
+            {syncing ? 'Atualizando…' : 'Sincronizar VIP'}
           </button>
         </div>
 
-        {/* ── Error ── */}
+        {/* ── Erro ── */}
         {error && (
           <div className="flex items-start gap-3 p-4 rounded-xl" style={{ backgroundColor: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.2)' }}>
             <AlertTriangle size={16} style={{ color: '#F87171', flexShrink: 0, marginTop: 1 }} />
             <div>
-              <p className="text-sm font-semibold" style={{ color: '#F87171' }}>Erro ao sincronizar</p>
+              <p className="text-sm font-semibold" style={{ color: '#F87171' }}>Erro ao carregar dados</p>
               <p className="text-xs mt-1" style={{ color: '#8A8A8A' }}>{error}</p>
             </div>
           </div>
         )}
 
-        {/* ── Empty state ── */}
-        {!hasData && !loading && !error && (
+        {/* ── Skeleton (carga inicial) ── */}
+        {status === 'loading' && <Skeleton />}
+
+        {/* ── Sem dados após carregar ── */}
+        {status !== 'loading' && !hasData && !error && (
           <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: '#5E5E5E' }}>
             <Crown size={40} style={{ color: '#2A2A2A' }} />
-            <p className="text-sm">Clique em <strong style={{ color: GOLD }}>Sincronizar VIP</strong> para carregar os dados do mês</p>
+            <p className="text-sm">Nenhum pedido VIP encontrado em {monthLabel}</p>
+            <p className="text-xs" style={{ color: '#3A3A3A' }}>utm_source=grupo_vip &amp; utm_campaign=whatsapp</p>
           </div>
         )}
 
+        {/* ── Dados ── */}
         {hasData && agg && (<>
 
           {/* ── KPI Row ── */}
@@ -347,10 +431,10 @@ export default function VipPage() {
               <Section title="Quebra · Faturado vs Líquido (Grupo VIP)">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Pedidos Pagos',        value: totalOrders.toString(),         color: GOLD,      sub: 'faturados com UTM VIP' },
-                    { label: 'Carrinhos Abandonados', value: totalCarts.toString(),          color: '#F87171', sub: 'não converteram' },
-                    { label: 'Taxa de Conversão',     value: `${convRate.toFixed(1)}%`,      color: convRate >= 50 ? '#4ADE80' : '#F87171', sub: 'pedidos ÷ total' },
-                    { label: 'Valor em Risco',        value: fmt(cartValue),                 color: '#8A8A8A', sub: 'valor dos carrinhos' },
+                    { label: 'Pedidos Pagos',         value: totalOrders.toString(),    color: GOLD,      sub: 'faturados com UTM VIP' },
+                    { label: 'Carrinhos Abandonados',  value: totalCarts.toString(),     color: '#F87171', sub: 'não converteram' },
+                    { label: 'Taxa de Conversão',      value: `${convRate.toFixed(1)}%`, color: convRate >= 50 ? '#4ADE80' : '#F87171', sub: 'pedidos ÷ total' },
+                    { label: 'Valor em Risco',         value: fmt(cartValue),            color: '#8A8A8A', sub: 'valor dos carrinhos' },
                   ].map(({ label, value, color, sub }) => (
                     <div key={label} className="rounded-xl p-4" style={{ backgroundColor: '#111111', border: '1px solid #262626' }}>
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 8 }}>{label}</p>
