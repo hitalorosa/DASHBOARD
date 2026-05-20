@@ -1,0 +1,123 @@
+name: Sincronizar Grupo VIP
+
+on:
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Mês (1-12)'
+        required: false
+        default: ''
+      year:
+        description: 'Ano (ex: 2026)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 6,12,18 * * *'   # Automático 3x por dia (6h, 12h, 18h UTC)
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar dependências
+        run: pip install curl_cffi
+
+      - name: Sincronizar dados da Yampi
+        env:
+          YAMPI_TOKEN:      ${{ secrets.YAMPI_TOKEN }}
+          YAMPI_SECRET_KEY: ${{ secrets.YAMPI_SECRET_KEY }}
+          YAMPI_ALIAS:      ${{ secrets.YAMPI_ALIAS }}
+          WORKER_URL:       ${{ secrets.WORKER_URL }}
+          WORKER_SECRET:    ${{ secrets.WORKER_SECRET }}
+          INPUT_MONTH:      ${{ github.event.inputs.month }}
+          INPUT_YEAR:       ${{ github.event.inputs.year }}
+        run: |
+          python - <<'EOF'
+          from curl_cffi import requests
+          from datetime import datetime
+          import calendar, os, sys, json
+
+          YAMPI_ALIAS  = os.environ['YAMPI_ALIAS']
+          YAMPI_TOKEN  = os.environ['YAMPI_TOKEN']
+          YAMPI_SECRET = os.environ['YAMPI_SECRET_KEY']
+          WORKER_URL   = os.environ['WORKER_URL'].rstrip('/')
+          WORKER_KEY   = os.environ['WORKER_SECRET']
+
+          now = datetime.now()
+          MONTH = int(os.environ.get('INPUT_MONTH') or now.month)
+          YEAR  = int(os.environ.get('INPUT_YEAR')  or now.year)
+
+          last_day = calendar.monthrange(YEAR, MONTH)[1]
+          date_min = f'{YEAR}-{MONTH:02d}-01'
+          date_max = f'{YEAR}-{MONTH:02d}-{last_day}'
+          BASE_URL = f'https://api.yampi.io/v1/{YAMPI_ALIAS}'
+
+          HEADERS = {
+            'User-Token':      YAMPI_TOKEN,
+            'User-Secret-Key': YAMPI_SECRET,
+            'Accept':          'application/json',
+            'Content-Type':    'application/json',
+          }
+
+          def fetch_pages(endpoint, params):
+            results = []
+            page = 1
+            while True:
+              p = {**params, 'page': page, 'limit': 100}
+              res = requests.get(f'{BASE_URL}/{endpoint}', headers=HEADERS, params=p,
+                                 timeout=30, impersonate='chrome')
+              if not res.ok:
+                print(f'[ERRO] {endpoint} p{page}: {res.status_code}')
+                break
+              data = res.json()
+              items = (data.get('data', {}).get('data')
+                    or data.get('data', {}).get('items')
+                    or data.get('items')
+                    or (data['data'] if isinstance(data.get('data'), list) else None)
+                    or [])
+              results.extend(items)
+              total = ((data.get('data') or {}).get('last_page')
+                    or (data.get('meta') or {}).get('last_page') or 1)
+              print(f'  p{page}/{total} — {len(items)} itens')
+              if page >= total or not items:
+                break
+              page += 1
+            return results
+
+          print(f'=== VIP {MONTH:02d}/{YEAR} ===')
+          print('Buscando pedidos...')
+          orders = fetch_pages('orders', {
+            'utm_source':     'grupo_vip',
+            'utm_campaign':   'whatsapp',
+            'status':         'paid',
+            'created_at_min': date_min,
+            'created_at_max': date_max,
+          })
+          print(f'✓ {len(orders)} pedidos')
+
+          print('Buscando carrinhos...')
+          carts = []
+          try:
+            carts = fetch_pages('carts', {
+              'utm_source':     'grupo_vip',
+              'utm_campaign':   'whatsapp',
+              'created_at_min': date_min,
+              'created_at_max': date_max,
+            })
+            print(f'✓ {len(carts)} carrinhos')
+          except Exception as e:
+            print(f'(carrinhos indisponível: {e})')
+
+          print('Enviando para KV...')
+          res = requests.post(
+            f'{WORKER_URL}/store',
+            json={'orders': orders, 'carts': carts, 'month': MONTH, 'year': YEAR},
+            headers={'X-Dashboard-Key': WORKER_KEY, 'Content-Type': 'application/json'},
+            timeout=30, impersonate='chrome'
+          )
+          if res.ok:
+            r = res.json()
+            print(f'✓ Salvo! {r.get("orders")} pedidos | {r.get("carts")} carrinhos')
+          else:
+            print(f'✗ Erro ao salvar: {res.status_code}')
+            sys.exit(1)
+          EOF
