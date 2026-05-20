@@ -140,82 +140,131 @@ async function fetchRetry(url: string): Promise<Response> {
   return fetch(url, opts);
 }
 
-/** Extrai array de itens do envelope { data: [...] } ou { data: { data: [...] } } */
+/** Extrai array de itens — envelope real da Dooki v2: { scroll_id, data: [...] } */
 function extractItems<T>(json: unknown): T[] {
   if (!json || typeof json !== 'object') return [];
   const j = json as Record<string, unknown>;
-  const d = j.data;
-  if (Array.isArray(d)) return d as T[];
-  if (d && typeof d === 'object') {
-    const dd = d as Record<string, unknown>;
-    if (Array.isArray(dd.data))  return dd.data  as T[];
-    if (Array.isArray(dd.items)) return dd.items as T[];
-  }
-  if (Array.isArray(j.items)) return j.items as T[];
+  // Dooki v2: { scroll_id: ..., data: [ {...}, ... ] }
+  if (Array.isArray(j.data)) return j.data as T[];
+  // fallback para envelopes aninhados
+  const d = j.data as Record<string, unknown> | undefined;
+  if (d && Array.isArray(d.data))  return d.data  as T[];
+  if (d && Array.isArray(d.items)) return d.items as T[];
+  if (Array.isArray(j.items))      return j.items as T[];
   return [];
+}
+
+/**
+ * Paginação da Dooki v2 usa scroll_id (cursor).
+ * Quando scroll_id === null, não há mais páginas.
+ * Também suporta meta.pagination.total_pages (fallback).
+ */
+function getScrollId(json: unknown): string | null {
+  if (!json || typeof json !== 'object') return null;
+  const j = json as Record<string, unknown>;
+  if (typeof j.scroll_id === 'string') return j.scroll_id;
+  return null;
 }
 
 function getTotalPages(json: unknown): number {
   if (!json || typeof json !== 'object') return 1;
   const j  = json as Record<string, unknown>;
-  const mt = (j.meta as Record<string, unknown> | undefined)?.pagination as Record<string, unknown> | undefined;
-  if (mt?.total_pages) return Number(mt.total_pages);
-  const d  = j.data as Record<string, unknown> | undefined;
+  const mt = (j.meta as Record<string, unknown> | undefined);
+  const pg = mt?.pagination as Record<string, unknown> | undefined;
+  if (pg?.total_pages) return Number(pg.total_pages);
+  const d = j.data as Record<string, unknown> | undefined;
   if (d?.last_page) return Number(d.last_page);
   return 1;
 }
 
-/** Percorre todas as páginas em lotes de 3 paralelas */
-async function fetchAllPages<T>(baseUrl: string): Promise<T[]> {
-  const sep   = baseUrl.includes('?') ? '&' : '?';
-  const build = (p: number) => `${baseUrl}${sep}page=${p}&limit=100`;
+/**
+ * Busca todas as páginas de um endpoint Dooki v2.
+ * Suporta paginação por scroll_id (cursor) e page-based.
+ * Usa URLSearchParams para encoding correto dos parâmetros.
+ */
+async function fetchAllPages<T>(
+  endpoint: string,
+  params: Record<string, string>,
+): Promise<T[]> {
+  const LIMIT = 100;
+  const results: T[] = [];
 
-  const r1 = await fetchRetry(build(1));
+  // Página 1
+  const p1 = new URLSearchParams({ ...params, limit: String(LIMIT) });
+  const url1 = `${BASE_URL}/${endpoint}?${p1}`;
+  console.log(`[Dooki] GET ${url1}`);
+
+  const r1 = await fetchRetry(url1);
   if (!r1.ok) {
     const raw = await r1.text().catch(() => '');
-    console.error(`[Dooki] ${r1.status} → ${raw.slice(0, 600)}`);
+    console.error(`[Dooki] /${endpoint} ${r1.status}: ${raw.slice(0, 600)}`);
     throw new Error(`Dooki API ${r1.status}: ${raw.slice(0, 200)}`);
   }
 
-  const j1      = await r1.json();
-  const items   = extractItems<T>(j1);
-  const total   = getTotalPages(j1);
-  console.log(`[Dooki] p1/${total} — ${items.length} itens`);
-  if (total <= 1) return items;
+  const j1 = await r1.json() as Record<string, unknown>;
+  const items1 = extractItems<T>(j1);
+  results.push(...items1);
+  console.log(`[Dooki] /${endpoint} p1 — ${items1.length} itens`);
 
-  const rest: T[] = [];
+  // Tenta paginação por scroll_id primeiro
+  let scrollId = getScrollId(j1);
+  if (scrollId) {
+    let page = 2;
+    while (scrollId) {
+      const pN = new URLSearchParams({ ...params, limit: String(LIMIT), scroll_id: scrollId });
+      const urlN = `${BASE_URL}/${endpoint}?${pN}`;
+      const rN = await fetchRetry(urlN);
+      if (!rN.ok) { console.error(`[Dooki] scroll p${page} → ${rN.status}`); break; }
+      const jN = await rN.json() as Record<string, unknown>;
+      const itemsN = extractItems<T>(jN);
+      results.push(...itemsN);
+      console.log(`[Dooki] /${endpoint} scroll p${page} — ${itemsN.length} itens`);
+      scrollId = getScrollId(jN);
+      page++;
+      if (itemsN.length === 0) break;
+    }
+    return results;
+  }
+
+  // Fallback: paginação por page number
+  const total = getTotalPages(j1);
+  if (total <= 1) return results;
+
   const BATCH = 3;
   for (let start = 2; start <= total; start += BATCH) {
     const pages = Array.from({ length: Math.min(BATCH, total - start + 1) }, (_, i) => start + i);
     const batch = await Promise.all(
-      pages.map(p =>
-        fetchRetry(build(p))
+      pages.map(p => {
+        const pP = new URLSearchParams({ ...params, limit: String(LIMIT), page: String(p) });
+        const urlP = `${BASE_URL}/${endpoint}?${pP}`;
+        return fetchRetry(urlP)
           .then(async r => {
             if (!r.ok) { console.error(`[Dooki] p${p} → ${r.status}`); return [] as T[]; }
-            const j  = await r.json();
+            const j = await r.json() as Record<string, unknown>;
             const it = extractItems<T>(j);
-            console.log(`[Dooki] p${p}/${total} — ${it.length} itens`);
+            console.log(`[Dooki] /${endpoint} p${p}/${total} — ${it.length} itens`);
             return it;
           })
-          .catch(e => { console.error(`[Dooki] p${p} erro:`, e); return [] as T[]; }),
-      ),
+          .catch(e => { console.error(`[Dooki] p${p} erro:`, e); return [] as T[]; });
+      }),
     );
-    rest.push(...batch.flat());
+    results.push(...batch.flat());
   }
 
-  return [...items, ...rest];
+  return results;
 }
 
 // ── API pública ───────────────────────────────────────────────────────────────
 
 /**
  * Busca todos os pedidos do mês e filtra VIP pagos no cliente.
- * Endpoint: GET /{alias}/orders?filters[date]=created_at:YYYY-MM-DD|YYYY-MM-DD&include=customer,status,items
+ * Usa URLSearchParams para encoding correto (brackets, pipe, colon).
  */
 export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<YampiOrder[]> {
-  const url = `${BASE_URL}/orders?filters[date]=created_at:${dateMin}|${dateMax}&include=customer,status,items`;
-  console.log(`[Dooki] orders → ${url}`);
-  const all = await fetchAllPages<YampiOrder>(url);
+  const all = await fetchAllPages<YampiOrder>('orders', {
+    'filters[date]': `created_at:${dateMin}|${dateMax}`,
+    'include':       'customer,status,items,shipping_address',
+  });
   const vip = all.filter(o => orderIsPaid(o) && orderIsVip(o));
   console.log(`[Dooki] ${all.length} pedidos no mês → ${vip.length} VIP pagos`);
   return vip;
@@ -223,13 +272,13 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
 
 /**
  * Busca carrinhos abandonados VIP do mês.
- * Endpoint: GET /{alias}/checkout/carts?date=created_at:YYYY-MM-DD|YYYY-MM-DD&include=customer,items
+ * Endpoint: GET /{alias}/checkout/carts?date=created_at:YYYY-MM-DD|YYYY-MM-DD
  */
 export async function fetchVipCarts(dateMin: string, dateMax: string): Promise<YampiCart[]> {
   try {
-    const url = `${BASE_URL}/checkout/carts?date=created_at:${dateMin}|${dateMax}&include=customer,items`;
-    console.log(`[Dooki] carts → ${url}`);
-    const all = await fetchAllPages<YampiCart>(url);
+    const all = await fetchAllPages<YampiCart>('checkout/carts', {
+      'date': `created_at:${dateMin}|${dateMax}`,
+    });
     const vip = all.filter(c => cartIsVip(c));
     console.log(`[Dooki] ${all.length} carrinhos no mês → ${vip.length} VIP`);
     return vip;
