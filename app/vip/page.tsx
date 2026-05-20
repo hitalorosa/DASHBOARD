@@ -94,7 +94,31 @@ function Skeleton() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function VipPage() {
-  const { month, year } = useBrand();
+  const { brand, month, year } = useBrand();
+
+  // ── Guard: apenas Nouê tem integração VIP ────────────────────────────────────
+  if (brand.id !== 'noue') {
+    return (
+      <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
+        <Header title="Grupo VIP" />
+        <main className="flex flex-1 items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-4 text-center" style={{ maxWidth: 400 }}>
+            <div className="flex items-center justify-center w-16 h-16 rounded-full"
+              style={{ backgroundColor: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.18)' }}>
+              <Crown size={28} style={{ color: GOLD, opacity: 0.6 }} />
+            </div>
+            <p style={{ fontSize: 18, fontWeight: 600, color: '#ECECEC', letterSpacing: '-0.01em' }}>
+              Em breve
+            </p>
+            <p style={{ fontSize: 13, color: '#5E5E5E', lineHeight: 1.6 }}>
+              A integração do Grupo VIP com a <strong style={{ color: '#8A8A8A' }}>{brand.name}</strong> ainda não foi configurada.
+              <br />Em breve você poderá acompanhar os dados aqui.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // 'idle' = ainda não carregou, 'loading' = carregando, 'done' = tem dados, 'error' = falhou
   const [status, setStatus]     = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
