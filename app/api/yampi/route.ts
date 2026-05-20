@@ -4,44 +4,54 @@ import { fetchVipOrders, fetchVipCarts, aggregateOrders, getMonthRange } from '@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// ── Cache em memória (15 min por chave mês/ano) ───────────────────────────────
-// Evita re-buscar a API a cada refresh de página enquanto o servidor está ativo.
-
+// Cache em memória por 15 minutos
 interface CacheEntry {
   orders:    Awaited<ReturnType<typeof fetchVipOrders>>;
   carts:     Awaited<ReturnType<typeof fetchVipCarts>>;
   fetchedAt: string;
   expiresAt: number;
 }
-
 const cache = new Map<string, CacheEntry>();
-const TTL   = 15 * 60 * 1000; // 15 minutos
+const TTL   = 15 * 60 * 1000;
+
+const ALIAS      = process.env.YAMPI_ALIAS      ?? '';
+const TOKEN      = process.env.YAMPI_TOKEN      ?? '';
+const SECRET_KEY = process.env.YAMPI_SECRET_KEY ?? '';
 
 export async function GET(req: NextRequest) {
+  // Diagnóstico de variáveis de ambiente
+  if (!ALIAS || !TOKEN || !SECRET_KEY) {
+    return NextResponse.json({
+      ok: false,
+      error: `Variáveis de ambiente faltando: ${[
+        !ALIAS      && 'YAMPI_ALIAS',
+        !TOKEN      && 'YAMPI_TOKEN',
+        !SECRET_KEY && 'YAMPI_SECRET_KEY',
+      ].filter(Boolean).join(', ')}`,
+    }, { status: 500 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const month  = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1), 10);
     const year   = parseInt(searchParams.get('year')  ?? String(new Date().getFullYear()),  10);
-    const force  = searchParams.get('force') === '1'; // ?force=1 ignora cache
+    const force  = searchParams.get('force') === '1';
 
     const key    = `${year}-${String(month).padStart(2, '0')}`;
     const cached = cache.get(key);
 
-    // Serve do cache se ainda válido e não foi pedido forçar
     if (cached && !force && Date.now() < cached.expiresAt) {
       const agg = aggregateOrders(cached.orders);
-      console.log(`[API] Cache hit: ${key}`);
+      console.log(`[API] cache hit: ${key}`);
       return NextResponse.json({
         ok: true, source: 'cache',
         fetchedAt: cached.fetchedAt,
-        orders: cached.orders,
-        carts:  cached.carts,
+        orders: cached.orders, carts: cached.carts,
         ...agg,
       });
     }
 
-    // Busca direta na Dooki v2
-    console.log(`[API] Buscando Dooki v2 para ${month}/${year}…`);
+    console.log(`[API] buscando Dooki v2 — alias=${ALIAS} mês=${month}/${year}`);
     const { dateMin, dateMax } = getMonthRange(month, year);
 
     const [orders, carts] = await Promise.all([
@@ -50,8 +60,6 @@ export async function GET(req: NextRequest) {
     ]);
 
     const fetchedAt = new Date().toISOString();
-
-    // Atualiza cache
     cache.set(key, { orders, carts, fetchedAt, expiresAt: Date.now() + TTL });
 
     const agg = aggregateOrders(orders);
@@ -65,7 +73,7 @@ export async function GET(req: NextRequest) {
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[API] Erro:', message);
+    console.error('[API] erro:', message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
