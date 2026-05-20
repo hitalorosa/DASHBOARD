@@ -211,12 +211,22 @@ async function fetchAllPages<T>(
 
 // API publica
 export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<YampiOrder[]> {
-  const all = await fetchAllPages<YampiOrder>('orders', {
-    'filters[date]': `created_at:${dateMin}|${dateMax}`,
-    'include':       'status',
+  // /search/orders filtra UTM no servidor — retorna so pedidos VIP (resultado pequeno, rapido)
+  // Filtra data e status paid no cliente
+  const all = await fetchAllPages<YampiOrder>('search/orders', {
+    'utm_source[]':   VIP_UTM.source,
+    'utm_campaign[]': VIP_UTM.campaign,
+    'include':        'status',
   });
-  const vip = all.filter(o => orderIsPaid(o) && orderIsVip(o));
-  console.log(`[Dooki] ${all.length} pedidos no mes -> ${vip.length} VIP pagos`);
+
+  const vip = all.filter(o => {
+    if (!orderIsPaid(o)) return false;
+    if (!o.created_at) return false;
+    const date = o.created_at.slice(0, 10); // YYYY-MM-DD
+    return date >= dateMin && date <= dateMax;
+  });
+
+  console.log(`[Dooki] ${all.length} pedidos VIP historicos -> ${vip.length} pagos no mes`);
   return vip;
 }
 
