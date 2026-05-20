@@ -95,48 +95,15 @@ export default function VipPage() {
   const sync = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setLoadingMsg('Disparando sincronização…');
-
+    setLoadingMsg('Atualizando…');
     try {
-      // 1. Aciona o GitHub Action
-      const trigRes  = await fetch('/api/yampi-trigger', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ month: m, year }),
-      });
-      const trigJson = await trigRes.json();
-      if (!trigJson.ok) throw new Error(trigJson.error ?? 'Erro ao acionar GitHub Action');
-
-      setLoadingMsg('Buscando dados na Yampi… (~20s)');
-
-      // 2. Poll a cada 5s por até 2 min aguardando dado novo
-      const syncStart = Date.now();
-      while (Date.now() - syncStart < 120_000) {
-        await new Promise(r => setTimeout(r, 5_000));
-
-        const dataRes  = await fetch(`/api/yampi?month=${m}&year=${year}`);
-        const dataJson = await dataRes.json();
-
-        if (dataJson.ok && dataJson.fetchedAt) {
-          const dataTime = new Date(dataJson.fetchedAt).getTime();
-          if (dataTime >= syncStart - 10_000) {          // dado é desta sincronização
-            setOrders(dataJson.orders ?? []);
-            setCarts(dataJson.carts   ?? []);
-            setAgg(aggregateOrders(dataJson.orders ?? []));
-            setFetchedAt(dataJson.fetchedAt);
-            return;
-          }
-        }
-        setLoadingMsg(`Aguardando… (${Math.round((Date.now() - syncStart) / 1000)}s)`);
-      }
-
-      throw new Error('Timeout: sincronização demorou mais de 2 minutos.');
+      await loadCache();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [m, year]);
+  }, [loadCache]);
 
   const hasData = orders.length > 0;
   const monthLabel = format(new Date(year, month), 'MMMM yyyy', { locale: ptBR });
