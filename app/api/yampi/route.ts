@@ -12,7 +12,7 @@ interface CacheEntry {
   expiresAt: number;
 }
 const cache = new Map<string, CacheEntry>();
-const TTL   = 15 * 60 * 1000;
+const TTL   = 30 * 60 * 1000; // 30 min — reduz chamadas à Dooki
 
 const ALIAS      = process.env.YAMPI_ALIAS      ?? '';
 const TOKEN      = process.env.YAMPI_TOKEN      ?? '';

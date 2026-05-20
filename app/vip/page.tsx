@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Header from '@/components/Header';
 import { useBrand } from '@/lib/brand-context';
 import {
@@ -12,9 +12,6 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
 import { aggregateOrders, cartValue } from '@/lib/yampi';
-
-// Intervalo de atualização automática em segundo plano (5 minutos)
-const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -163,22 +160,6 @@ export default function VipPage() {
       });
   }, [fetchData]);
 
-  // ── Atualização automática em segundo plano ───────────────────────────────
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    timerRef.current = setInterval(() => {
-      // Atualiza silenciosamente sem alterar o estado visual
-      fetchData()
-        .then(() => setStatus('done'))
-        .catch(() => { /* silencioso em background */ });
-    }, AUTO_REFRESH_MS);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [fetchData]);
 
   // ── Sincronização manual ──────────────────────────────────────────────────
 

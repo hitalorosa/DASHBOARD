@@ -130,11 +130,13 @@ function cartIsVip(c: YampiCart): boolean {
 
 async function fetchRetry(url: string): Promise<Response> {
   const opts: RequestInit = { method: 'GET', headers: authHeaders(), cache: 'no-store' };
-  for (let i = 0; i <= 4; i++) {
+  // Backoff generoso para não agravar o rate-limit: 10s, 30s (máx 2 retries)
+  const BACKOFF = [10_000, 30_000];
+
+  for (const wait of BACKOFF) {
     const res = await fetch(url, opts);
     if (res.status !== 429) return res;
-    const wait = (i + 1) * 2000;
-    console.warn(`[Dooki] 429 rate-limit — aguardando ${wait}ms`);
+    console.warn(`[Dooki] 429 Too Many Requests — aguardando ${wait / 1000}s`);
     await new Promise(r => setTimeout(r, wait));
   }
   return fetch(url, opts);
