@@ -88,9 +88,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, type: 'cart', ...result });
   }
 
-  // ── Pedido pago ───────────────────────────────────────────────────────────
+  // ── Pedido pago / aprovado ────────────────────────────────────────────────
   const status = (resource.status as string) ?? '';
-  if (status !== 'paid' && !event.includes('paid')) {
+  const isPaid = status === 'paid' || status === 'approved'
+    || event.includes('paid') || event.includes('aprov');
+
+  if (!isPaid) {
     console.log(`[Webhook] Pedido ignorado — status=${status} event=${event}`);
     return NextResponse.json({ ok: true, skipped: `status=${status}` });
   }
