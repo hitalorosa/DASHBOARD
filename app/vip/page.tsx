@@ -11,7 +11,7 @@ import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle } from 
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
-import { aggregateOrders } from '@/lib/yampi';
+import { aggregateOrders, cartValue } from '@/lib/yampi';
 
 // Intervalo de atualização automática em segundo plano (5 minutos)
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -425,7 +425,7 @@ export default function VipPage() {
             const totalOrders  = orders.length;
             const totalEntries = totalCarts + totalOrders;
             const convRate     = totalEntries > 0 ? (totalOrders / totalEntries) * 100 : 0;
-            const cartValue    = carts.reduce((s, c) => s + parseFloat(c.total || '0'), 0);
+            const cartTotalValue = carts.reduce((s, c) => s + cartValue(c), 0);
 
             return (
               <Section title="Quebra · Faturado vs Líquido (Grupo VIP)">
@@ -434,7 +434,7 @@ export default function VipPage() {
                     { label: 'Pedidos Pagos',         value: totalOrders.toString(),    color: GOLD,      sub: 'faturados com UTM VIP' },
                     { label: 'Carrinhos Abandonados',  value: totalCarts.toString(),     color: '#F87171', sub: 'não converteram' },
                     { label: 'Taxa de Conversão',      value: `${convRate.toFixed(1)}%`, color: convRate >= 50 ? '#4ADE80' : '#F87171', sub: 'pedidos ÷ total' },
-                    { label: 'Valor em Risco',         value: fmt(cartValue),            color: '#8A8A8A', sub: 'valor dos carrinhos' },
+                    { label: 'Valor em Risco',         value: fmt(cartTotalValue),       color: '#8A8A8A', sub: 'valor dos carrinhos' },
                   ].map(({ label, value, color, sub }) => (
                     <div key={label} className="rounded-xl p-4" style={{ backgroundColor: '#111111', border: '1px solid #262626' }}>
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 8 }}>{label}</p>
