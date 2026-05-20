@@ -248,7 +248,7 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
   const all = await fetchAllPages<YampiOrder>('search/orders', {
     'utm_source[]':   VIP_UTM.source,
     'utm_campaign[]': VIP_UTM.campaign,
-    'include':        'status',
+    'include':        'status,items,address',
   });
 
   const vip = all.filter(o => {
@@ -277,7 +277,7 @@ export async function fetchVipCarts(dateMin: string, dateMax: string): Promise<Y
 }
 
 // Agregacoes
-function orderValue(o: YampiOrder): number {
+export function orderValue(o: YampiOrder): number {
   if (typeof o.value_total === 'number') return o.value_total;
   if (typeof o.total       === 'string') return parseFloat(o.total) || 0;
   return 0;

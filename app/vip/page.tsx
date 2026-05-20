@@ -11,7 +11,7 @@ import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle } from 
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
-import { aggregateOrders, cartValue, toIso, unwrapArray } from '@/lib/yampi';
+import { aggregateOrders, cartValue, orderValue, toIso, unwrapArray } from '@/lib/yampi';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -392,12 +392,12 @@ export default function VipPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 180 }} />
-                  <col style={{ width: 40 }} />
-                  <col />
-                  <col style={{ width: 110 }} />
+                  <col style={{ width: 100 }} />   {/* Horário */}
+                  <col style={{ width: 90 }} />    {/* Pedido  */}
+                  <col style={{ width: 160 }} />   {/* Cliente */}
+                  <col style={{ width: 44 }} />    {/* UF      */}
+                  <col />                          {/* Produto */}
+                  <col style={{ width: 120 }} />   {/* Total   */}
                 </colgroup>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #262626' }}>
@@ -436,7 +436,7 @@ export default function VipPage() {
                             {prodNames || '—'}
                           </td>
                           <td className="py-2.5 text-right font-semibold" style={{ color: GOLD }}>
-                            {fmt(parseFloat(o.total || '0'))}
+                            {fmtSmall(orderValue(o))}
                           </td>
                         </tr>
                       );
