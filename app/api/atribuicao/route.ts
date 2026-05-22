@@ -334,6 +334,9 @@ export async function GET(req: NextRequest) {
     const orders = await fetchAllOrders(month1, year, cfg);
 
     // 5. Atribuição em memória ─────────────────────────────────────────────
+    // Mapa disparo_id → data para desempate por recência
+    const disparoDateMap = new Map(disparos.map(d => [d.id, d.data]));
+
     // Inicializa acumuladores zerados para cada disparo do mês
     const acc = new Map<string, { faturamento: number; pedidos: number }>();
     for (const d of disparos) acc.set(d.id, { faturamento: 0, pedidos: 0 });
@@ -346,35 +349,38 @@ export async function GET(req: NextRequest) {
         ?.data as Record<string, unknown> | undefined;
       if (!PAID.has((statusAlias?.alias ?? '') as string)) continue;
 
-      let attributedId: string | null = null;
-
-      // ── Regra 1: Soberania da UTM ──────────────────────────────────────
+      // ── Regra 1: UTM ──────────────────────────────────────────────────
       const utmSrc  = ((order.utm_source  ?? '') as string).trim().toLowerCase();
       const utmCamp = ((order.utm_campaign ?? '') as string).trim().toLowerCase();
+      const utmMatchId = (utmSrc && utmCamp) ? (utmMap.get(`${utmSrc}|${utmCamp}`) ?? null) : null;
 
-      if (utmSrc && utmCamp) {
-        attributedId = utmMap.get(`${utmSrc}|${utmCamp}`) ?? null;
-      }
+      // ── Regra 2: Janela de Cupom ──────────────────────────────────────
+      const promocode = order.promocode as { data?: { code?: string } | unknown[] } | undefined;
+      const promoData = Array.isArray(promocode?.data) ? null : promocode?.data as { code?: string } | undefined;
+      const coupon    = (promoData?.code ?? '').trim().toUpperCase();
+      let couponMatchId: string | null = null;
 
-      // ── Regra 2: Recência do Cupom (fallback) ─────────────────────────
-      if (!attributedId) {
-        // O código do cupom está em promocode.data.code (não em promocode_id que é um número)
-        const promocode = order.promocode as { data?: { code?: string } | unknown[] } | undefined;
-        const promoData = Array.isArray(promocode?.data) ? null : promocode?.data as { code?: string } | undefined;
-        const couponRaw = promoData?.code ?? '';
-        const coupon    = couponRaw.trim().toUpperCase();
-
-        if (coupon && couponWindows.has(coupon)) {
-          const orderTs = orderUtcMs(order.created_at);
-          const windows = couponWindows.get(coupon)!;
-
-          for (const w of windows) {
-            if (orderTs >= w.from && orderTs <= w.to) {
-              attributedId = w.disparo_id;
-              break;
-            }
+      if (coupon && couponWindows.has(coupon)) {
+        const orderTs = orderUtcMs(order.created_at);
+        const windows = couponWindows.get(coupon)!;
+        for (const w of windows) {
+          if (orderTs >= w.from && orderTs <= w.to) {
+            couponMatchId = w.disparo_id;
+            break;
           }
         }
+      }
+
+      // ── Desempate: se UTM e cupom apontam para disparos diferentes,
+      //    usa o disparo mais recente — evita que UTM velha de carrinho
+      //    "roube" crédito de campanha posterior com cupom mais recente.
+      let attributedId: string | null;
+      if (utmMatchId && couponMatchId && utmMatchId !== couponMatchId) {
+        const utmDate    = disparoDateMap.get(utmMatchId)    ?? '';
+        const couponDate = disparoDateMap.get(couponMatchId) ?? '';
+        attributedId = couponDate > utmDate ? couponMatchId : utmMatchId;
+      } else {
+        attributedId = utmMatchId ?? couponMatchId;
       }
 
       // ── Regra 3: Sem atribuição → ignora ──────────────────────────────
@@ -423,22 +429,31 @@ export async function GET(req: NextRequest) {
         const utmSrc  = ((o.utm_source  ?? '') as string).trim().toLowerCase();
         const utmCamp = ((o.utm_campaign ?? '') as string).trim().toLowerCase();
 
-        let regra: 'utm' | 'cupom' | 'nao_atribuido' = 'nao_atribuido';
-        let disparoId: string | null = null;
-
-        if (utmSrc && utmCamp) {
-          const matched = utmMap.get(`${utmSrc}|${utmCamp}`);
-          if (matched) { regra = 'utm'; disparoId = matched; }
-        }
+        const dbgUtmId = (utmSrc && utmCamp) ? (utmMap.get(`${utmSrc}|${utmCamp}`) ?? null) : null;
 
         const promocode = o.promocode as { data?: { code?: string } | unknown[] } | undefined;
         const promoData = Array.isArray(promocode?.data) ? null : promocode?.data as { code?: string } | undefined;
         const cupom = (promoData?.code ?? '').trim().toUpperCase();
+        let dbgCouponId: string | null = null;
 
-        if (regra === 'nao_atribuido' && cupom && couponWindows.has(cupom)) {
+        if (cupom && couponWindows.has(cupom)) {
           const tsUtc = orderUtcMs(o.created_at);
           const win = (couponWindows.get(cupom) ?? []).find(w => tsUtc >= w.from && tsUtc <= w.to);
-          if (win) { regra = 'cupom'; disparoId = win.disparo_id; }
+          if (win) dbgCouponId = win.disparo_id;
+        }
+
+        let regra: 'utm' | 'cupom' | 'nao_atribuido' = 'nao_atribuido';
+        let disparoId: string | null = null;
+
+        if (dbgUtmId && dbgCouponId && dbgUtmId !== dbgCouponId) {
+          const utmDate    = disparoDateMap.get(dbgUtmId)    ?? '';
+          const couponDate = disparoDateMap.get(dbgCouponId) ?? '';
+          if (couponDate > utmDate) { regra = 'cupom'; disparoId = dbgCouponId; }
+          else                      { regra = 'utm';   disparoId = dbgUtmId;    }
+        } else if (dbgUtmId) {
+          regra = 'utm'; disparoId = dbgUtmId;
+        } else if (dbgCouponId) {
+          regra = 'cupom'; disparoId = dbgCouponId;
         }
 
         atribDetalhe.push({
