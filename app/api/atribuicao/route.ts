@@ -344,7 +344,10 @@ export async function GET(req: NextRequest) {
 
       // ── Regra 2: Recência do Cupom (fallback) ─────────────────────────
       if (!attributedId) {
-        const couponRaw = ((order.promocode_id ?? '') as string | number).toString();
+        // O código do cupom está em promocode.data.code (não em promocode_id que é um número)
+        const promocode = order.promocode as { data?: { code?: string } | unknown[] } | undefined;
+        const promoData = Array.isArray(promocode?.data) ? null : promocode?.data as { code?: string } | undefined;
+        const couponRaw = promoData?.code ?? '';
         const coupon    = couponRaw.trim().toUpperCase();
 
         if (coupon && couponWindows.has(coupon)) {
