@@ -405,6 +405,52 @@ export async function GET(req: NextRequest) {
         return PAID.has((s?.alias ?? '') as string);
       }) as Record<string, unknown>[];
 
+      // ── Reconciliação ─────────────────────────────────────────────────────
+      // Para cada pedido pago, descobre qual regra o atribuiu (ou não)
+      const atribDetalhe: {
+        id: unknown; valor: number; status: string;
+        utm_source: unknown; utm_campaign: unknown; cupom: string;
+        regra: 'utm' | 'cupom' | 'nao_atribuido'; disparo_id: string | null;
+      }[] = [];
+
+      for (const raw of paidOrders) {
+        const o = raw;
+        const valor = orderValue(o as unknown as YampiOrder);
+        const statusAlias = ((o.status as Record<string, unknown> | undefined)
+          ?.data as Record<string, unknown> | undefined)?.alias as string ?? '';
+
+        const utmSrc  = ((o.utm_source  ?? '') as string).trim().toLowerCase();
+        const utmCamp = ((o.utm_campaign ?? '') as string).trim().toLowerCase();
+
+        let regra: 'utm' | 'cupom' | 'nao_atribuido' = 'nao_atribuido';
+        let disparoId: string | null = null;
+
+        if (utmSrc && utmCamp) {
+          const matched = utmMap.get(`${utmSrc}|${utmCamp}`);
+          if (matched) { regra = 'utm'; disparoId = matched; }
+        }
+
+        const promocode = o.promocode as { data?: { code?: string } | unknown[] } | undefined;
+        const promoData = Array.isArray(promocode?.data) ? null : promocode?.data as { code?: string } | undefined;
+        const cupom = (promoData?.code ?? '').trim().toUpperCase();
+
+        if (regra === 'nao_atribuido' && cupom && couponWindows.has(cupom)) {
+          const tsUtc = orderUtcMs(o.created_at);
+          const win = (couponWindows.get(cupom) ?? []).find(w => tsUtc >= w.from && tsUtc <= w.to);
+          if (win) { regra = 'cupom'; disparoId = win.disparo_id; }
+        }
+
+        atribDetalhe.push({
+          id: o.id, valor, status: statusAlias,
+          utm_source: o.utm_source, utm_campaign: o.utm_campaign, cupom,
+          regra, disparo_id: disparoId,
+        });
+      }
+
+      const totalYampi     = Math.round(paidOrders.reduce((s, o) => s + orderValue(o as unknown as YampiOrder), 0) * 100) / 100;
+      const totalAtribuido = Math.round(result.reduce((s, r) => s + r.faturamento, 0) * 100) / 100;
+      const naoAtribuidos  = atribDetalhe.filter(x => x.regra === 'nao_atribuido');
+
       return NextResponse.json({
         _debug: true,
         month_recebido: month,
@@ -419,47 +465,33 @@ export async function GET(req: NextRequest) {
             to: w.to === Number.MAX_SAFE_INTEGER ? 'sem limite' : new Date(w.to).toISOString(),
           }))])
         ),
-        total_pedidos_yampi: orders.length,
-        total_pedidos_pagos: paidOrders.length,
-        // Amostra dos primeiros 5 pedidos pagos — campos de UTM e cupom
-        amostra_pedidos: paidOrders.slice(0, 5).map(o => ({
-          id:              o.id,
-          created_at:      o.created_at,
-          utm_source:      o.utm_source,
-          utm_campaign:    o.utm_campaign,
-          utm_medium:      o.utm_medium,
-          utm_content:     o.utm_content,
-          utm_term:        o.utm_term,
-          promocode_id:    o.promocode_id,
-          promocode_code:  o.promocode_code,
-          discount_coupon: o.discount_coupon,
-          coupon_code:     o.coupon_code,
-          // mostra todos os campos com "promo" ou "coupon" no nome
-          promo_fields: Object.fromEntries(
-            Object.entries(o).filter(([k]) => /promo|coupon|desconto|discount/i.test(k))
-          ),
+        // ── Reconciliação — responde "meu 804,43 está 100% correto?" ──────
+        reconciliacao: {
+          total_pedidos_yampi:  orders.length,
+          total_pedidos_pagos:  paidOrders.length,
+          total_faturamento_yampi:     totalYampi,
+          total_faturamento_atribuido: totalAtribuido,
+          diferenca_nao_atribuida:     Math.round((totalYampi - totalAtribuido) * 100) / 100,
+          pedidos_por_regra: {
+            utm:           atribDetalhe.filter(x => x.regra === 'utm').length,
+            cupom:         atribDetalhe.filter(x => x.regra === 'cupom').length,
+            nao_atribuido: naoAtribuidos.length,
+          },
+        },
+        // Pedidos pagos que não matcharam nenhum disparo — onde está a diferença
+        pedidos_nao_atribuidos: naoAtribuidos.map(x => ({
+          id: x.id, valor: x.valor, status: x.status,
+          utm_source: x.utm_source, utm_campaign: x.utm_campaign, cupom: x.cupom,
         })),
         atribuicao: result,
-        // Todos os pedidos com MAIO20 — mostra timestamp e qual janela bateu
-        maio20_orders: paidOrders
-          .filter(o => {
-            const p = o.promocode as { data?: { code?: string } | unknown[] } | undefined;
-            const d = Array.isArray(p?.data) ? null : p?.data as { code?: string } | undefined;
-            return d?.code?.toUpperCase() === 'MAIO20';
-          })
-          .map(o => {
-            const tsUtc = orderUtcMs(o.created_at);
-            const wins = couponWindows.get('MAIO20') ?? [];
-            const matched = wins.find(w => tsUtc >= w.from && tsUtc <= w.to);
-            return {
-              id:         o.id,
-              created_at_sp:  toIso(o.created_at),
-              ts_utc:     new Date(tsUtc).toISOString(),
-              janela_bateu: matched?.disparo_id ?? 'nenhuma',
-              utm_source:  o.utm_source,
-              utm_campaign: o.utm_campaign,
-            };
-          }),
+        // Detalhe de TODOS os pedidos atribuídos — qual regra e qual disparo
+        pedidos_atribuidos: atribDetalhe
+          .filter(x => x.regra !== 'nao_atribuido')
+          .map(x => ({
+            id: x.id, valor: x.valor, regra: x.regra,
+            disparo_id: x.disparo_id, cupom: x.cupom,
+            utm_source: x.utm_source, utm_campaign: x.utm_campaign,
+          })),
       });
     }
 
