@@ -382,6 +382,12 @@ export async function GET(req: NextRequest) {
     });
 
     if (debug) {
+      const paidOrders = orders.filter(o => {
+        const r = o as Record<string, unknown>;
+        const s = (r.status as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+        return PAID.has((s?.alias ?? '') as string);
+      }) as Record<string, unknown>[];
+
       return NextResponse.json({
         _debug: true,
         month_recebido: month,
@@ -397,11 +403,25 @@ export async function GET(req: NextRequest) {
           }))])
         ),
         total_pedidos_yampi: orders.length,
-        pedidos_pagos: orders.filter(o => {
-          const r = o as Record<string, unknown>;
-          const s = (r.status as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
-          return PAID.has((s?.alias ?? '') as string);
-        }).length,
+        total_pedidos_pagos: paidOrders.length,
+        // Amostra dos primeiros 5 pedidos pagos — campos de UTM e cupom
+        amostra_pedidos: paidOrders.slice(0, 5).map(o => ({
+          id:              o.id,
+          created_at:      o.created_at,
+          utm_source:      o.utm_source,
+          utm_campaign:    o.utm_campaign,
+          utm_medium:      o.utm_medium,
+          utm_content:     o.utm_content,
+          utm_term:        o.utm_term,
+          promocode_id:    o.promocode_id,
+          promocode_code:  o.promocode_code,
+          discount_coupon: o.discount_coupon,
+          coupon_code:     o.coupon_code,
+          // mostra todos os campos com "promo" ou "coupon" no nome
+          promo_fields: Object.fromEntries(
+            Object.entries(o).filter(([k]) => /promo|coupon|desconto|discount/i.test(k))
+          ),
+        })),
         atribuicao: result,
       });
     }
