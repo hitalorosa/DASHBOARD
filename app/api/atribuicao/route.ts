@@ -104,11 +104,20 @@ function spDateToUtcMs(dateStr: string, hour = 0, min = 0, sec = 0): number {
 }
 
 /**
- * Dado o created_at de um pedido Yampi (objeto Dooki ou string),
+ * Dado o created_at de um pedido Yampi (objeto Dooki { date, timezone }),
  * retorna o timestamp UTC em ms.
+ *
+ * ATENÇÃO: toIso() retorna a string sem offset (ex: "2026-05-21T22:16:19"),
+ * que o Node.js interpreta como UTC. Mas o date da Dooki está em SP (UTC-3),
+ * então precisamos somar 3h para obter o UTC real.
  */
 function orderUtcMs(createdAt: unknown): number {
-  return new Date(toIso(createdAt)).getTime();
+  const iso = toIso(createdAt);
+  if (!iso) return 0;
+  // Se a string não tem offset explícito, assume SP (UTC-3) e converte para UTC
+  const hasOffset = /[Z+\-]\d{2}:?\d{2}$/.test(iso) || iso.endsWith('Z');
+  const ms = new Date(iso).getTime();
+  return hasOffset ? ms : ms + SP_OFFSET_MS; // +3h para corrigir SP → UTC
 }
 
 // ─── Paginação Yampi ──────────────────────────────────────────────────────────
@@ -426,6 +435,26 @@ export async function GET(req: NextRequest) {
           ),
         })),
         atribuicao: result,
+        // Todos os pedidos com MAIO20 — mostra timestamp e qual janela bateu
+        maio20_orders: paidOrders
+          .filter(o => {
+            const p = o.promocode as { data?: { code?: string } | unknown[] } | undefined;
+            const d = Array.isArray(p?.data) ? null : p?.data as { code?: string } | undefined;
+            return d?.code?.toUpperCase() === 'MAIO20';
+          })
+          .map(o => {
+            const tsUtc = orderUtcMs(o.created_at);
+            const wins = couponWindows.get('MAIO20') ?? [];
+            const matched = wins.find(w => tsUtc >= w.from && tsUtc <= w.to);
+            return {
+              id:         o.id,
+              created_at_sp:  toIso(o.created_at),
+              ts_utc:     new Date(tsUtc).toISOString(),
+              janela_bateu: matched?.disparo_id ?? 'nenhuma',
+              utm_source:  o.utm_source,
+              utm_campaign: o.utm_campaign,
+            };
+          }),
       });
     }
 
