@@ -807,9 +807,7 @@ export default function DisparosPage() {
             <Zap size={13} style={{ color: yampiStatus === 'done' ? '#D4A843' : '#5E5E5E' }} />
             <span className="text-xs" style={{ color: '#8A8A8A' }}>
               {yampiStatus === 'loading' && 'Buscando atribuições na Yampi...'}
-              {yampiStatus === 'done'    && `Atribuições carregadas · ${yampiMap.size} disparo(s)`}
               {yampiStatus === 'error'   && <span style={{ color: '#F87171' }}>{yampiError}</span>}
-              {yampiStatus === 'idle'    && 'Atribuição Yampi'}
             </span>
           </div>
           <button
