@@ -1,6 +1,6 @@
 # CONTEXTO COMPLETO — Dashboard Disparos CRM (Nouê Cosméticos)
 
-> Documento de transferência de contexto. Criado em 21/05/2026.  
+> Documento de transferência de contexto. Criado em 21/05/2026. Última atualização: 22/05/2026.  
 > Cole este arquivo como a primeira mensagem ao iniciar uma nova sessão de Claude Code.
 
 ---
@@ -41,7 +41,9 @@
 ```
 - Sempre rodar `npx tsc --noEmit` antes de qualquer commit. Zero erros TypeScript é obrigatório.
 - Nunca usar `git add -A` ou `git add .`. Adicionar apenas os arquivos modificados explicitamente.
-- Nunca commitar sem que o usuário peça, a menos que esteja dentro de um fluxo de fix→test→commit explícito.
+- Após qualquer alteração de código: rodar tsc, git add <arquivo>, git commit e git push — TUDO sem esperar o usuário pedir.
+  Fluxo obrigatório: npx tsc --noEmit → git add <arquivo> → git commit → git push
+  Não encerrar a resposta sem o push ter sido feito.
 - Nunca criar arquivos de documentação (.md) sem solicitação explícita.
 - Não usar retry em chamadas à Dooki API — ela limita a 429 e retenta piora o problema.
 - Sempre usar `URLSearchParams` para montar URLs da Dooki (não template strings — os caracteres `[`, `]`, `|` precisam ser URL-encoded).
@@ -113,8 +115,9 @@ DASH DISPAROS/
 │   ├── calendario/page.tsx     # Calendário sazonalidade
 │   ├── vip/page.tsx            # Dashboard Grupo VIP ← arquivo mais complexo
 │   └── api/
-│       ├── yampi/route.ts      # GET /api/yampi?month=&year=&force= (cache 30min)
-│       └── yampi-debug/route.ts # Diagnóstico — DELETE após resolver problemas
+│       ├── yampi/route.ts        # GET /api/yampi?month=&year=&force= (cache 30min)
+│       ├── atribuicao/route.ts   # GET /api/atribuicao?month=&year=&brand=&debug= (atribuição de faturamento por disparo)
+│       └── yampi-debug/route.ts  # Diagnóstico — DELETE após confirmar VIP estável
 │
 ├── components/
 │   ├── AuthGuard.tsx           # Tela de login simples (senha local)
@@ -363,15 +366,18 @@ CREATE TABLE dash_store (
 
 ## 10. Rota de Atribuição — `GET /api/atribuicao`
 
+**Arquivo:** `app/api/atribuicao/route.ts`
+
 ```
 GET /api/atribuicao?month=4&year=2026&brand=dryskin
 GET /api/atribuicao?month=4&year=2026&brand=dryskin&debug=1
 ```
 
 **Parâmetros:**
-- `month` — 0-indexed (context do useBrand). A rota converte internamente com `month + 1`
-- `brand` — `noue` ou `dryskin`. Padrão: `dryskin` (fase de testes)
-- `debug=1` — retorna diagnóstico completo incluindo `maio20_orders` com timestamps
+- `month` — 0-indexed (igual ao context do useBrand). A rota converte internamente com `month + 1`
+- `year` — ano. Ex: `2026`
+- `brand` — `noue` ou `dryskin`. Padrão: `dryskin`
+- `debug=1` — retorna diagnóstico completo com reconciliação e lista de pedidos não atribuídos
 
 **Env vars DrySkin (Vercel + .env.local):**
 ```
@@ -395,12 +401,114 @@ DRYSKIN_YAMPI_SECRET_KEY=sk_Zbv1QobeoUbb5svbWWIn3D7DqGRz7SyibCrHQ
 ```
 ⚠️ Disparos da DrySkin são TODOS `customDisparos` (não há fixos em `data.ts`). A Nouê usa `disparosMaio` hardcoded + `customDisparos`.
 
-**Hierarquia de atribuição:**
-1. UTM: `order.utm_source + order.utm_campaign` → parseados da URL do disparo
-2. Cupom: `order.promocode.data.code` dentro da janela temporal (SP timezone)
-3. Sem match → ignora
+### 10.1 Fetch de pedidos Yampi
 
-**Bug em investigação (21/05/2026):** Apenas 1 pedido MAIO20 atribuído ao disparo 21/05 em vez de 4+. Hipóteses: PAID set incompleto (falta `payment_approved`, `in_separation` etc.), ou `include: 'status'` não retorna `promocode` para todos os pedidos.
+```typescript
+// CORRETO — include deve ter 'status' E 'promocode'
+const base = new URLSearchParams({
+  include: 'status,promocode',
+  limit:   '100',
+});
+```
+⚠️ `include: 'status'` sozinho NÃO retorna `promocode.data.code` de forma confiável em todos os pedidos.
+
+### 10.2 PAID set (status que contam como pagos)
+
+```typescript
+const PAID = new Set([
+  'paid', 'payment_approved', 'approved',
+  'handling_products', 'in_separation',
+  'invoiced', 'ready_for_shipping',
+  'on_carriage', 'shipped', 'delivered',
+]);
+```
+⚠️ Pedidos recém-aprovados ficam em `payment_approved` ou `in_separation` — sem eles o dash ignora vendas do mesmo dia.  
+⚠️ NÃO usar subset menor como `['paid', 'on_carriage', 'shipped', 'delivered']`.
+
+### 10.3 Hierarquia de atribuição
+
+```
+1. UTM match   → utm_source + utm_campaign do pedido batem com o utm do disparo
+2. Cupom match → promocode.data.code do pedido dentro da janela temporal do cupom (SP timezone)
+3. Ambos match para disparos DIFERENTES → tiebreaker: disparo com data mais recente vence
+4. Sem match → pedido não atribuído (orgânico / outra origem)
+```
+
+### 10.4 Tiebreaker UTM vs Cupom
+
+```typescript
+// Mapa disparo_id → data para desempate por recência
+const disparoDateMap = new Map(disparos.map(d => [d.id, d.data]));
+
+// Na loop de atribuição:
+let attributedId: string | null;
+if (utmMatchId && couponMatchId && utmMatchId !== couponMatchId) {
+  const utmDate    = disparoDateMap.get(utmMatchId)    ?? '';
+  const couponDate = disparoDateMap.get(couponMatchId) ?? '';
+  attributedId = couponDate > utmDate ? couponMatchId : utmMatchId;
+} else {
+  attributedId = utmMatchId ?? couponMatchId;
+}
+```
+
+**Caso real resolvido (21/05/2026):** Pedido 162980221 (R$116.13) com cupom MAIO20 mas UTM stale `car|18-05` do cookie da sessão anterior. UTM apontava para disparo 19/05; cupom apontava para 21/05. Tiebreaker → cupom 21/05 > UTM 18/05 → atribuído corretamente ao 21/05. Resultado: R$688.30 → R$804.43. ✅
+
+### 10.5 Janela de cupom (coupon window)
+
+O mesmo cupom (ex: MAIO20) pode ser usado em vários disparos. Cada disparo "possui" o cupom:
+- **Início:** meia-noite SP do dia do disparo (UTC = dia - 3h)
+- **Fim:** 23:59:59 SP do dia anterior ao próximo disparo com o mesmo cupom  
+- Se for o último disparo com aquele cupom no mês → fim = 23:59:59 do último dia do mês
+
+### 10.6 Timezone
+
+```typescript
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC-3 (SP não tem horário de verão)
+
+function orderUtcMs(createdAt: unknown): number {
+  const iso = toIso(createdAt); // retorna string SP sem offset, ex: "2026-05-21T14:06:45.000000"
+  return new Date(iso).getTime() + SP_OFFSET_MS; // converte para UTC real
+}
+```
+⚠️ `toIso()` retorna string sem sufixo de timezone. `new Date(iso)` interpreta como UTC. Somar SP_OFFSET_MS corrige.
+
+### 10.7 Camadas de dados
+
+| Dado | Fonte | Persistência |
+|------|-------|-------------|
+| `investimento`, `base`, `leitura` | Campos manuais editados no dash | Supabase `dash_store` (permanente) |
+| `faturamento`, `pedidos`, `ticket` | Yampi API ao vivo | Nunca salvo — calculado a cada request |
+| `customDisparos`, `disparoContent` | Supabase `dash_store` | Permanente |
+
+**Consequência importante:** após salvar dados de um disparo no Supabase, os pedidos Yampi NÃO aparecem novamente na busca — eles permanecem na Yampi, mas o dash não os "grava" localmente. A atribuição sempre recalcula ao vivo.
+
+### 10.8 Debug endpoint (`?debug=1`)
+
+URL completa de produção:
+```
+https://dashboard-api-noue.vercel.app/api/atribuicao?month=4&year=2026&brand=dryskin&debug=1
+```
+
+Retorna (além dos dados normais):
+```json
+{
+  "reconciliacao": {
+    "total_pedidos_yampi":       999,
+    "total_pedidos_pagos":       999,
+    "total_faturamento_yampi":   99999.99,
+    "total_faturamento_atribuido": 9999.99,
+    "diferenca_nao_atribuida":   89999.99,
+    "pedidos_por_regra": { "utm": 10, "cupom": 5, "nao_atribuido": 984 }
+  },
+  "pedidos_nao_atribuidos": [
+    { "id": 162980221, "valor": 116.13, "utm_source": "car", "utm_campaign": "18-05", "coupon": "MAIO20", "created_at_sp": "...", "ts_utc": "..." }
+  ],
+  "pedidos_atribuidos": [
+    { "order_id": 162980221, "disparo_id": "c-xxx", "regra": "cupom", "valor": 116.13, "created_at_sp": "...", "ts_utc": "..." }
+  ]
+}
+```
+`diferenca_nao_atribuida` alto é ESPERADO — a maioria dos pedidos Yampi chega por tráfego orgânico/pago que não tem UTM de disparo.
 
 ---
 
@@ -427,15 +535,17 @@ DRYSKIN_YAMPI_SECRET_KEY=sk_Zbv1QobeoUbb5svbWWIn3D7DqGRz7SyibCrHQ
 | Timeout 30s | AbortController no fetch do cliente |
 | Erros visíveis | Box vermelho com mensagem exata |
 | Atribuição DrySkin | `/api/atribuicao` — UTM + janela de cupom SP timezone |
+| PAID set completo | 10 aliases válidos incluindo `payment_approved`, `in_separation`, etc. |
+| include=status,promocode | Fetch da Yampi inclui cupom de forma confiável |
+| Tiebreaker UTM vs Cupom | Quando conflito, disparo com data mais recente vence |
 | Badge YAMPI no dash | Disparos sem preenchimento manual mostram valor Yampi com badge |
 | Re-sync automático | 1.5s após fechar painel de edição de disparo |
+| Debug endpoint | `?debug=1` retorna reconciliação completa + pedidos não atribuídos |
 
 ### ⚠️ Pendente / Próximos passos
 
 | Item | Detalhe |
 |------|---------|
-| Bug atribuição — PAID set | Rota usa subset menor que `lib/yampi.ts`. Falta: `payment_approved`, `approved`, `handling_products`, `in_separation`, `invoiced`, `ready_for_shipping` |
-| Bug atribuição — pedidos faltando | 21/05 retorna 1 pedido em vez de 4+ com MAIO20. Ver `DEBUG_ATRIBUICAO_GEMINI.md` |
 | `app/api/yampi-debug/route.ts` | Deletar após confirmar que VIP está estável |
 | DrySkin — integração VIP | Mudar guard de `brand.id !== 'noue'` para incluir `dryskin` |
 | `sincronizar_vip.py` | Script Python legado — pode ser deletado |
@@ -484,6 +594,10 @@ git push
 | Total = R$ 0 | `o.total` é string vazia; valor real em `o.value_total` | `orderValue(o)` que usa `value_total` primeiro |
 | VIP aparecendo na DrySkin | Sem guard de marca | `if (brand.id !== 'noue') return <EmBreve />` |
 | Build quebrado no Vercel | Erros TypeScript silenciosos | Sempre `npx tsc --noEmit` antes do push |
+| Atribuição — pedidos faltando (payment_approved) | PAID set incompleto. Pedidos recém-aprovados ficam em `payment_approved`/`in_separation` e eram ignorados | Expandir PAID set para 10 aliases (ver Seção 10.2). **Corrigido 21/05/2026** |
+| Atribuição — promocode não chegando | `include: 'status'` sem `promocode` não retorna o código do cupom em todos os pedidos | Mudar para `include: 'status,promocode'`. **Corrigido 21/05/2026** |
+| UTM stale roubando atribuição | Cookie de sessão Yampi preserva UTM da campanha anterior; pedido com MAIO20 ia para disparo errado | Implementar tiebreaker por data: quando UTM e cupom apontam para disparos diferentes, o mais recente vence. **Corrigido 21/05/2026** |
+| URL debug relativa não abre | Passar `/api/atribuicao?...` sem domínio não funciona como link | Sempre usar URL completa: `https://dashboard-api-noue.vercel.app/api/atribuicao?...` |
 
 ---
 
