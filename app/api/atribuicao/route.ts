@@ -263,17 +263,34 @@ export async function GET(req: NextRequest) {
 
     if (error) throw new Error(`Supabase: ${error.message}`);
 
-    const todosDisparos: Disparo[] = (row?.data?.disparos ?? []) as Disparo[];
+    // O store salva os disparos customizados em 'customDisparos' (não 'disparos')
+    const todosDisparos: Disparo[] = (row?.data?.customDisparos ?? []) as Disparo[];
 
     // disparoContent: { [disparo_id]: { utms: string[], cupom: string } }
     const disparoContent = (row?.data?.disparoContent ?? {}) as Record<string, StoredContent>;
 
+    // month chega 0-indexed do context (4 = maio) → converter para 1-indexed
+    const month1 = month + 1;
+
     // Filtra apenas os disparos do mês solicitado
     const pad         = (n: number) => String(n).padStart(2, '0');
-    const monthPrefix = `${year}-${pad(month)}`;
+    const monthPrefix = `${year}-${pad(month1)}`;
     const disparos    = todosDisparos.filter(d => d.data?.startsWith(monthPrefix));
 
+    const debug = searchParams.get('debug') === '1';
+
     if (disparos.length === 0) {
+      if (debug) {
+        return NextResponse.json({
+          _debug: true,
+          month_recebido: month,
+          month_usado: month1,
+          monthPrefix,
+          totalCustomDisparos: todosDisparos.length,
+          todosDisparos: todosDisparos.map(d => ({ id: d.id, data: d.data })),
+          disparoContent: Object.keys(disparoContent),
+        });
+      }
       return NextResponse.json([] as AtribuicaoItem[]);
     }
 
@@ -300,7 +317,7 @@ export async function GET(req: NextRequest) {
     const couponWindows = buildCouponWindows(disparosComCupom);
 
     // 4. Busca pedidos Yampi do mês ────────────────────────────────────────
-    const orders = await fetchAllOrders(month, year, cfg);
+    const orders = await fetchAllOrders(month1, year, cfg);
 
     // 5. Atribuição em memória ─────────────────────────────────────────────
     // Inicializa acumuladores zerados para cada disparo do mês
@@ -363,6 +380,31 @@ export async function GET(req: NextRequest) {
         pedidos:     totals.pedidos,
       };
     });
+
+    if (debug) {
+      return NextResponse.json({
+        _debug: true,
+        month_recebido: month,
+        month_usado: month1,
+        monthPrefix,
+        disparos_encontrados: disparos.map(d => ({ id: d.id, data: d.data })),
+        utmMap: Object.fromEntries(utmMap),
+        couponWindows: Object.fromEntries(
+          Array.from(couponWindows.entries()).map(([k, v]) => [k, v.map(w => ({
+            disparo_id: w.disparo_id,
+            from: new Date(w.from).toISOString(),
+            to: w.to === Number.MAX_SAFE_INTEGER ? 'sem limite' : new Date(w.to).toISOString(),
+          }))])
+        ),
+        total_pedidos_yampi: orders.length,
+        pedidos_pagos: orders.filter(o => {
+          const r = o as Record<string, unknown>;
+          const s = (r.status as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+          return PAID.has((s?.alias ?? '') as string);
+        }).length,
+        atribuicao: result,
+      });
+    }
 
     return NextResponse.json(result);
 
