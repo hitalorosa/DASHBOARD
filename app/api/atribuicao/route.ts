@@ -44,8 +44,13 @@ const BRAND_CONFIG: Record<string, { alias: string; token: string; secret: strin
 // SP é sempre UTC-3 (Brasil aboliu horário de verão em 2019)
 const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
 
-// Status da Yampi considerados como "pago"
-const PAID = new Set(['paid', 'on_carriage', 'shipped', 'delivered', 'complete', 'completed']);
+// Status da Yampi considerados como "pago" — lista completa do fluxo logístico
+const PAID = new Set([
+  'paid', 'payment_approved', 'approved',
+  'handling_products', 'in_separation',
+  'invoiced', 'ready_for_shipping',
+  'on_carriage', 'shipped', 'delivered',
+]);
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -133,7 +138,7 @@ async function fetchAllOrders(
   const dateTo   = `${year}-${pad(month)}-${pad(lastDay)}`;
 
   const base = new URLSearchParams({
-    include: 'status',
+    include: 'status,promocode',
     limit:   '100',
   });
   base.set('date', `created_at:${dateFrom}|${dateTo}`);
