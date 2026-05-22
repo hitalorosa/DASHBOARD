@@ -1,0 +1,374 @@
+/**
+ * GET /api/atribuicao?month=5&year=2026
+ *
+ * Cruza pedidos da Yampi com os disparos do Supabase e retorna
+ * faturamento + pedidos atribuídos a cada disparo do mês.
+ *
+ * Hierarquia de atribuição:
+ *   1. UTM sovereignty  → utm_source + utm_campaign batem com o disparo → atribui direto
+ *   2. Coupon window    → cupom presente, sem UTM mapeada → janela temporal dinâmica
+ *   3. Sem atribuição   → pedido ignorado (não salvo em lugar nenhum)
+ *
+ * Fuso horário: America/Sao_Paulo (UTC-3, sem DST desde 2019)
+ */
+
+import { createClient }  from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
+import { toIso, unwrapArray, orderValue, type YampiOrder } from '@/lib/yampi';
+import type { Disparo } from '@/lib/types';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+// Configuração por marca — adicionar vars no .env.local e na Vercel
+const BRAND_CONFIG: Record<string, { alias: string; token: string; secret: string; supabaseId: number }> = {
+  noue: {
+    alias:      process.env.YAMPI_ALIAS!,
+    token:      process.env.YAMPI_TOKEN!,
+    secret:     process.env.YAMPI_SECRET_KEY!,
+    supabaseId: 1,
+  },
+  dryskin: {
+    alias:      process.env.DRYSKIN_YAMPI_ALIAS!,
+    token:      process.env.DRYSKIN_YAMPI_TOKEN!,
+    secret:     process.env.DRYSKIN_YAMPI_SECRET_KEY!,
+    supabaseId: 2,
+  },
+};
+
+// SP é sempre UTC-3 (Brasil aboliu horário de verão em 2019)
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+// Status da Yampi considerados como "pago"
+const PAID = new Set(['paid', 'on_carriage', 'shipped', 'delivered', 'complete', 'completed']);
+
+// ─── Tipos internos ───────────────────────────────────────────────────────────
+
+interface AtribuicaoItem {
+  id:           string;
+  faturamento:  number;
+  pedidos:      number;
+}
+
+interface CouponWindow {
+  disparo_id: string;
+  from:       number; // timestamp UTC — início da janela (00:00 SP do dia do disparo)
+  to:         number; // timestamp UTC — fim da janela   (23:59:59 SP do dia anterior ao próximo)
+}
+
+// Shape mínimo do disparoContent salvo no Supabase
+interface StoredContent {
+  utms?: string[];
+  cupom?: string;
+}
+
+// ─── Parse de UTM a partir de URL completa ────────────────────────────────────
+
+/**
+ * Extrai utm_source e utm_campaign de uma URL completa.
+ * Ex: "https://oferta.dryskin.com.br/?utm_source=car&utm_campaign=21-05"
+ *     → { source: "car", campaign: "21-05" }
+ */
+function parseUtmUrl(url: string): { source: string; campaign: string } | null {
+  try {
+    const u = new URL(url.trim());
+    const source   = u.searchParams.get('utm_source');
+    const campaign = u.searchParams.get('utm_campaign');
+    if (source && campaign) return { source: source.toLowerCase(), campaign: campaign.toLowerCase() };
+  } catch { /* URL inválida — ignora */ }
+  return null;
+}
+
+// ─── Helpers de timezone ──────────────────────────────────────────────────────
+
+/**
+ * Converte "YYYY-MM-DD" + hora SP → timestamp UTC em ms.
+ * Midnight SP (00:00) = UTC+3h.
+ */
+function spDateToUtcMs(dateStr: string, hour = 0, min = 0, sec = 0): number {
+  // Cria como se fosse UTC, depois desconta o offset SP
+  const utcMs = Date.UTC(
+    parseInt(dateStr.slice(0, 4)),
+    parseInt(dateStr.slice(5, 7)) - 1,
+    parseInt(dateStr.slice(8, 10)),
+    hour,
+    min,
+    sec,
+  );
+  return utcMs + SP_OFFSET_MS; // SP = UTC - 3h, então midnight SP = 03:00 UTC
+}
+
+/**
+ * Dado o created_at de um pedido Yampi (objeto Dooki ou string),
+ * retorna o timestamp UTC em ms.
+ */
+function orderUtcMs(createdAt: unknown): number {
+  return new Date(toIso(createdAt)).getTime();
+}
+
+// ─── Paginação Yampi ──────────────────────────────────────────────────────────
+
+async function fetchAllOrders(
+  month: number,
+  year: number,
+  cfg: typeof BRAND_CONFIG[string],
+): Promise<unknown[]> {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const lastDay = new Date(year, month, 0).getDate();
+  const dateFrom = `${year}-${pad(month)}-01`;
+  const dateTo   = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+  const base = new URLSearchParams({
+    include: 'status',
+    limit:   '100',
+  });
+  base.set('date', `created_at:${dateFrom}|${dateTo}`);
+
+  const headers = {
+    'User-Token':      cfg.token,
+    'User-Secret-Key': cfg.secret,
+    'Accept':          'application/json',
+  };
+
+  const all: unknown[] = [];
+  let page     = 1;
+  let scrollId = '';
+  let hasMore  = true;
+
+  while (hasMore) {
+    const params = new URLSearchParams(base);
+    if (scrollId) {
+      params.set('scroll_id', scrollId);
+    } else {
+      params.set('page', String(page));
+    }
+
+    const res = await fetch(
+      `https://api.dooki.com.br/v2/${cfg.alias}/orders?${params.toString()}`,
+      { headers },
+    );
+
+    // Sem retry — 429 fail-fast
+    if (res.status === 429) throw new Error('Rate limit Yampi (429) — aguarde e tente novamente.');
+    if (!res.ok)            throw new Error(`Yampi respondeu ${res.status}`);
+
+    const json = await res.json() as {
+      scroll_id?: string | null;
+      data?: unknown[];
+      meta?: { pagination?: { total_pages?: number } };
+    };
+
+    const batch = json.data ?? [];
+    all.push(...batch);
+
+    if (json.scroll_id) {
+      scrollId = json.scroll_id;
+    } else {
+      const totalPages = json.meta?.pagination?.total_pages ?? 1;
+      if (page < totalPages) {
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    if (batch.length === 0) hasMore = false;
+  }
+
+  return all;
+}
+
+// ─── Lógica de janelas de cupom ───────────────────────────────────────────────
+
+/**
+ * Para cada cupom, constrói as janelas temporais de "posse":
+ *   - Cada disparo é dono do cupom desde sua data (00:00 SP)
+ *     até 23:59:59 SP do dia ANTERIOR ao próximo disparo com o mesmo cupom.
+ *   - O último disparo com aquele cupom não tem limite superior.
+ */
+function buildCouponWindows(disparos: Disparo[]): Map<string, CouponWindow[]> {
+  // Agrupa por cupom (uppercase para comparação case-insensitive)
+  const byCoupon = new Map<string, Disparo[]>();
+
+  for (const d of disparos) {
+    if (!d.cupom_usado?.trim()) continue;
+    const key = d.cupom_usado.trim().toUpperCase();
+    if (!byCoupon.has(key)) byCoupon.set(key, []);
+    byCoupon.get(key)!.push(d);
+  }
+
+  const result = new Map<string, CouponWindow[]>();
+
+  for (const [coupon, group] of byCoupon) {
+    // Ordena por data crescente
+    const sorted = [...group].sort(
+      (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime(),
+    );
+
+    const windows: CouponWindow[] = [];
+
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      const next    = sorted[i + 1];
+
+      // Início: 00:00 SP do dia do disparo atual
+      const from = spDateToUtcMs(current.data, 0, 0, 0);
+
+      // Fim: se existe próximo, 23:59:59 SP do dia ANTERIOR ao próximo
+      //      senão, sem limite (Number.MAX_SAFE_INTEGER)
+      let to: number;
+      if (next) {
+        // Midnight SP do próximo - 1 segundo = 23:59:59 SP do dia anterior
+        to = spDateToUtcMs(next.data, 0, 0, 0) - 1000;
+      } else {
+        to = Number.MAX_SAFE_INTEGER;
+      }
+
+      windows.push({ disparo_id: current.id, from, to });
+    }
+
+    result.set(coupon, windows);
+  }
+
+  return result;
+}
+
+// ─── Handler principal ────────────────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const now   = new Date();
+    const month = parseInt(searchParams.get('month') ?? String(now.getMonth() + 1));
+    const year  = parseInt(searchParams.get('year')  ?? String(now.getFullYear()));
+    const brand = searchParams.get('brand') ?? 'dryskin'; // padrão dryskin enquanto em teste
+
+    const cfg = BRAND_CONFIG[brand];
+    if (!cfg) {
+      return NextResponse.json({ ok: false, error: `Marca desconhecida: ${brand}` }, { status: 400 });
+    }
+
+    // 1. Busca disparos do mês no Supabase ─────────────────────────────────
+    const supabase = createClient(SB_URL, SB_KEY);
+    const { data: row, error } = await supabase
+      .from('dash_store')
+      .select('data')
+      .eq('id', cfg.supabaseId) // id=1 Nouê | id=2 DrySkin
+      .single();
+
+    if (error) throw new Error(`Supabase: ${error.message}`);
+
+    const todosDisparos: Disparo[] = (row?.data?.disparos ?? []) as Disparo[];
+
+    // disparoContent: { [disparo_id]: { utms: string[], cupom: string } }
+    const disparoContent = (row?.data?.disparoContent ?? {}) as Record<string, StoredContent>;
+
+    // Filtra apenas os disparos do mês solicitado
+    const pad         = (n: number) => String(n).padStart(2, '0');
+    const monthPrefix = `${year}-${pad(month)}`;
+    const disparos    = todosDisparos.filter(d => d.data?.startsWith(monthPrefix));
+
+    if (disparos.length === 0) {
+      return NextResponse.json([] as AtribuicaoItem[]);
+    }
+
+    // 2. Mapa UTM → disparo_id ─────────────────────────────────────────────
+    // Parseia as URLs de cada disparo para extrair utm_source e utm_campaign
+    const utmMap = new Map<string, string>();
+    for (const d of disparos) {
+      const content = disparoContent[d.id] ?? {};
+      for (const url of (content.utms ?? [])) {
+        if (!url?.trim()) continue;
+        const parsed = parseUtmUrl(url);
+        if (parsed) {
+          utmMap.set(`${parsed.source}|${parsed.campaign}`, d.id);
+        }
+      }
+    }
+
+    // 3. Janelas temporais de cupom ────────────────────────────────────────
+    // Resolve o cupom do content (prioridade) ou do campo cupom_usado do disparo
+    const disparosComCupom: Disparo[] = disparos.map(d => {
+      const cupomContent = (disparoContent[d.id]?.cupom ?? '').trim();
+      return { ...d, cupom_usado: cupomContent || d.cupom_usado };
+    });
+    const couponWindows = buildCouponWindows(disparosComCupom);
+
+    // 4. Busca pedidos Yampi do mês ────────────────────────────────────────
+    const orders = await fetchAllOrders(month, year, cfg);
+
+    // 5. Atribuição em memória ─────────────────────────────────────────────
+    // Inicializa acumuladores zerados para cada disparo do mês
+    const acc = new Map<string, { faturamento: number; pedidos: number }>();
+    for (const d of disparos) acc.set(d.id, { faturamento: 0, pedidos: 0 });
+
+    for (const raw of orders) {
+      const order = raw as Record<string, unknown>;
+
+      // Apenas pedidos pagos
+      const statusAlias = (order.status as Record<string, unknown> | undefined)
+        ?.data as Record<string, unknown> | undefined;
+      if (!PAID.has((statusAlias?.alias ?? '') as string)) continue;
+
+      let attributedId: string | null = null;
+
+      // ── Regra 1: Soberania da UTM ──────────────────────────────────────
+      const utmSrc  = ((order.utm_source  ?? '') as string).trim().toLowerCase();
+      const utmCamp = ((order.utm_campaign ?? '') as string).trim().toLowerCase();
+
+      if (utmSrc && utmCamp) {
+        attributedId = utmMap.get(`${utmSrc}|${utmCamp}`) ?? null;
+      }
+
+      // ── Regra 2: Recência do Cupom (fallback) ─────────────────────────
+      if (!attributedId) {
+        const couponRaw = ((order.promocode_id ?? '') as string | number).toString();
+        const coupon    = couponRaw.trim().toUpperCase();
+
+        if (coupon && couponWindows.has(coupon)) {
+          const orderTs = orderUtcMs(order.created_at);
+          const windows = couponWindows.get(coupon)!;
+
+          for (const w of windows) {
+            if (orderTs >= w.from && orderTs <= w.to) {
+              attributedId = w.disparo_id;
+              break;
+            }
+          }
+        }
+      }
+
+      // ── Regra 3: Sem atribuição → ignora ──────────────────────────────
+      if (!attributedId || !acc.has(attributedId)) continue;
+
+      const valor   = orderValue(order as unknown as YampiOrder);
+      const current = acc.get(attributedId)!;
+      acc.set(attributedId, {
+        faturamento: current.faturamento + valor,
+        pedidos:     current.pedidos + 1,
+      });
+    }
+
+    // 6. Monta resposta ────────────────────────────────────────────────────
+    const result: AtribuicaoItem[] = disparos.map(d => {
+      const totals = acc.get(d.id)!;
+      return {
+        id:          d.id,
+        faturamento: Math.round(totals.faturamento * 100) / 100,
+        pedidos:     totals.pedidos,
+      };
+    });
+
+    return NextResponse.json(result);
+
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+    console.error('[atribuicao]', msg);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
+}

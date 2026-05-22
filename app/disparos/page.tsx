@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
 import { useStore, DisparoData, BaseEntryData, DisparoContent } from '@/lib/store';
@@ -8,7 +8,7 @@ import { Disparo, CampaignType } from '@/lib/types';
 import { useBrand } from '@/lib/brand-context';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { X, ChevronDown, ChevronUp, Plus, Trash2, Copy, Check } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Plus, Trash2, Copy, Check, RefreshCw, Zap } from 'lucide-react';
 
 function fmt(n: number) { return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
 
@@ -330,7 +330,7 @@ function ContentTab({ content, onChange }: {
 }
 
 // ── Main fill card ───────────────────────────────────────────────────────────
-function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBaseEntry, onRemoveBaseEntry, isCustom, onDelete, content, onContentChange }: {
+function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBaseEntry, onRemoveBaseEntry, isCustom, onDelete, content, onContentChange, yampiSuggestion }: {
   d: Disparo;
   onClose: () => void;
   onSave: (data: Partial<DisparoData>) => void;
@@ -342,6 +342,7 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
   onDelete?: () => void;
   content: Partial<DisparoContent>;
   onContentChange: (data: Partial<DisparoContent>) => void;
+  yampiSuggestion?: { faturamento: number; pedidos: number };
 }) {
   const [tab, setTab] = useState<'resultado' | 'conteudo'>('resultado');
   const [form, setForm] = useState<Partial<DisparoData>>({
@@ -508,6 +509,32 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
 
       {/* ── Resultado tab ── */}
       {tab === 'resultado' && (<>
+
+      {/* ── Banner Yampi ── */}
+      {yampiSuggestion && yampiSuggestion.faturamento > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-xl flex items-center justify-between gap-3"
+          style={{ backgroundColor: 'rgba(212,168,67,0.07)', border: '1px solid rgba(212,168,67,0.25)' }}>
+          <div className="flex items-center gap-2.5">
+            <Zap size={14} style={{ color: '#D4A843' }} />
+            <div>
+              <p className="text-xs font-semibold" style={{ color: '#D4A843' }}>Dados calculados pela Yampi</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8A8A8A' }}>
+                {fmt(yampiSuggestion.faturamento)} · {yampiSuggestion.pedidos} pedidos
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setForm((p) => ({
+              ...p,
+              faturamentoPago: yampiSuggestion.faturamento,
+              pedidos: yampiSuggestion.pedidos,
+            }))}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border shrink-0"
+            style={{ borderColor: '#D4A843', color: '#D4A843', backgroundColor: 'rgba(212,168,67,0.1)' }}>
+            Aplicar
+          </button>
+        </div>
+      )}
 
       {/* ── Banner modo multi-base ── */}
       {isMultiBase && (
@@ -706,11 +733,51 @@ function FillCard({ d, onClose, onSave, baseEntries, onAddBaseEntry, onUpdateBas
   );
 }
 
+// ── Tipo retorno da API de atribuição ─────────────────────────────────────────
+interface AtribItem { id: string; faturamento: number; pedidos: number; }
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function DisparosPage() {
-  const { month, year } = useBrand();
+  const { brand, month, year } = useBrand();
   const [openFill, setOpenFill] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // ── Yampi attribution state ────────────────────────────────────────────────
+  const [yampiMap, setYampiMap]       = useState<Map<string, AtribItem>>(new Map());
+  const [yampiStatus, setYampiStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [yampiError, setYampiError]   = useState('');
+
+  async function syncYampi() {
+    setYampiStatus('loading');
+    setYampiError('');
+    try {
+      const res = await fetch(`/api/atribuicao?month=${month}&year=${year}&brand=${brand.id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as AtribItem[];
+      const map = new Map<string, AtribItem>();
+      for (const item of data) map.set(item.id, item);
+      setYampiMap(map);
+      setYampiStatus('done');
+    } catch (e) {
+      setYampiError(e instanceof Error ? e.message : 'Erro desconhecido');
+      setYampiStatus('error');
+    }
+  }
+
+  // Carrega na montagem e quando mês/ano/marca mudam
+  useEffect(() => { syncYampi(); }, [month, year, brand.id]);
+
+  // Re-sync automático quando o painel de edição fecha
+  // Dá 1.5s pro Supabase salvar o content antes de buscar
+  const prevOpenFill = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevOpenFill.current !== null && openFill === null) {
+      const timer = setTimeout(() => syncYampi(), 1500);
+      return () => clearTimeout(timer);
+    }
+    prevOpenFill.current = openFill;
+  }, [openFill]);
+
   const {
     getDisparos, updateDisparo, addDisparo, removeDisparo,
     addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
@@ -732,6 +799,28 @@ export default function DisparosPage() {
     <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
       <Header title="Disparos" />
       <main className="p-4 md:p-8 flex flex-col gap-4">
+
+        {/* ── Barra de sync Yampi ── */}
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl border"
+          style={{ backgroundColor: '#141414', borderColor: '#232323' }}>
+          <div className="flex items-center gap-2.5">
+            <Zap size={13} style={{ color: yampiStatus === 'done' ? '#D4A843' : '#5E5E5E' }} />
+            <span className="text-xs" style={{ color: '#8A8A8A' }}>
+              {yampiStatus === 'loading' && 'Buscando atribuições na Yampi...'}
+              {yampiStatus === 'done'    && `Atribuições carregadas · ${yampiMap.size} disparo(s)`}
+              {yampiStatus === 'error'   && <span style={{ color: '#F87171' }}>{yampiError}</span>}
+              {yampiStatus === 'idle'    && 'Atribuição Yampi'}
+            </span>
+          </div>
+          <button
+            onClick={syncYampi}
+            disabled={yampiStatus === 'loading'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border"
+            style={{ borderColor: '#2A2A2A', color: yampiStatus === 'loading' ? '#5E5E5E' : '#D4A843', backgroundColor: 'transparent' }}>
+            <RefreshCw size={11} className={yampiStatus === 'loading' ? 'animate-spin' : ''} />
+            {yampiStatus === 'loading' ? 'Buscando...' : 'Sincronizar'}
+          </button>
+        </div>
 
         <div className="rounded-2xl border overflow-hidden" style={CARD}>
           <div className="overflow-x-auto">
@@ -760,7 +849,12 @@ export default function DisparosPage() {
                 </tr>
               </thead>
               <tbody>
-                {disparos.map((d: Disparo) => (
+                {disparos.map((d: Disparo) => {
+                  const yampi = yampiMap.get(d.id);
+                  const fatDisplay  = d.faturamentoPago > 0 ? d.faturamentoPago : (yampi?.faturamento ?? 0);
+                  const pedDisplay  = d.pedidos > 0          ? d.pedidos          : (yampi?.pedidos ?? 0);
+                  const isYampiVal  = d.faturamentoPago === 0 && (yampi?.faturamento ?? 0) > 0;
+                  return (
                   <React.Fragment key={d.id}>
                     <tr className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
                       <td className="px-4 py-3">
@@ -783,11 +877,21 @@ export default function DisparosPage() {
                       <td className="px-4 py-3.5 text-right" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#3A3A3A' }}>
                         {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-medium" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#3A3A3A' }}>
-                        {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
+                      <td className="px-4 py-3.5 text-right font-medium">
+                        {fatDisplay > 0 ? (
+                          <span className="flex items-center justify-end gap-1.5">
+                            <span style={{ color: isYampiVal ? '#B8902E' : '#D4A843' }}>{fmt(fatDisplay)}</span>
+                            {isYampiVal && (
+                              <span className="text-[9px] px-1 py-0.5 rounded font-bold"
+                                style={{ backgroundColor: 'rgba(212,168,67,0.15)', color: '#D4A843', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.06em' }}>
+                                YAMPI
+                              </span>
+                            )}
+                          </span>
+                        ) : <span style={{ color: '#3A3A3A' }}>—</span>}
                       </td>
-                      <td className="px-4 py-3.5 text-right" style={{ color: d.pedidos > 0 ? '#D8D8D8' : '#3A3A3A' }}>
-                        {d.pedidos > 0 ? d.pedidos : '—'}
+                      <td className="px-4 py-3.5 text-right" style={{ color: pedDisplay > 0 ? (isYampiVal ? '#7A8A7A' : '#D8D8D8') : '#3A3A3A' }}>
+                        {pedDisplay > 0 ? pedDisplay : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-right"><RoasBadge roas={d.roas} /></td>
                       <td className="px-4 py-3.5 text-xs" style={{ color: d.taxaLeitura > 0 ? '#D8D8D8' : '#3A3A3A' }}>
@@ -839,12 +943,14 @@ export default function DisparosPage() {
                             onContentChange={(data) => updateDisparoContent(d.id, data)}
                             onUpdateBaseEntry={(idx, data) => updateBaseEntry(d.id, idx, data)}
                             onRemoveBaseEntry={(idx) => removeBaseEntry(d.id, idx)}
+                            yampiSuggestion={yampi}
                           />
                         </td>
                       </tr>
                     )}
                   </React.Fragment>
-                ))}
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '2px solid #3A3A3A', backgroundColor: '#161616' }}>

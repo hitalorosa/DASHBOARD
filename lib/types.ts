@@ -34,6 +34,10 @@ export interface Disparo {
   ticketMedio: number;
   roas: number;
   observacoes: string;
+  // Campos de atribuição automática via Yampi
+  cupom_usado?: string;       // Ex: "MAIO10"
+  utm_source?: string;        // Ex: "noue_crm"
+  utm_campaign?: string;      // Ex: "base_compradores_mai13"
 }
 
 export interface Base {
