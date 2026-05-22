@@ -409,6 +409,7 @@ export async function GET(req: NextRequest) {
       // Para cada pedido pago, descobre qual regra o atribuiu (ou não)
       const atribDetalhe: {
         id: unknown; valor: number; status: string;
+        created_at_sp: string; ts_utc: string;
         utm_source: unknown; utm_campaign: unknown; cupom: string;
         regra: 'utm' | 'cupom' | 'nao_atribuido'; disparo_id: string | null;
       }[] = [];
@@ -442,6 +443,8 @@ export async function GET(req: NextRequest) {
 
         atribDetalhe.push({
           id: o.id, valor, status: statusAlias,
+          created_at_sp: toIso(o.created_at),
+          ts_utc: new Date(orderUtcMs(o.created_at)).toISOString(),
           utm_source: o.utm_source, utm_campaign: o.utm_campaign, cupom,
           regra, disparo_id: disparoId,
         });
@@ -490,6 +493,7 @@ export async function GET(req: NextRequest) {
           .map(x => ({
             id: x.id, valor: x.valor, regra: x.regra,
             disparo_id: x.disparo_id, cupom: x.cupom,
+            created_at_sp: x.created_at_sp, ts_utc: x.ts_utc,
             utm_source: x.utm_source, utm_campaign: x.utm_campaign,
           })),
       });
