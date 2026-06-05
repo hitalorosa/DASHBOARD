@@ -102,8 +102,8 @@ export default function CentralPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard label="Investimento" value={totalInvest > 0 ? fmt(totalInvest) : 'A preencher'} sub="BRL acumulado" />
           <KpiCard label="Faturamento" value={totalFat > 0 ? fmt(totalFat) : 'A preencher'} sub="Status Pago" gold />
-          <KpiCard label="ROAS Geral" value={roasGeral > 0 ? `${roasGeral.toFixed(1)}x` : 'A preencher'} sub="Meta: 7x"
-            roasColor={roasGeral >= 7 ? 'green' : roasGeral >= 4 ? 'yellow' : roasGeral > 0 ? 'red' : 'muted'} />
+          <KpiCard label="ROAS Geral" value={roasGeral > 0 ? `${roasGeral.toFixed(1)}x` : 'A preencher'} sub={`Meta: ${brand.metaRoas}x`}
+            roasColor={roasGeral >= brand.metaRoas ? 'green' : roasGeral >= brand.metaRoas * 0.6 ? 'yellow' : roasGeral > 0 ? 'red' : 'muted'} />
           <KpiCard label="Meta %" value={metaPct > 0 ? `${metaPct.toFixed(1)}%` : '0%'} sub={`de ${fmt(brand.metaMensal)}`} progress={metaPct} />
           <KpiCard label="Disparos" value={String(disparos.length)} sub="no mês" />
           <KpiCard label="Melhor Disparo" value={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'Aguardando dados'} />

@@ -7,6 +7,7 @@ export interface Brand {
   storageKey: string;  // localStorage key
   supabaseRowId: number;
   metaMensal: number;  // monthly revenue goal in BRL
+  metaRoas: number;    // ROAS target (ex: 7 = 7x)
 }
 
 export const BRANDS: Brand[] = [
@@ -17,6 +18,7 @@ export const BRANDS: Brand[] = [
     storageKey: 'noue-dash-v1',
     supabaseRowId: 1,
     metaMensal: 200000,
+    metaRoas: 7,
   },
   {
     id: 'dryskin',
@@ -25,6 +27,7 @@ export const BRANDS: Brand[] = [
     storageKey: 'dryskin-dash-v1',
     supabaseRowId: 2,
     metaMensal: 25000,
+    metaRoas: 7,
   },
   {
     id: 'newhair',
@@ -32,7 +35,8 @@ export const BRANDS: Brand[] = [
     logo: '/logo-newhair.png',
     storageKey: 'newhair-dash-v1',
     supabaseRowId: 3,
-    metaMensal: 25000,
+    metaMensal: 150000,
+    metaRoas: 7,
   },
 ];
 
