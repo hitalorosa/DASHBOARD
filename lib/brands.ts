@@ -1,4 +1,4 @@
-export type BrandId = 'noue' | 'dryskin';
+export type BrandId = 'noue' | 'dryskin' | 'newhair';
 
 export interface Brand {
   id: BrandId;
@@ -24,6 +24,14 @@ export const BRANDS: Brand[] = [
     logo: '/logo-dryskin.png',
     storageKey: 'dryskin-dash-v1',
     supabaseRowId: 2,
+    metaMensal: 25000,
+  },
+  {
+    id: 'newhair',
+    name: 'New Hair',
+    logo: '/logo-newhair.png',
+    storageKey: 'newhair-dash-v1',
+    supabaseRowId: 3,
     metaMensal: 25000,
   },
 ];

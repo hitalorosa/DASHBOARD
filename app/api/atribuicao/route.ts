@@ -39,6 +39,12 @@ const BRAND_CONFIG: Record<string, { alias: string; token: string; secret: strin
     secret:     process.env.DRYSKIN_YAMPI_SECRET_KEY!,
     supabaseId: 2,
   },
+  newhair: {
+    alias:      process.env.NEWHAIR_YAMPI_ALIAS!,
+    token:      process.env.NEWHAIR_YAMPI_TOKEN!,
+    secret:     process.env.NEWHAIR_YAMPI_SECRET_KEY!,
+    supabaseId: 3,
+  },
 };
 
 // SP é sempre UTC-3 (Brasil aboliu horário de verão em 2019)
