@@ -249,6 +249,14 @@ function ContentTab({ content, onChange }: {
         </div>
       </div>
 
+      {/* Mensagem Grupo VIP */}
+      <div className="rounded-xl border p-4" style={{ backgroundColor: '#0F0F1A', borderColor: '#2D2A4A' }}>
+        <p className="mb-3" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7C6FCD' }}>
+          👑 Mensagem — Grupo VIP
+        </p>
+        {msgField('msgVip', 'Mensagem 4 — Convite VIP', 'Cole aqui a mensagem de convite para o Grupo VIP...', '#7C6FCD')}
+      </div>
+
       {/* UTMs */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -326,13 +334,6 @@ function ContentTab({ content, onChange }: {
         </div>
       </div>
 
-      {/* Mensagem Grupo VIP */}
-      <div className="rounded-xl border p-4" style={{ backgroundColor: '#0F0F1A', borderColor: '#2D2A4A' }}>
-        <p className="mb-3" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7C6FCD' }}>
-          👑 Mensagem — Grupo VIP
-        </p>
-        {msgField('msgVip', 'Convite VIP', 'Cole aqui a mensagem de convite para o Grupo VIP...', '#7C6FCD')}
-      </div>
     </div>
   );
 }
