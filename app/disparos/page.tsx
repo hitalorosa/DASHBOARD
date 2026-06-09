@@ -194,10 +194,10 @@ function ContentTab({ content, onChange }: {
     el.style.height = el.scrollHeight + 'px';
   };
 
-  const msgField = (key: 'msg1' | 'msg2' | 'msg3', label: string, hint: string) => (
+  const msgField = (key: 'msg1' | 'msg2' | 'msg3' | 'msgVip', label: string, hint: string, accentColor = '#D4A843') => (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#D4A843' }}>{label}</label>
+        <label style={{ ...MONO, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: accentColor }}>{label}</label>
         <button
           onClick={() => copy(content[key] ?? '', key)}
           className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
@@ -324,6 +324,14 @@ function ContentTab({ content, onChange }: {
             <span>{copied === 'cupom' ? 'Copiado' : 'Copiar'}</span>
           </button>
         </div>
+      </div>
+
+      {/* Mensagem Grupo VIP */}
+      <div className="rounded-xl border p-4" style={{ backgroundColor: '#0F0F1A', borderColor: '#2D2A4A' }}>
+        <p className="mb-3" style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7C6FCD' }}>
+          👑 Mensagem — Grupo VIP
+        </p>
+        {msgField('msgVip', 'Convite VIP', 'Cole aqui a mensagem de convite para o Grupo VIP...', '#7C6FCD')}
       </div>
     </div>
   );

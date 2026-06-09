@@ -44,6 +44,7 @@ export interface DisparoContent {
   msg3: string;
   utms: string[];   // list of UTM links, one per base
   cupom: string;
+  msgVip: string;   // mensagem de convite para o Grupo VIP
 }
 
 interface StoreState {
