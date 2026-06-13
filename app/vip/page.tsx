@@ -564,6 +564,8 @@ export default function VipPage() {
                           txn?.payment_method?.data?.alias ??
                           txn?.payment_method?.alias ??
                           txn?.payment_method?.name;
+                        // DEBUG TEMPORÁRIO — remover depois
+                        if (o.id === slice[0]?.id) console.log('[VIP txn]', JSON.stringify(o.transactions, null, 2));
 
                         return (
                           <div key={o.id}
