@@ -18,6 +18,41 @@ import { aggregateOrders, cartValue, orderValue, toIso, unwrapArray } from '@/li
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 }
+
+function timeAgo(date: Date): string {
+  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (mins < 1)   return 'agora';
+  if (mins < 60)  return `há ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)   return `há ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `há ${days}d`;
+}
+
+const STATUS_CFG: Record<string, { label: string; bg: string; color: string }> = {
+  paid:                { label: 'Pago',             bg: '#0F2E1A', color: '#4ADE80' },
+  payment_approved:    { label: 'Pagto. aprovado',  bg: '#0F2E1A', color: '#4ADE80' },
+  approved:            { label: 'Aprovado',          bg: '#0F2E1A', color: '#4ADE80' },
+  handling_products:   { label: 'Em produção',       bg: '#1C1A09', color: '#FCD34D' },
+  in_separation:       { label: 'Em separação',      bg: '#1C1A09', color: '#FCD34D' },
+  invoiced:            { label: 'Faturado',          bg: '#1C1A09', color: '#FCD34D' },
+  ready_for_shipping:  { label: 'Pronto p/ envio',   bg: '#0D1A2E', color: '#60A5FA' },
+  on_carriage:         { label: 'Saiu p/ entrega',   bg: '#0D1A2E', color: '#60A5FA' },
+  shipped:             { label: 'Enviado',            bg: '#0D1A2E', color: '#60A5FA' },
+  delivered:           { label: 'Entregue',          bg: '#0A2020', color: '#34D399' },
+  cancelled:           { label: 'Cancelado',         bg: '#2E0F0F', color: '#F87171' },
+};
+
+function StatusBadge({ alias }: { alias?: string }) {
+  if (!alias) return null;
+  const cfg = STATUS_CFG[alias] ?? { label: alias, bg: '#1A1A1A', color: '#9CA3AF' };
+  return (
+    <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
+      style={{ backgroundColor: cfg.bg, color: cfg.color, letterSpacing: '0.01em' }}>
+      {cfg.label}
+    </span>
+  );
+}
 function fmtSmall(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 }
@@ -413,50 +448,66 @@ export default function VipPage() {
 
             return (
               <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                    <colgroup>
-                      <col style={{ width: 100 }} />
-                      <col style={{ width: 90 }} />
-                      <col style={{ width: 160 }} />
-                      <col style={{ width: 44 }} />
-                      <col />
-                      <col style={{ width: 120 }} />
-                    </colgroup>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #262626' }}>
-                        {['Horário', 'Pedido', 'Cliente', 'UF', 'Produto(s)', 'Total'].map((h, i) => (
-                          <th key={h} className={`pb-3 ${i >= 5 ? 'text-right' : 'text-left'}`}
-                            style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {slice.map((o) => {
-                        const dt = new Date(toIso(o.created_at));
-                        const prodNames = unwrapArray<{ sku?: { title?: string }; name?: string }>(o.items)
-                          .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
-                        const addrArr = unwrapArray<{ uf?: string; state?: string }>(o.address);
-                        const state = addrArr[0]?.uf ?? addrArr[0]?.state ?? '—';
-                        return (
-                          <tr key={o.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                            <td className="py-2.5 pr-2 whitespace-nowrap" style={{ color: '#D4A843' }}>
-                              {format(dt, 'dd/MM HH:mm')}
-                            </td>
-                            <td className="py-2.5 pr-2" style={{ color: '#8A8A8A' }}>#{o.number}</td>
-                            <td className="py-2.5 pr-2 truncate" style={{ color: '#F2F2F2' }}>
+                {/* Header da tabela */}
+                <div className="grid gap-2 pb-2 mb-1 border-b" style={{ borderColor: '#262626', gridTemplateColumns: '110px 1fr auto auto 110px' }}>
+                  {['Data', 'Pedido', 'UF', 'Status', 'Total'].map((h, i) => (
+                    <p key={h} className={i >= 4 ? 'text-right' : ''}
+                      style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>
+                      {h}
+                    </p>
+                  ))}
+                </div>
+
+                {/* Rows */}
+                <div className="flex flex-col">
+                  {slice.map((o) => {
+                    const dt         = new Date(toIso(o.created_at));
+                    const prodNames  = unwrapArray<{ sku?: { title?: string }; name?: string }>(o.items)
+                      .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
+                    const addrArr    = unwrapArray<{ uf?: string; state?: string }>(o.address);
+                    const uf         = addrArr[0]?.uf ?? addrArr[0]?.state ?? '—';
+                    const statusAlias = (o.status as { data?: { alias?: string } } | undefined)?.data?.alias;
+
+                    return (
+                      <div key={o.id}
+                        className="grid items-center gap-2 py-3 border-b transition-colors"
+                        style={{ gridTemplateColumns: '110px 1fr auto auto 110px', borderColor: '#1C1C1C', cursor: 'default' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+
+                        {/* Data + tempo atrás */}
+                        <div className="flex flex-col gap-0.5">
+                          <span style={{ ...MONO, fontSize: 11, color: GOLD }}>{format(dt, 'dd/MM HH:mm')}</span>
+                          <span style={{ fontSize: 10, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
+                        </div>
+
+                        {/* Pedido + cliente + produto */}
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span style={{ ...MONO, fontSize: 11, color: '#8A8A8A' }}>#{o.number}</span>
+                            <span className="font-semibold truncate" style={{ fontSize: 12, color: '#F2F2F2' }}>
                               {o.customer?.data?.name ?? '—'}
-                            </td>
-                            <td className="py-2.5 pr-2" style={{ color: '#9CA3AF', fontWeight: 600 }}>{state}</td>
-                            <td className="py-2.5 pr-2 truncate" style={{ color: '#8A8A8A', fontSize: 12 }}>{prodNames || '—'}</td>
-                            <td className="py-2.5 text-right font-semibold" style={{ color: GOLD }}>{fmtSmall(orderValue(o))}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            </span>
+                          </div>
+                          <span className="truncate" style={{ fontSize: 11, color: '#5E5E5E' }}>{prodNames || '—'}</span>
+                        </div>
+
+                        {/* UF */}
+                        <span className="inline-flex items-center justify-center w-7 h-5 rounded text-xs font-bold"
+                          style={{ backgroundColor: '#1E1E1E', color: '#9CA3AF', letterSpacing: '0.04em' }}>
+                          {uf}
+                        </span>
+
+                        {/* Status */}
+                        <StatusBadge alias={statusAlias} />
+
+                        {/* Valor */}
+                        <p className="text-right font-semibold" style={{ fontSize: 13, color: GOLD }}>
+                          {fmtSmall(orderValue(o))}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* ── Rodapé de paginação ── */}
@@ -467,22 +518,32 @@ export default function VipPage() {
                     <button
                       onClick={() => setShowSizeMenu(v => !v)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
-                      style={{ backgroundColor: '#111111', borderColor: '#2A2A2A', color: '#9CA3AF' }}>
-                      {pageSize}
-                      <ChevronDown size={11} style={{ transform: showSizeMenu ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+                      style={{ backgroundColor: '#111111', borderColor: showSizeMenu ? '#3A3A3A' : '#2A2A2A', color: '#9CA3AF', transition: 'border-color .15s' }}>
+                      {pageSize} por página
+                      <ChevronDown size={11} style={{ transform: showSizeMenu ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }} />
                     </button>
-                    {showSizeMenu && (
-                      <div className="absolute bottom-full mb-1 left-0 rounded-xl border overflow-hidden z-20"
-                        style={{ backgroundColor: '#161616', borderColor: '#2A2A2A', minWidth: 72 }}>
-                        {[10, 20, 30, 50].map(s => (
-                          <button key={s} onClick={() => { setPageSize(s); setPage(1); setShowSizeMenu(false); }}
-                            className="w-full px-4 py-2 text-xs text-left transition-colors"
-                            style={{ color: s === pageSize ? '#D4A843' : '#9CA3AF', backgroundColor: s === pageSize ? '#1A1A1A' : 'transparent' }}>
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    {/* Dropdown sempre montado — anima com opacity + translateY */}
+                    <div
+                      className="absolute bottom-full mb-2 left-0 rounded-xl border overflow-hidden z-20"
+                      style={{
+                        backgroundColor: '#161616', borderColor: '#2A2A2A', minWidth: 130,
+                        opacity: showSizeMenu ? 1 : 0,
+                        transform: showSizeMenu ? 'translateY(0)' : 'translateY(6px)',
+                        pointerEvents: showSizeMenu ? 'auto' : 'none',
+                        transition: 'opacity .18s ease, transform .18s ease',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                      }}>
+                      {[10, 20, 30, 50].map(s => (
+                        <button key={s} onClick={() => { setPageSize(s); setPage(1); setShowSizeMenu(false); }}
+                          className="w-full px-4 py-2.5 text-xs text-left flex items-center justify-between"
+                          style={{ color: s === pageSize ? '#D4A843' : '#9CA3AF', backgroundColor: s === pageSize ? '#1E1E1E' : 'transparent', transition: 'background-color .1s' }}
+                          onMouseEnter={e => { if (s !== pageSize) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1A1A1A'; }}
+                          onMouseLeave={e => { if (s !== pageSize) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}>
+                          <span>{s} por página</span>
+                          {s === pageSize && <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#D4A843', display: 'inline-block' }} />}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Navegação de páginas */}
