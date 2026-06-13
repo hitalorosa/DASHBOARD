@@ -46,10 +46,18 @@ const STATUS_CFG: Record<string, { label: string; bg: string; color: string }> =
 // ── Ícones de forma de pagamento ─────────────────────────────────────────────
 
 function PaymentIcon({ method, brand }: { method?: string; brand?: string }) {
-  const b = (brand ?? '').toLowerCase();
+  const b = (brand ?? '').toLowerCase().replace(/[^a-z]/g, '');
   const m = (method ?? '').toLowerCase();
 
-  if (b === 'mastercard') return (
+  const isMaster = b.includes('master');
+  const isVisa   = b.includes('visa');
+  const isElo    = b === 'elo';
+  const isAmex   = b.includes('amex') || b.includes('american');
+  const isHiper  = b.includes('hiper');
+  const isPix    = m === 'pix' || b === 'pix';
+  const isBoleto = m === 'boleto' || b === 'boleto';
+
+  if (isMaster) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
       <circle cx="13" cy="11" r="5.5" fill="#EB001B"/>
@@ -58,35 +66,35 @@ function PaymentIcon({ method, brand }: { method?: string; brand?: string }) {
     </svg>
   );
 
-  if (b === 'visa') return (
+  if (isVisa) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
       <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="9" fill="#1A6BB5" letterSpacing="0.5">VISA</text>
     </svg>
   );
 
-  if (b === 'elo') return (
+  if (isElo) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
       <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="800" fontSize="9" fill="#FFD700">ELO</text>
     </svg>
   );
 
-  if (b === 'amex' || b === 'american_express') return (
+  if (isAmex) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#016FD0" stroke="#2A2A2A"/>
       <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="7.5" fill="#FFFFFF" letterSpacing="0.3">AMEX</text>
     </svg>
   );
 
-  if (b === 'hipercard') return (
+  if (isHiper) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
       <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="6.5" fill="#CC1720">HIPERCARD</text>
     </svg>
   );
 
-  if (m === 'pix') return (
+  if (isPix) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
       <path d="M16 5.5 l3.5 3.5 -3.5 3.5 -3.5-3.5Z M16 9.5 l3.5 3.5 -3.5 3.5 -3.5-3.5Z" fill="#32BCAD" opacity="0.9"/>
@@ -94,7 +102,7 @@ function PaymentIcon({ method, brand }: { method?: string; brand?: string }) {
     </svg>
   );
 
-  if (m === 'boleto') return (
+  if (isBoleto) return (
     <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
       <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
       {[6,8,10,12,14,16,18,20,22,24,26].map((x, i) => (
@@ -549,7 +557,13 @@ export default function VipPage() {
                         const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
                         const txn         = o.transactions?.data?.[0];
                         const payMethod   = txn?.method;
-                        const payBrand    = txn?.payment_method?.brand;
+                        const payBrand    =
+                          txn?.card_brand ??
+                          txn?.payment_method?.brand ??
+                          txn?.payment_method?.data?.brand ??
+                          txn?.payment_method?.data?.alias ??
+                          txn?.payment_method?.alias ??
+                          txn?.payment_method?.name;
 
                         return (
                           <div key={o.id}
