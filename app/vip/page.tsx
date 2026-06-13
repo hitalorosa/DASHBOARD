@@ -446,72 +446,86 @@ export default function VipPage() {
               return pages;
             }
 
+            // Colunas: Nº fixo | Cliente flex | Data fixa | Total fixo | Status fixo
+            const COLS = '88px 1fr 170px 120px 190px';
+
             return (
               <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
-                {/* Header */}
-                <div className="grid pb-3 mb-1 border-b" style={{ borderColor: '#262626', gridTemplateColumns: '1fr 160px 130px 180px' }}>
-                  {['Número do Pedido', 'Data', 'Total', 'Status'].map((h) => (
-                    <p key={h} style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>{h}</p>
-                  ))}
-                </div>
+                {/* wrapper com min-width garante que em zoom alto não colapsa */}
+                <div style={{ overflowX: 'auto' }}>
+                  <div style={{ minWidth: 680 }}>
 
-                {/* Rows */}
-                <div className="flex flex-col">
-                  {slice.map((o) => {
-                    const dt          = new Date(toIso(o.created_at));
-                    const addrArr     = unwrapArray<{ uf?: string; state?: string }>(o.address);
-                    const uf          = addrArr[0]?.uf ?? addrArr[0]?.state ?? '';
-                    const statusAlias = (o.status as { data?: { alias?: string } } | undefined)?.data?.alias;
-                    const utmSrc      = (o as unknown as Record<string, unknown>).utm_source as string | undefined;
-                    const utmCamp     = (o as unknown as Record<string, unknown>).utm_campaign as string | undefined;
-                    const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
+                    {/* Header */}
+                    <div className="grid pb-3 mb-1 border-b" style={{ borderColor: '#262626', gridTemplateColumns: COLS }}>
+                      {['Nº', 'Cliente', 'Data', 'Total', 'Status'].map((h) => (
+                        <p key={h} style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>{h}</p>
+                      ))}
+                    </div>
 
-                    return (
-                      <div key={o.id}
-                        className="grid items-center py-3 border-b"
-                        style={{ gridTemplateColumns: '1fr 160px 130px 180px', borderColor: '#1C1C1C', transition: 'background-color .12s' }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                    {/* Rows */}
+                    <div className="flex flex-col">
+                      {slice.map((o) => {
+                        const dt          = new Date(toIso(o.created_at));
+                        const addrArr     = unwrapArray<{ uf?: string; state?: string }>(o.address);
+                        const uf          = addrArr[0]?.uf ?? addrArr[0]?.state ?? '';
+                        const statusAlias = (o.status as { data?: { alias?: string } } | undefined)?.data?.alias;
+                        const utmSrc      = (o as unknown as Record<string, unknown>).utm_source as string | undefined;
+                        const utmCamp     = (o as unknown as Record<string, unknown>).utm_campaign as string | undefined;
+                        const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
 
-                        {/* Número do Pedido + Cliente + tag UTM */}
-                        <div className="flex flex-col gap-1 min-w-0 pr-4">
-                          <div className="flex items-baseline gap-2 min-w-0">
-                            <span className="font-bold shrink-0" style={{ fontSize: 13, color: '#F2F2F2' }}>#{o.number}</span>
-                            <span className="truncate" style={{ fontSize: 12, color: '#9CA3AF' }}>
-                              {o.customer?.data?.name ?? '—'}
+                        return (
+                          <div key={o.id}
+                            className="grid items-center py-3 border-b"
+                            style={{ gridTemplateColumns: COLS, borderColor: '#1C1C1C', transition: 'background-color .12s' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+
+                            {/* Nº do Pedido */}
+                            <span style={{ ...MONO, fontSize: 12, color: '#8A8A8A', fontWeight: 600 }}>
+                              #{o.number}
                             </span>
-                            {uf && (
-                              <span className="shrink-0 text-xs font-semibold" style={{ color: '#5E5E5E' }}>{uf}</span>
-                            )}
+
+                            {/* Cliente + UF + tag UTM */}
+                            <div className="flex flex-col gap-1 min-w-0 pr-6">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-semibold truncate" style={{ fontSize: 13, color: '#F2F2F2' }}>
+                                  {o.customer?.data?.name ?? '—'}
+                                </span>
+                                {uf && (
+                                  <span className="shrink-0 text-xs font-bold" style={{ color: '#5E5E5E' }}>{uf}</span>
+                                )}
+                              </div>
+                              {utmTag && (
+                                <span className="inline-flex self-start px-2 py-0.5 rounded"
+                                  style={{ backgroundColor: '#1A1A1A', color: '#6B7280', border: '1px solid #242424', fontFamily: 'monospace', fontSize: 10, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {utmTag.length > 36 ? utmTag.slice(0, 36) + '…' : utmTag}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Data + tempo atrás */}
+                            <div className="flex flex-col gap-0.5">
+                              <span style={{ fontSize: 12, color: '#D0D0D0' }}>{format(dt, 'dd/MM/yyyy HH:mm')}</span>
+                              <span style={{ fontSize: 11, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
+                            </div>
+
+                            {/* Total + tag -- */}
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
+                              <span className="inline-flex self-start px-2 py-0.5 rounded text-xs"
+                                style={{ backgroundColor: '#1A1A1A', color: '#5E5E5E', border: '1px solid #242424' }}>
+                                --
+                              </span>
+                            </div>
+
+                            {/* Status */}
+                            <StatusBadge alias={statusAlias} />
                           </div>
-                          {utmTag && (
-                            <span className="inline-flex self-start px-2 py-0.5 rounded text-xs truncate max-w-full"
-                              style={{ backgroundColor: '#1A1A1A', color: '#6B7280', border: '1px solid #2A2A2A', fontFamily: 'monospace', fontSize: 10 }}>
-                              {utmTag.length > 32 ? utmTag.slice(0, 32) + '…' : utmTag}
-                            </span>
-                          )}
-                        </div>
+                        );
+                      })}
+                    </div>
 
-                        {/* Data + tempo atrás */}
-                        <div className="flex flex-col gap-0.5">
-                          <span style={{ fontSize: 12, color: '#D0D0D0' }}>{format(dt, 'dd/MM/yyyy HH:mm')}</span>
-                          <span style={{ fontSize: 11, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
-                        </div>
-
-                        {/* Total + tag cupom (placeholder --) */}
-                        <div className="flex flex-col gap-1">
-                          <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
-                          <span className="inline-flex self-start items-center px-2 py-0.5 rounded text-xs font-medium"
-                            style={{ backgroundColor: '#1A1A1A', color: '#5E5E5E', border: '1px solid #2A2A2A' }}>
-                            --
-                          </span>
-                        </div>
-
-                        {/* Status */}
-                        <StatusBadge alias={statusAlias} />
-                      </div>
-                    );
-                  })}
+                  </div>
                 </div>
 
                 {/* ── Rodapé de paginação ── */}
