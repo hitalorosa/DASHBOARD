@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Cell,
 } from 'recharts';
-import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle, ChevronDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
@@ -130,6 +130,11 @@ export default function VipPage() {
   const [carts, setCarts]   = useState<YampiCart[]>([]);
   const [agg, setAgg]       = useState<ReturnType<typeof aggregateOrders> | null>(null);
 
+  // ── Paginação da tabela de pedidos ───────────────────────────────────────────
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage]         = useState(1);
+  const [showSizeMenu, setShowSizeMenu] = useState(false);
+
   const m = month + 1; // useBrand é 0-indexed
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
@@ -167,6 +172,7 @@ export default function VipPage() {
     setOrders((json.orders as YampiOrder[])   ?? []);
     setCarts((json.carts   as YampiCart[])    ?? []);
     setAgg(aggregateOrders((json.orders as YampiOrder[]) ?? []));
+    setPage(1); // reset paginação a cada nova sincronização
     setFetchedAt(json.fetchedAt as string);
     setError(null);
   }, [m, year]);
@@ -388,63 +394,139 @@ export default function VipPage() {
           </div>
 
           {/* ── Orders table ── */}
-          <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: 100 }} />   {/* Horário */}
-                  <col style={{ width: 90 }} />    {/* Pedido  */}
-                  <col style={{ width: 160 }} />   {/* Cliente */}
-                  <col style={{ width: 44 }} />    {/* UF      */}
-                  <col />                          {/* Produto */}
-                  <col style={{ width: 120 }} />   {/* Total   */}
-                </colgroup>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #262626' }}>
-                    {['Horário', 'Pedido', 'Cliente', 'UF', 'Produto(s)', 'Total'].map((h, i) => (
-                      <th key={h} className={`pb-3 ${i >= 5 ? 'text-right' : 'text-left'}`}
-                        style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...orders]
-                    .sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime())
-                    .map((o) => {
-                      const dt = new Date(toIso(o.created_at));
-                      const prodNames = unwrapArray<{ sku?: { title?: string }; name?: string }>(o.items)
-                        .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
-                      const addrArr = unwrapArray<{ uf?: string; state?: string }>(o.address);
-                      const state = addrArr[0]?.uf ?? addrArr[0]?.state ?? '—';
-                      return (
-                        <tr key={o.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                          <td className="py-2.5 pr-2 whitespace-nowrap" style={{ color: '#D4A843' }}>
-                            {format(dt, 'dd/MM HH:mm')}
-                          </td>
-                          <td className="py-2.5 pr-2" style={{ color: '#8A8A8A' }}>
-                            #{o.number}
-                          </td>
-                          <td className="py-2.5 pr-2 truncate" style={{ color: '#F2F2F2' }}>
-                            {o.customer?.data?.name ?? '—'}
-                          </td>
-                          <td className="py-2.5 pr-2" style={{ color: '#9CA3AF', fontWeight: 600 }}>
-                            {state}
-                          </td>
-                          <td className="py-2.5 pr-2 truncate" style={{ color: '#8A8A8A', fontSize: 12 }}>
-                            {prodNames || '—'}
-                          </td>
-                          <td className="py-2.5 text-right font-semibold" style={{ color: GOLD }}>
-                            {fmtSmall(orderValue(o))}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </Section>
+          {(() => {
+            const sorted     = [...orders].sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime());
+            const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+            const safePage   = Math.min(page, totalPages);
+            const slice      = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+            // Gera array de botões de página com ellipsis
+            function pageButtons(total: number, current: number): (number | '...')[] {
+              if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+              const pages: (number | '...')[] = [1];
+              if (current > 3) pages.push('...');
+              for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
+              if (current < total - 2) pages.push('...');
+              pages.push(total);
+              return pages;
+            }
+
+            return (
+              <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 160 }} />
+                      <col style={{ width: 44 }} />
+                      <col />
+                      <col style={{ width: 120 }} />
+                    </colgroup>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #262626' }}>
+                        {['Horário', 'Pedido', 'Cliente', 'UF', 'Produto(s)', 'Total'].map((h, i) => (
+                          <th key={h} className={`pb-3 ${i >= 5 ? 'text-right' : 'text-left'}`}
+                            style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slice.map((o) => {
+                        const dt = new Date(toIso(o.created_at));
+                        const prodNames = unwrapArray<{ sku?: { title?: string }; name?: string }>(o.items)
+                          .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
+                        const addrArr = unwrapArray<{ uf?: string; state?: string }>(o.address);
+                        const state = addrArr[0]?.uf ?? addrArr[0]?.state ?? '—';
+                        return (
+                          <tr key={o.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
+                            <td className="py-2.5 pr-2 whitespace-nowrap" style={{ color: '#D4A843' }}>
+                              {format(dt, 'dd/MM HH:mm')}
+                            </td>
+                            <td className="py-2.5 pr-2" style={{ color: '#8A8A8A' }}>#{o.number}</td>
+                            <td className="py-2.5 pr-2 truncate" style={{ color: '#F2F2F2' }}>
+                              {o.customer?.data?.name ?? '—'}
+                            </td>
+                            <td className="py-2.5 pr-2" style={{ color: '#9CA3AF', fontWeight: 600 }}>{state}</td>
+                            <td className="py-2.5 pr-2 truncate" style={{ color: '#8A8A8A', fontSize: 12 }}>{prodNames || '—'}</td>
+                            <td className="py-2.5 text-right font-semibold" style={{ color: GOLD }}>{fmtSmall(orderValue(o))}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── Rodapé de paginação ── */}
+                <div className="flex items-center justify-between pt-4 mt-2 border-t" style={{ borderColor: '#262626' }}>
+
+                  {/* Itens por página */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowSizeMenu(v => !v)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
+                      style={{ backgroundColor: '#111111', borderColor: '#2A2A2A', color: '#9CA3AF' }}>
+                      {pageSize}
+                      <ChevronDown size={11} style={{ transform: showSizeMenu ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+                    </button>
+                    {showSizeMenu && (
+                      <div className="absolute bottom-full mb-1 left-0 rounded-xl border overflow-hidden z-20"
+                        style={{ backgroundColor: '#161616', borderColor: '#2A2A2A', minWidth: 72 }}>
+                        {[10, 20, 30, 50].map(s => (
+                          <button key={s} onClick={() => { setPageSize(s); setPage(1); setShowSizeMenu(false); }}
+                            className="w-full px-4 py-2 text-xs text-left transition-colors"
+                            style={{ color: s === pageSize ? '#D4A843' : '#9CA3AF', backgroundColor: s === pageSize ? '#1A1A1A' : 'transparent' }}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Navegação de páginas */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={safePage === 1}
+                      className="px-2.5 py-1.5 rounded-lg text-xs border transition-colors"
+                      style={{ borderColor: '#2A2A2A', color: safePage === 1 ? '#3A3A3A' : '#9CA3AF', backgroundColor: '#111111' }}>
+                      ‹
+                    </button>
+                    {pageButtons(totalPages, safePage).map((p, i) =>
+                      p === '...'
+                        ? <span key={`e${i}`} className="px-1 text-xs" style={{ color: '#5E5E5E' }}>…</span>
+                        : (
+                          <button key={p} onClick={() => setPage(p)}
+                            className="w-8 py-1.5 rounded-lg text-xs border transition-colors"
+                            style={{
+                              borderColor: p === safePage ? '#D4A843' : '#2A2A2A',
+                              color: p === safePage ? '#D4A843' : '#9CA3AF',
+                              backgroundColor: p === safePage ? 'rgba(212,168,67,0.08)' : '#111111',
+                              fontWeight: p === safePage ? 600 : 400,
+                            }}>
+                            {p}
+                          </button>
+                        )
+                    )}
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={safePage === totalPages}
+                      className="px-2.5 py-1.5 rounded-lg text-xs border transition-colors"
+                      style={{ borderColor: '#2A2A2A', color: safePage === totalPages ? '#3A3A3A' : '#9CA3AF', backgroundColor: '#111111' }}>
+                      ›
+                    </button>
+                  </div>
+
+                  {/* Contador */}
+                  <p style={{ ...MONO, fontSize: 10, color: '#5E5E5E' }}>
+                    {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, orders.length)} de {orders.length}
+                  </p>
+                </div>
+              </Section>
+            );
+          })()}
 
           {/* ── Quebra Faturado vs Líquido ── */}
           {carts.length > 0 && (() => {
