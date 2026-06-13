@@ -446,20 +446,23 @@ export default function VipPage() {
               return pages;
             }
 
-            // Colunas: Nº fixo | Cliente flex | Data fixa | Total fixo | Status fixo
-            const COLS = '88px 1fr 170px 120px 190px';
+            // 6 colunas: Nº | Cliente(max 340px) | spacer(1fr absorve o vazio) | Data | Total | Status
+            const COLS = '88px minmax(200px,340px) 1fr 175px 125px 200px';
 
             return (
               <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
-                {/* wrapper com min-width garante que em zoom alto não colapsa */}
                 <div style={{ overflowX: 'auto' }}>
-                  <div style={{ minWidth: 680 }}>
+                  <div style={{ minWidth: 720 }}>
 
-                    {/* Header */}
-                    <div className="grid pb-3 mb-1 border-b" style={{ borderColor: '#262626', gridTemplateColumns: COLS }}>
-                      {['Nº', 'Cliente', 'Data', 'Total', 'Status'].map((h) => (
-                        <p key={h} style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>{h}</p>
-                      ))}
+                    {/* Header — 6 células, spacer vazio no meio */}
+                    <div className="grid pb-3 mb-1 border-b items-center"
+                      style={{ borderColor: '#262626', gridTemplateColumns: COLS }}>
+                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Nº</p>
+                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Cliente</p>
+                      <span /> {/* spacer */}
+                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Data</p>
+                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Total</p>
+                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Status</p>
                     </div>
 
                     {/* Rows */}
@@ -480,28 +483,27 @@ export default function VipPage() {
                             onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
 
-                            {/* Nº do Pedido */}
-                            <span style={{ ...MONO, fontSize: 12, color: '#8A8A8A', fontWeight: 600 }}>
-                              #{o.number}
-                            </span>
+                            {/* Nº */}
+                            <span style={{ ...MONO, fontSize: 12, color: '#8A8A8A', fontWeight: 600 }}>#{o.number}</span>
 
                             {/* Cliente + UF + tag UTM */}
-                            <div className="flex flex-col gap-1 min-w-0 pr-6">
+                            <div className="flex flex-col gap-1 min-w-0 pr-4">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="font-semibold truncate" style={{ fontSize: 13, color: '#F2F2F2' }}>
                                   {o.customer?.data?.name ?? '—'}
                                 </span>
-                                {uf && (
-                                  <span className="shrink-0 text-xs font-bold" style={{ color: '#5E5E5E' }}>{uf}</span>
-                                )}
+                                {uf && <span className="shrink-0 text-xs font-bold" style={{ color: '#5E5E5E' }}>{uf}</span>}
                               </div>
                               {utmTag && (
                                 <span className="inline-flex self-start px-2 py-0.5 rounded"
                                   style={{ backgroundColor: '#1A1A1A', color: '#6B7280', border: '1px solid #242424', fontFamily: 'monospace', fontSize: 10, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {utmTag.length > 36 ? utmTag.slice(0, 36) + '…' : utmTag}
+                                  {utmTag}
                                 </span>
                               )}
                             </div>
+
+                            {/* spacer vazio — absorve espaço extra */}
+                            <span />
 
                             {/* Data + tempo atrás */}
                             <div className="flex flex-col gap-0.5">
@@ -513,9 +515,7 @@ export default function VipPage() {
                             <div className="flex flex-col gap-1">
                               <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
                               <span className="inline-flex self-start px-2 py-0.5 rounded text-xs"
-                                style={{ backgroundColor: '#1A1A1A', color: '#5E5E5E', border: '1px solid #242424' }}>
-                                --
-                              </span>
+                                style={{ backgroundColor: '#1A1A1A', color: '#5E5E5E', border: '1px solid #242424' }}>--</span>
                             </div>
 
                             {/* Status */}
