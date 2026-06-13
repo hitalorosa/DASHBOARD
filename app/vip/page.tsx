@@ -555,17 +555,14 @@ export default function VipPage() {
                         const utmSrc      = (o as unknown as Record<string, unknown>).utm_source as string | undefined;
                         const utmCamp     = (o as unknown as Record<string, unknown>).utm_campaign as string | undefined;
                         const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
-                        const txn         = o.transactions?.data?.[0];
-                        const payMethod   = txn?.method;
-                        const payBrand    =
-                          txn?.card_brand ??
-                          txn?.payment_method?.brand ??
-                          txn?.payment_method?.data?.brand ??
-                          txn?.payment_method?.data?.alias ??
-                          txn?.payment_method?.alias ??
-                          txn?.payment_method?.name;
-                        // DEBUG TEMPORÁRIO — remover depois
-                        if (o.id === slice[0]?.id) console.log('[VIP txn]', JSON.stringify(o.transactions, null, 2));
+                        const txn      = o.transactions?.data?.[0];
+                        const pay      = txn?.payment?.data;
+                        const payBrand = pay?.alias;
+                        const payMethod =
+                          pay?.is_pix     ? 'pix'
+                          : pay?.is_billet  ? 'boleto'
+                          : pay?.is_credit_card ? 'credit_card'
+                          : undefined;
 
                         return (
                           <div key={o.id}

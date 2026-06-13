@@ -73,14 +73,18 @@ export interface YampiOrder {
   }[];
   transactions?: {
     data?: Array<{
-      method?:         string; // credit_card | pix | boleto | debit_card
-      card_brand?:     string; // campo direto que Dooki às vezes retorna
-      payment_method?: {
-        brand?: string;        // via include sem wrapping
-        data?:  { brand?: string; name?: string; alias?: string };
-        name?:  string;
-        alias?: string;
+      payment?: {
+        data?: {
+          alias?:             string;  // mastercard | visa | elo | amex | pix | boleto
+          name?:              string;
+          is_pix?:            boolean;
+          is_credit_card?:    boolean;
+          is_billet?:         boolean;
+        };
       };
+      billet_barcode?:   string | null;
+      installments?:     number;
+      truncated_card?:   string | null;
     }>;
   };
   tracking?: { utm_source?: string; utm_campaign?: string };
