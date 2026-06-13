@@ -43,6 +43,77 @@ const STATUS_CFG: Record<string, { label: string; bg: string; color: string }> =
   cancelled:           { label: 'Cancelado',         bg: '#2E0F0F', color: '#F87171' },
 };
 
+// ── Ícones de forma de pagamento ─────────────────────────────────────────────
+
+function PaymentIcon({ method, brand }: { method?: string; brand?: string }) {
+  const b = (brand ?? '').toLowerCase();
+  const m = (method ?? '').toLowerCase();
+
+  if (b === 'mastercard') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      <circle cx="13" cy="11" r="5.5" fill="#EB001B"/>
+      <circle cx="19" cy="11" r="5.5" fill="#F79E1B"/>
+      <path d="M16 6.8a5.5 5.5 0 0 1 0 8.4A5.5 5.5 0 0 1 16 6.8z" fill="#FF5F00"/>
+    </svg>
+  );
+
+  if (b === 'visa') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="9" fill="#1A6BB5" letterSpacing="0.5">VISA</text>
+    </svg>
+  );
+
+  if (b === 'elo') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="800" fontSize="9" fill="#FFD700">ELO</text>
+    </svg>
+  );
+
+  if (b === 'amex' || b === 'american_express') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#016FD0" stroke="#2A2A2A"/>
+      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="7.5" fill="#FFFFFF" letterSpacing="0.3">AMEX</text>
+    </svg>
+  );
+
+  if (b === 'hipercard') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="6.5" fill="#CC1720">HIPERCARD</text>
+    </svg>
+  );
+
+  if (m === 'pix') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      <path d="M16 5.5 l3.5 3.5 -3.5 3.5 -3.5-3.5Z M16 9.5 l3.5 3.5 -3.5 3.5 -3.5-3.5Z" fill="#32BCAD" opacity="0.9"/>
+      <path d="M12.5 9 l3.5 3.5 -3.5 3.5Z M19.5 9 l-3.5 3.5 3.5 3.5Z" fill="#32BCAD" opacity="0.5"/>
+    </svg>
+  );
+
+  if (m === 'boleto') return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      {[6,8,10,12,14,16,18,20,22,24,26].map((x, i) => (
+        <rect key={i} x={x} y="6" width={i % 3 === 0 ? 1.5 : 1} height="10" fill="#9CA3AF" opacity="0.8"/>
+      ))}
+    </svg>
+  );
+
+  // Genérico / crédito sem bandeira identificada
+  return (
+    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
+      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
+      <rect x="4" y="7" width="24" height="3" rx="1" fill="#2A2A2A"/>
+      <rect x="4" y="13" width="8" height="2" rx="0.5" fill="#2A2A2A"/>
+      <rect x="14" y="13" width="6" height="2" rx="0.5" fill="#2A2A2A"/>
+    </svg>
+  );
+}
+
 function StatusBadge({ alias }: { alias?: string }) {
   if (!alias) return null;
   const cfg = STATUS_CFG[alias] ?? { label: alias, bg: '#1A1A1A', color: '#9CA3AF' };
@@ -446,17 +517,18 @@ export default function VipPage() {
               return pages;
             }
 
-            // 6 colunas: Nº | Cliente(max 340px) | spacer(1fr absorve o vazio) | Data | Total | Status
-            const COLS = '88px minmax(200px,340px) 1fr 175px 125px 200px';
+            // 7 colunas: Ícone pagto | Nº | Cliente(max 320px) | spacer(1fr) | Data | Total | Status
+            const COLS = '44px 88px minmax(180px,320px) 1fr 175px 125px 200px';
 
             return (
               <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
                 <div style={{ overflowX: 'auto' }}>
                   <div style={{ minWidth: 720 }}>
 
-                    {/* Header — 6 células, spacer vazio no meio */}
+                    {/* Header — 7 células */}
                     <div className="grid pb-3 mb-1 border-b items-center"
                       style={{ borderColor: '#262626', gridTemplateColumns: COLS }}>
+                      <span /> {/* ícone — sem label */}
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Nº</p>
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Cliente</p>
                       <span /> {/* spacer */}
@@ -475,6 +547,9 @@ export default function VipPage() {
                         const utmSrc      = (o as unknown as Record<string, unknown>).utm_source as string | undefined;
                         const utmCamp     = (o as unknown as Record<string, unknown>).utm_campaign as string | undefined;
                         const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
+                        const txn         = o.transactions?.data?.[0];
+                        const payMethod   = txn?.method;
+                        const payBrand    = txn?.payment_method?.brand;
 
                         return (
                           <div key={o.id}
@@ -482,6 +557,11 @@ export default function VipPage() {
                             style={{ gridTemplateColumns: COLS, borderColor: '#1C1C1C', transition: 'background-color .12s' }}
                             onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+
+                            {/* Ícone de pagamento */}
+                            <div className="flex items-center">
+                              <PaymentIcon method={payMethod} brand={payBrand} />
+                            </div>
 
                             {/* Nº */}
                             <span style={{ ...MONO, fontSize: 12, color: '#8A8A8A', fontWeight: 600 }}>#{o.number}</span>
