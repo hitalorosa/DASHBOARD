@@ -448,63 +448,67 @@ export default function VipPage() {
 
             return (
               <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
-                {/* Header da tabela */}
-                <div className="grid gap-2 pb-2 mb-1 border-b" style={{ borderColor: '#262626', gridTemplateColumns: '110px 1fr auto auto 110px' }}>
-                  {['Data', 'Pedido', 'UF', 'Status', 'Total'].map((h, i) => (
-                    <p key={h} className={i >= 4 ? 'text-right' : ''}
-                      style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>
-                      {h}
-                    </p>
+                {/* Header */}
+                <div className="grid pb-3 mb-1 border-b" style={{ borderColor: '#262626', gridTemplateColumns: '1fr 160px 130px 180px' }}>
+                  {['Número do Pedido', 'Data', 'Total', 'Status'].map((h) => (
+                    <p key={h} style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>{h}</p>
                   ))}
                 </div>
 
                 {/* Rows */}
                 <div className="flex flex-col">
                   {slice.map((o) => {
-                    const dt         = new Date(toIso(o.created_at));
-                    const prodNames  = unwrapArray<{ sku?: { title?: string }; name?: string }>(o.items)
-                      .map((it) => it.sku?.title ?? it.name ?? '').join(', ');
-                    const addrArr    = unwrapArray<{ uf?: string; state?: string }>(o.address);
-                    const uf         = addrArr[0]?.uf ?? addrArr[0]?.state ?? '—';
+                    const dt          = new Date(toIso(o.created_at));
+                    const addrArr     = unwrapArray<{ uf?: string; state?: string }>(o.address);
+                    const uf          = addrArr[0]?.uf ?? addrArr[0]?.state ?? '';
                     const statusAlias = (o.status as { data?: { alias?: string } } | undefined)?.data?.alias;
+                    const utmSrc      = (o as unknown as Record<string, unknown>).utm_source as string | undefined;
+                    const utmCamp     = (o as unknown as Record<string, unknown>).utm_campaign as string | undefined;
+                    const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
 
                     return (
                       <div key={o.id}
-                        className="grid items-center gap-2 py-3 border-b transition-colors"
-                        style={{ gridTemplateColumns: '110px 1fr auto auto 110px', borderColor: '#1C1C1C', cursor: 'default' }}
+                        className="grid items-center py-3 border-b"
+                        style={{ gridTemplateColumns: '1fr 160px 130px 180px', borderColor: '#1C1C1C', transition: 'background-color .12s' }}
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
 
-                        {/* Data + tempo atrás */}
-                        <div className="flex flex-col gap-0.5">
-                          <span style={{ ...MONO, fontSize: 11, color: GOLD }}>{format(dt, 'dd/MM HH:mm')}</span>
-                          <span style={{ fontSize: 10, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
-                        </div>
-
-                        {/* Pedido + cliente + produto */}
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span style={{ ...MONO, fontSize: 11, color: '#8A8A8A' }}>#{o.number}</span>
-                            <span className="font-semibold truncate" style={{ fontSize: 12, color: '#F2F2F2' }}>
+                        {/* Número do Pedido + Cliente + tag UTM */}
+                        <div className="flex flex-col gap-1 min-w-0 pr-4">
+                          <div className="flex items-baseline gap-2 min-w-0">
+                            <span className="font-bold shrink-0" style={{ fontSize: 13, color: '#F2F2F2' }}>#{o.number}</span>
+                            <span className="truncate" style={{ fontSize: 12, color: '#9CA3AF' }}>
                               {o.customer?.data?.name ?? '—'}
                             </span>
+                            {uf && (
+                              <span className="shrink-0 text-xs font-semibold" style={{ color: '#5E5E5E' }}>{uf}</span>
+                            )}
                           </div>
-                          <span className="truncate" style={{ fontSize: 11, color: '#5E5E5E' }}>{prodNames || '—'}</span>
+                          {utmTag && (
+                            <span className="inline-flex self-start px-2 py-0.5 rounded text-xs truncate max-w-full"
+                              style={{ backgroundColor: '#1A1A1A', color: '#6B7280', border: '1px solid #2A2A2A', fontFamily: 'monospace', fontSize: 10 }}>
+                              {utmTag.length > 32 ? utmTag.slice(0, 32) + '…' : utmTag}
+                            </span>
+                          )}
                         </div>
 
-                        {/* UF */}
-                        <span className="inline-flex items-center justify-center w-7 h-5 rounded text-xs font-bold"
-                          style={{ backgroundColor: '#1E1E1E', color: '#9CA3AF', letterSpacing: '0.04em' }}>
-                          {uf}
-                        </span>
+                        {/* Data + tempo atrás */}
+                        <div className="flex flex-col gap-0.5">
+                          <span style={{ fontSize: 12, color: '#D0D0D0' }}>{format(dt, 'dd/MM/yyyy HH:mm')}</span>
+                          <span style={{ fontSize: 11, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
+                        </div>
+
+                        {/* Total + tag cupom (placeholder --) */}
+                        <div className="flex flex-col gap-1">
+                          <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
+                          <span className="inline-flex self-start items-center px-2 py-0.5 rounded text-xs font-medium"
+                            style={{ backgroundColor: '#1A1A1A', color: '#5E5E5E', border: '1px solid #2A2A2A' }}>
+                            --
+                          </span>
+                        </div>
 
                         {/* Status */}
                         <StatusBadge alias={statusAlias} />
-
-                        {/* Valor */}
-                        <p className="text-right font-semibold" style={{ fontSize: 13, color: GOLD }}>
-                          {fmtSmall(orderValue(o))}
-                        </p>
                       </div>
                     );
                   })}
