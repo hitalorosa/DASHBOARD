@@ -8,8 +8,8 @@ import { BrandProvider } from '@/lib/brand-context';
 import BrandStoreWrapper from '@/components/BrandStoreWrapper';
 
 export const metadata: Metadata = {
-  title: 'Dash Disparos — Nouê',
-  description: 'Dashboard de controle de disparos CRM — Nouê Cosméticos',
+  title: 'Vante Dashboard',
+  description: 'Dashboard de controle de disparos CRM — Vante',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
