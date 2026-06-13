@@ -71,6 +71,12 @@ export interface YampiOrder {
     sku_id?:   number;
     sku?:      { title?: string; sku?: string };
   }[];
+  transactions?: {
+    data?: Array<{
+      method?:         string; // credit_card | pix | boleto | debit_card
+      payment_method?: { brand?: string }; // mastercard | visa | elo | amex | hipercard
+    }>;
+  };
   tracking?: { utm_source?: string; utm_campaign?: string };
 }
 
@@ -248,7 +254,7 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
   const all = await fetchAllPages<YampiOrder>('search/orders', {
     'utm_source[]':   VIP_UTM.source,
     'utm_campaign[]': VIP_UTM.campaign,
-    'include':        'status,items,address',
+    'include':        'status,items,address,transactions',
   });
 
   const vip = all.filter(o => {
