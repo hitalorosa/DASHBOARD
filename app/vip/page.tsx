@@ -58,66 +58,73 @@ function PaymentIcon({ method, brand }: { method?: string; brand?: string }) {
   const isBoleto = m === 'boleto' || b === 'boleto';
 
   if (isMaster) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      <circle cx="13" cy="11" r="5.5" fill="#EB001B"/>
-      <circle cx="19" cy="11" r="5.5" fill="#F79E1B"/>
-      <path d="M16 6.8a5.5 5.5 0 0 1 0 8.4A5.5 5.5 0 0 1 16 6.8z" fill="#FF5F00"/>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
+      <circle cx="15" cy="13" r="7" fill="#EB001B"/>
+      <circle cx="23" cy="13" r="7" fill="#F79E1B"/>
+      <path d="M19 7.1a7 7 0 0 1 0 11.8A7 7 0 0 1 19 7.1z" fill="#FF5F00"/>
     </svg>
   );
 
   if (isVisa) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="9" fill="#1A6BB5" letterSpacing="0.5">VISA</text>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
+      <rect x="0" y="0" width="38" height="6" rx="0" fill="#1A1F71"/>
+      <rect x="0" y="20" width="38" height="6" rx="0" fill="#F7A600"/>
+      <rect x="0" y="0" width="38" height="5" rx="5" fill="#1A1F71"/>
+      <rect x="0" y="21" width="38" height="5" rx="0" fill="#F7A600"/>
+      <path d="M0 21 L38 21 L38 26 Q19 26 0 26 Z" fill="#F7A600"/>
+      <text x="19" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="11" fill="#1A1F71" letterSpacing="-0.5">VISA</text>
     </svg>
   );
 
   if (isElo) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="800" fontSize="9" fill="#FFD700">ELO</text>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
+      <text x="19" y="17.5" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="12" fill="#000000" letterSpacing="1">ELO</text>
     </svg>
   );
 
   if (isAmex) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#016FD0" stroke="#2A2A2A"/>
-      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="7.5" fill="#FFFFFF" letterSpacing="0.3">AMEX</text>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#016FD0"/>
+      <text x="19" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="9.5" fill="#FFFFFF" letterSpacing="0.8">AMEX</text>
     </svg>
   );
 
   if (isHiper) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      <text x="16" y="15" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="6.5" fill="#CC1720">HIPERCARD</text>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
+      <text x="19" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="6.5" fill="#CC1720" letterSpacing="0.5">HIPERCARD</text>
     </svg>
   );
 
   if (isPix) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      <path d="M16 5.5 l3.5 3.5 -3.5 3.5 -3.5-3.5Z M16 9.5 l3.5 3.5 -3.5 3.5 -3.5-3.5Z" fill="#32BCAD" opacity="0.9"/>
-      <path d="M12.5 9 l3.5 3.5 -3.5 3.5Z M19.5 9 l-3.5 3.5 3.5 3.5Z" fill="#32BCAD" opacity="0.5"/>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
+      {/* Símbolo Pix — 4 losangos em cruz */}
+      <path d="M19 5 L22.5 8.5 L19 12 L15.5 8.5 Z" fill="#32BCAD"/>
+      <path d="M22.5 8.5 L26 12 L22.5 15.5 L19 12 Z" fill="#32BCAD"/>
+      <path d="M19 12 L22.5 15.5 L19 19 L15.5 15.5 Z" fill="#32BCAD"/>
+      <path d="M15.5 8.5 L19 12 L15.5 15.5 L12 12 Z" fill="#32BCAD"/>
     </svg>
   );
 
   if (isBoleto) return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      {[6,8,10,12,14,16,18,20,22,24,26].map((x, i) => (
-        <rect key={i} x={x} y="6" width={i % 3 === 0 ? 1.5 : 1} height="10" fill="#9CA3AF" opacity="0.8"/>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
+      {[6,7.5,9,10.5,12,13.5,15,16.5,18,19.5,21,22.5,24,25.5,27,28.5,30,31.5].map((x, i) => (
+        <rect key={i} x={x} y="6" width={i % 4 === 0 ? 1.5 : 0.8} height="14" fill="#374151"/>
       ))}
     </svg>
   );
 
-  // Genérico / crédito sem bandeira identificada
   return (
-    <svg width="32" height="22" viewBox="0 0 32 22" fill="none">
-      <rect x="0.5" y="0.5" width="31" height="21" rx="3.5" fill="#1A1A1A" stroke="#2A2A2A"/>
-      <rect x="4" y="7" width="24" height="3" rx="1" fill="#2A2A2A"/>
-      <rect x="4" y="13" width="8" height="2" rx="0.5" fill="#2A2A2A"/>
-      <rect x="14" y="13" width="6" height="2" rx="0.5" fill="#2A2A2A"/>
+    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
+      <rect width="38" height="26" rx="5" fill="#FFFFFF" fillOpacity="0.06" stroke="#333" strokeWidth="0.5"/>
+      <rect x="5" y="9" width="28" height="3.5" rx="1" fill="#333"/>
+      <rect x="5" y="16" width="10" height="2" rx="0.5" fill="#333"/>
+      <rect x="17" y="16" width="8" height="2" rx="0.5" fill="#333"/>
     </svg>
   );
 }
@@ -525,21 +532,20 @@ export default function VipPage() {
               return pages;
             }
 
-            // 7 colunas: Ícone pagto | Nº | Cliente(max 320px) | spacer(1fr) | Data | Total | Status
-            const COLS = '44px 88px minmax(180px,320px) 1fr 175px 125px 200px';
+            // 6 colunas: Ícone pagto | Nº | Cliente(1fr — centro) | Data | Total | Status
+            const COLS = '44px 88px 1fr 175px 125px 200px';
 
             return (
               <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
                 <div style={{ overflowX: 'auto' }}>
                   <div style={{ minWidth: 720 }}>
 
-                    {/* Header — 7 células */}
+                    {/* Header — 6 células */}
                     <div className="grid pb-3 mb-1 border-b items-center"
                       style={{ borderColor: '#262626', gridTemplateColumns: COLS }}>
-                      <span /> {/* ícone — sem label */}
+                      <span />
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Nº</p>
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Cliente</p>
-                      <span /> {/* spacer */}
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Data</p>
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Total</p>
                       <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Status</p>
@@ -580,7 +586,7 @@ export default function VipPage() {
                             <span style={{ ...MONO, fontSize: 12, color: '#8A8A8A', fontWeight: 600 }}>#{o.number}</span>
 
                             {/* Cliente + UF + tag UTM */}
-                            <div className="flex flex-col gap-1 min-w-0 pr-4">
+                            <div className="flex flex-col gap-1 min-w-0 pr-6">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="font-semibold truncate" style={{ fontSize: 13, color: '#F2F2F2' }}>
                                   {o.customer?.data?.name ?? '—'}
@@ -594,9 +600,6 @@ export default function VipPage() {
                                 </span>
                               )}
                             </div>
-
-                            {/* spacer vazio — absorve espaço extra */}
-                            <span />
 
                             {/* Data + tempo atrás */}
                             <div className="flex flex-col gap-0.5">
