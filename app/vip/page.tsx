@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Cell,
 } from 'recharts';
-import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle, ChevronDown } from 'lucide-react';
+import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle, ChevronDown, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
@@ -212,6 +212,322 @@ function Skeleton() {
   );
 }
 
+// ── Order Drawer ─────────────────────────────────────────────────────────────
+
+function OrderDrawer({ order, orders, onClose }: {
+  order:   YampiOrder;
+  orders:  YampiOrder[];
+  onClose: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  const oRaw = order as unknown as Record<string, unknown>;
+
+  const txn       = order.transactions?.data?.[0];
+  const pay       = txn?.payment?.data;
+  const payBrand  = pay?.alias;
+  const payMethod = pay?.is_pix ? 'pix' : pay?.is_billet ? 'boleto' : pay?.is_credit_card ? 'credit_card' : undefined;
+  const statusAlias = (order.status as { data?: { alias?: string } } | undefined)?.data?.alias;
+
+  // Endereço de entrega (pode vir direto ou em {data:{...}})
+  const sa   = oRaw.shipping_address as Record<string, unknown> | undefined;
+  const addr = (sa?.data as Record<string, unknown> | undefined) ?? sa;
+
+  // Items
+  const rawItems = oRaw.items as unknown;
+  const items: Record<string, unknown>[] =
+    Array.isArray(rawItems)
+      ? (rawItems as Record<string, unknown>[])
+      : Array.isArray((rawItems as Record<string, unknown>)?.data)
+        ? ((rawItems as Record<string, unknown>).data as Record<string, unknown>[])
+        : [];
+
+  // Valores financeiros
+  const valueProducts = typeof order.value_products === 'number' ? order.value_products : null;
+  const valueDiscount = typeof order.value_discount === 'number' ? order.value_discount : null;
+  const valueShipping = typeof order.value_shipping === 'number' ? order.value_shipping : null;
+  const valueTotal    = orderValue(order);
+
+  const shippingCarrier = order.shipping_carrier ?? order.shipping_method;
+
+  // Histórico: outros pedidos do mesmo cliente no período carregado
+  const customerId    = order.customer?.data?.id;
+  const customerEmail = order.customer?.data?.email;
+  const otherOrders   = orders
+    .filter(o =>
+      o.id !== order.id &&
+      ((customerId    && o.customer?.data?.id    === customerId) ||
+       (customerEmail && o.customer?.data?.email === customerEmail))
+    )
+    .sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime());
+
+  const dt = new Date(toIso(order.created_at));
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 40,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(2px)',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.2s ease',
+        }}
+      />
+
+      {/* Painel */}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0,
+        width: 'min(600px, 95vw)',
+        zIndex: 50,
+        backgroundColor: '#111111',
+        borderLeft: '1px solid #1E1E1E',
+        overflowY: 'auto',
+        boxShadow: '-24px 0 64px rgba(0,0,0,0.55)',
+        display: 'flex',
+        flexDirection: 'column',
+        transform: visible ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.26s cubic-bezier(0.32,0.72,0,1)',
+      }}>
+
+        {/* Header sticky */}
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 2,
+          backgroundColor: '#111111',
+          borderBottom: '1px solid #1C1C1C',
+          padding: '18px 24px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#ECECEC', fontVariantNumeric: 'tabular-nums' }}>
+                Pedido #{order.number}
+              </span>
+              <StatusBadge alias={statusAlias} />
+            </div>
+            <span style={{ fontSize: 11, color: '#5E5E5E' }}>
+              {format(dt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '6px 8px', borderRadius: 8,
+              backgroundColor: '#1A1A1A', border: '1px solid #262626',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0,
+            }}
+          >
+            <X size={15} color="#6B7280" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Cliente · Pagamento · Entrega */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16,
+            backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E',
+            borderRadius: 12, padding: '16px 16px 14px',
+          }}>
+            <div>
+              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 10 }}>Cliente</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#F2F2F2', lineHeight: 1.4, marginBottom: 4 }}>
+                {order.customer?.data?.name ?? '—'}
+              </p>
+              {order.customer?.data?.email && (
+                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>{order.customer.data.email}</p>
+              )}
+              {order.customer?.data?.mobile && (
+                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>{order.customer.data.mobile}</p>
+              )}
+              {order.customer?.data?.tax_id && (
+                <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>CPF: {order.customer.data.tax_id}</p>
+              )}
+            </div>
+
+            <div>
+              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 10 }}>Pagamento</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <PaymentIcon method={payMethod} brand={payBrand} />
+                <span style={{ fontSize: 13, color: '#D0D0D0', fontWeight: 500 }}>
+                  {pay?.name ??
+                    (payMethod === 'pix' ? 'Pix' :
+                     payMethod === 'boleto' ? 'Boleto' :
+                     payBrand ?? '—')}
+                </span>
+              </div>
+              {txn?.installments && txn.installments > 1 && (
+                <p style={{ fontSize: 11, color: '#8A8A8A' }}>{txn.installments}x parcelas</p>
+              )}
+              {txn?.truncated_card && (
+                <p style={{ fontSize: 11, color: '#5E5E5E', ...MONO }}>•••• {txn.truncated_card}</p>
+              )}
+            </div>
+
+            <div>
+              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 10 }}>Entrega</p>
+              {addr ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <p style={{ fontSize: 12, color: '#D0D0D0' }}>
+                    {[addr.street, addr.number].filter(Boolean).join(', ')}
+                  </p>
+                  {!!addr.complement && (
+                    <p style={{ fontSize: 11, color: '#8A8A8A' }}>{addr.complement as string}</p>
+                  )}
+                  <p style={{ fontSize: 12, color: '#8A8A8A' }}>
+                    {[addr.city, addr.uf].filter(Boolean).join(' / ')}
+                  </p>
+                  {!!addr.zipcode && (
+                    <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>CEP: {addr.zipcode as string}</p>
+                  )}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: '#5E5E5E' }}>—</p>
+              )}
+              {shippingCarrier && (
+                <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 8, ...MONO }}>{shippingCarrier}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Valor Total */}
+          <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
+            <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>Valor Total</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {valueProducts !== null && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Produtos</span>
+                  <span style={{ fontSize: 13, color: '#D0D0D0' }}>{fmtSmall(valueProducts)}</span>
+                </div>
+              )}
+              {valueDiscount !== null && valueDiscount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Desconto</span>
+                  <span style={{ fontSize: 13, color: '#4ADE80' }}>- {fmtSmall(valueDiscount)}</span>
+                </div>
+              )}
+              {valueShipping !== null && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Frete</span>
+                  <span style={{ fontSize: 13, color: '#D0D0D0' }}>{fmtSmall(valueShipping)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #262626', paddingTop: 10, marginTop: 4 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#ECECEC' }}>Total</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: GOLD }}>{fmtSmall(valueTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Produtos */}
+          {items.length > 0 && (
+            <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
+              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
+                Produtos · {items.length} {items.length === 1 ? 'item' : 'itens'}
+              </p>
+              {items.map((item, i) => {
+                const skuData     = (item.sku as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+                const productData = (item.product as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+                const name        = (skuData?.title as string) || (productData?.name as string) || (item.name as string) || 'Produto';
+                const sku         = (skuData?.sku as string) ?? '';
+                const qty         = Number(item.quantity ?? 1);
+                const price       = parseFloat(String(item.price ?? 0));
+                return (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    padding: '10px 0',
+                    borderBottom: i < items.length - 1 ? '1px solid #1C1C1C' : 'none',
+                    gap: 12,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, color: '#D0D0D0', fontWeight: 500, lineHeight: 1.4 }}>{name}</p>
+                      {sku && <p style={{ fontSize: 10, color: '#5E5E5E', fontFamily: 'monospace', marginTop: 2 }}>SKU: {sku}</p>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, color: '#5E5E5E', whiteSpace: 'nowrap' }}>{qty}x {fmtSmall(price)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: GOLD, minWidth: 80, textAlign: 'right' }}>{fmtSmall(price * qty)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Histórico do cliente */}
+          <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
+            <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
+              Histórico do Cliente
+              {otherOrders.length > 0 && ` · ${otherOrders.length} pedido${otherOrders.length !== 1 ? 's' : ''} no período`}
+            </p>
+            {otherOrders.length === 0 ? (
+              <div style={{
+                padding: '12px 14px',
+                backgroundColor: 'rgba(212,168,67,0.04)',
+                border: '1px solid rgba(212,168,67,0.1)',
+                borderRadius: 8,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <Crown size={13} style={{ color: GOLD, opacity: 0.5, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: '#6B7280' }}>Nenhum outro pedido VIP deste cliente neste período.</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {otherOrders.map(other => {
+                  const otherStatus = (other.status as { data?: { alias?: string } } | undefined)?.data?.alias;
+                  const otherDt     = new Date(toIso(other.created_at));
+                  const otherTxn    = other.transactions?.data?.[0];
+                  const otherPay    = otherTxn?.payment?.data;
+                  const otherMethod = otherPay?.is_pix ? 'pix' : otherPay?.is_billet ? 'boleto' : otherPay?.is_credit_card ? 'credit_card' : undefined;
+                  const otherBrand  = otherPay?.alias;
+                  return (
+                    <div key={other.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '10px 12px',
+                      backgroundColor: '#111111', border: '1px solid #262626', borderRadius: 8,
+                      gap: 12,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <PaymentIcon method={otherMethod} brand={otherBrand} />
+                        <div>
+                          <p style={{ fontSize: 13, color: '#F2F2F2', fontWeight: 500 }}>#{other.number}</p>
+                          <p style={{ fontSize: 11, color: '#5E5E5E' }}>{format(otherDt, 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        <span style={{ fontSize: 13, color: GOLD, fontWeight: 600 }}>{fmtSmall(orderValue(other))}</span>
+                        <StatusBadge alias={otherStatus} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function VipPage() {
@@ -250,6 +566,9 @@ export default function VipPage() {
   const [orders, setOrders] = useState<YampiOrder[]>([]);
   const [carts, setCarts]   = useState<YampiCart[]>([]);
   const [agg, setAgg]       = useState<ReturnType<typeof aggregateOrders> | null>(null);
+
+  // ── Drawer de pedido ─────────────────────────────────────────────────────────
+  const [selectedOrder, setSelectedOrder] = useState<YampiOrder | null>(null);
 
   // ── Paginação da tabela de pedidos ───────────────────────────────────────────
   const [pageSize, setPageSize] = useState(10);
@@ -579,7 +898,8 @@ export default function VipPage() {
                         return (
                           <div key={o.id}
                             className="grid items-center py-3 border-b"
-                            style={{ gridTemplateColumns: COLS, borderColor: '#1C1C1C', transition: 'background-color .12s' }}
+                            style={{ gridTemplateColumns: COLS, borderColor: '#1C1C1C', transition: 'background-color .12s', cursor: 'pointer' }}
+                            onClick={() => setSelectedOrder(o)}
                             onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
 
@@ -739,6 +1059,14 @@ export default function VipPage() {
 
         </>)}
       </main>
+
+      {selectedOrder && (
+        <OrderDrawer
+          order={selectedOrder}
+          orders={orders}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </div>
   );
 }

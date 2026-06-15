@@ -47,20 +47,25 @@ export function getMonthRange(month: number, year: number) {
 
 // Types
 export interface YampiOrder {
-  id:              number;
-  number:          number | string;
-  utm_source?:     string;
-  utm_campaign?:   string;
-  utm_medium?:     string;
-  value_total?:    number;
-  value_products?: number;
-  total?:          string;
-  created_at:      string | number | DookiDate;
+  id:                    number;
+  number:                number | string;
+  utm_source?:           string;
+  utm_campaign?:         string;
+  utm_medium?:           string;
+  value_total?:          number;
+  value_products?:       number;
+  value_discount?:       number;
+  value_shipping?:       number;
+  value_wallet_discount?: number;
+  total?:                string;
+  created_at:            string | number | DookiDate;
+  shipping_carrier?:     string;
+  shipping_method?:      string;
   status?: {
     data?: { id: number; name: string; alias: string };
   };
   customer?: {
-    data?: { id: number; name: string; email?: string };
+    data?: { id: number; name: string; email?: string; mobile?: string; tax_id?: string };
   };
   address?:          { street?: string; city?: string; uf?: string; state?: string; state_code?: string }[];
   shipping_address?: { street?: string; city?: string; uf?: string; state?: string; state_code?: string }
