@@ -127,17 +127,36 @@ function authHeaders(): HeadersInit {
   };
 }
 
-// Dooki v2 envolve todas as relacoes em { data: [...] } — mesmo quando nao solicitadas
-// Ex: items: { data: [] }, address: { data: [] }
+// Dooki v2 envolve relacoes em { data: [...] } ou { data: {...} } (objeto unico)
 export function unwrapArray<T>(val: unknown): T[] {
   if (!val) return [];
   if (Array.isArray(val)) return val as T[];
   if (typeof val === 'object') {
     const v = val as Record<string, unknown>;
-    if (Array.isArray(v.data))  return v.data  as T[];
-    if (Array.isArray(v.items)) return v.items as T[];
+    if (Array.isArray(v.data))                                    return v.data  as T[];
+    if (Array.isArray(v.items))                                   return v.items as T[];
+    // address vem como { data: { city, state, uf, ... } } — objeto único, nao array
+    if (v.data && typeof v.data === 'object' && !Array.isArray(v.data)) return [v.data] as T[];
   }
   return [];
+}
+
+// Mapa de nomes completos de estados BR para sigla (caso Dooki retorne nome por extenso)
+const STATE_ABBR: Record<string, string> = {
+  'Acre':'AC','Alagoas':'AL','Amapá':'AP','Amazonas':'AM','Bahia':'BA',
+  'Ceará':'CE','Distrito Federal':'DF','Espírito Santo':'ES','Goiás':'GO',
+  'Maranhão':'MA','Mato Grosso':'MT','Mato Grosso do Sul':'MS','Minas Gerais':'MG',
+  'Pará':'PA','Paraíba':'PB','Paraná':'PR','Pernambuco':'PE','Piauí':'PI',
+  'Rio de Janeiro':'RJ','Rio Grande do Norte':'RN','Rio Grande do Sul':'RS',
+  'Rondônia':'RO','Roraima':'RR','Santa Catarina':'SC','São Paulo':'SP',
+  'Sergipe':'SE','Tocantins':'TO',
+};
+
+function toStateAbbr(raw: string | undefined): string {
+  if (!raw) return 'N/A';
+  const s = raw.trim();
+  if (s.length === 2) return s.toUpperCase();
+  return STATE_ABBR[s] ?? s.slice(0, 2).toUpperCase();
 }
 
 // Filtros client-side
@@ -333,11 +352,11 @@ export function aggregateOrders(orders: YampiOrder[]) {
   const byState = new Map<string, { pedidos: number; faturamento: number }>();
   for (const o of orders) {
     const addrRaw = unwrapArray<Record<string, unknown>>(o.address)[0];
-    const st =
+    const rawState =
       (addrRaw?.uf         as string | undefined) ??
       (addrRaw?.state_code as string | undefined) ??
-      (addrRaw?.state      as string | undefined) ??
-      'N/A';
+      (addrRaw?.state      as string | undefined);
+    const st  = toStateAbbr(rawState);
     const cur = byState.get(st) ?? { pedidos: 0, faturamento: 0 };
     cur.pedidos++;
     cur.faturamento += orderValue(o);
@@ -347,9 +366,9 @@ export function aggregateOrders(orders: YampiOrder[]) {
   const byProduct = new Map<string, { quantidade: number; faturamento: number }>();
   for (const o of orders) {
     for (const item of unwrapArray<Record<string, unknown>>(o.items)) {
-      const skuRaw     = item.sku     as Record<string, unknown> | undefined;
-      const skuData    = skuRaw?.data as Record<string, unknown> | undefined;
-      const productRaw = item.product as Record<string, unknown> | undefined;
+      const skuRaw      = item.sku      as Record<string, unknown> | undefined;
+      const skuData     = skuRaw?.data  as Record<string, unknown> | undefined;
+      const productRaw  = item.product  as Record<string, unknown> | undefined;
       const productData = productRaw?.data as Record<string, unknown> | undefined;
       const name =
         (skuData?.title    as string | undefined) ??
@@ -357,8 +376,16 @@ export function aggregateOrders(orders: YampiOrder[]) {
         (productData?.name as string | undefined) ??
         (item.name         as string | undefined) ??
         'Produto';
-      const price = typeof item.price === 'number' ? item.price as number : parseFloat(String(item.price ?? 0));
+      // unit_price é o preço unitário sem desconto; price pode ser o total da linha
+      const unitPrice =
+        typeof item.unit_price === 'number' ? item.unit_price as number :
+        parseFloat(String(item.unit_price ?? 0));
+      const linePrice =
+        typeof item.price === 'number' ? item.price as number :
+        parseFloat(String(item.price ?? 0));
       const qty   = (item.quantity as number | undefined) ?? 1;
+      // Usa unit_price se disponível; senão divide linePrice / qty para evitar double-count
+      const price = unitPrice > 0 ? unitPrice : linePrice / Math.max(qty, 1);
       const cur   = byProduct.get(name) ?? { quantidade: 0, faturamento: 0 };
       cur.quantidade  += qty;
       cur.faturamento += price * qty;
