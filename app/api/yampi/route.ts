@@ -65,6 +65,24 @@ export async function GET(req: NextRequest) {
     const agg = aggregateOrders(orders);
     console.log(`[API] ${key} → ${orders.length} pedidos | ${carts.length} carrinhos`);
 
+    // DEBUG CUPOM: inspeciona campos relacionados a desconto/cupom no primeiro pedido com discount
+    const orderWithDiscount = (orders as unknown as Record<string,unknown>[]).find(o => {
+      const vd = o.value_discount as number | undefined;
+      return vd && vd > 0;
+    });
+    if (orderWithDiscount) {
+      const keys = Object.keys(orderWithDiscount);
+      const couponKeys = keys.filter(k => /coupon|discount|promo|voucher|cash/i.test(k));
+      console.log('[DEBUG cupom] keys com cupom/desconto:', couponKeys);
+      console.log('[DEBUG cupom] coupons raw:', JSON.stringify(orderWithDiscount.coupons));
+      console.log('[DEBUG cupom] coupon_code:', orderWithDiscount.coupon_code);
+      console.log('[DEBUG cupom] value_discount:', orderWithDiscount.value_discount);
+      console.log('[DEBUG cupom] value_cashback:', orderWithDiscount.value_cashback);
+      console.log('[DEBUG cupom] value_wallet_discount:', orderWithDiscount.value_wallet_discount);
+      console.log('[DEBUG cupom] delivery_date:', orderWithDiscount.delivery_date);
+      console.log('[DEBUG cupom] shipping_carrier:', orderWithDiscount.shipping_carrier);
+    }
+
     return NextResponse.json({
       ok: true, source: 'live',
       fetchedAt, orders, carts,
