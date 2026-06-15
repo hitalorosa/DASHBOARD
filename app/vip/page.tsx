@@ -260,18 +260,14 @@ function OrderDrawer({ order, orders, onClose }: {
   // Valores financeiros
   const valueProducts = typeof order.value_products === 'number' ? order.value_products : null;
   const valueDiscount = typeof order.value_discount === 'number' ? order.value_discount : null;
-  const valueShipping = typeof order.value_shipping === 'number' ? order.value_shipping : null;
+  const valueShipping = typeof order.value_shipment === 'number' ? order.value_shipment : null;
   const valueTotal    = orderValue(order);
 
-  const shippingCarrier = order.shipping_carrier ?? order.shipping_method;
-
-  // Rastreio
-  const trackingCode = order.tracking_code ?? null;
-  const trackingUrl  = order.tracking_url  ?? null;
-
-  // Cupom
-  const couponList = order.coupons?.data ?? [];
-  const couponCode = order.coupon_code ?? couponList[0]?.code ?? null;
+  // Campos reais do Dooki v2
+  const shippingCarrier = order.shipment_service ?? null;
+  const trackingCode    = order.track_code ?? null;
+  const trackingUrl     = order.track_url  ?? null;
+  const couponCode      = order.promocode  ?? null;
 
   // Histórico: outros pedidos do mesmo cliente no período carregado
   const customerId    = order.customer?.data?.id;
@@ -363,11 +359,13 @@ function OrderDrawer({ order, orders, onClose }: {
               {order.customer?.data?.email && (
                 <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>{order.customer.data.email}</p>
               )}
-              {order.customer?.data?.mobile && (
-                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>{order.customer.data.mobile}</p>
+              {order.customer?.data?.phone?.number && (
+                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>
+                  ({order.customer.data.phone.area_code}) {order.customer.data.phone.number}
+                </p>
               )}
-              {order.customer?.data?.tax_id && (
-                <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>CPF: {order.customer.data.tax_id}</p>
+              {order.customer?.data?.cpf && (
+                <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>CPF: {order.customer.data.cpf}</p>
               )}
             </div>
 
@@ -417,14 +415,14 @@ function OrderDrawer({ order, orders, onClose }: {
               ) : (
                 <p style={{ fontSize: 12, color: '#5E5E5E' }}>—</p>
               )}
-              {(order.delivery_time ?? order.shipping_days) && (
+              {order.days_delivery != null && order.days_delivery > 0 && (
                 <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>
-                  Prazo: {order.delivery_time ?? order.shipping_days} dias
+                  Prazo: {order.days_delivery} dias
                 </p>
               )}
-              {(order.delivery_date ?? order.delivery_forecast) && (
+              {order.date_delivery && (
                 <p style={{ fontSize: 11, color: '#8A8A8A' }}>
-                  Prev.: {format(parseISO((order.delivery_date ?? order.delivery_forecast)!.slice(0, 10)), 'dd/MM/yyyy', { locale: ptBR })}
+                  Prev.: {order.date_delivery.includes('/') ? order.date_delivery : format(parseISO(order.date_delivery.slice(0, 10)), 'dd/MM/yyyy', { locale: ptBR })}
                 </p>
               )}
               {shippingCarrier && (
@@ -1010,7 +1008,7 @@ export default function VipPage() {
                             <div className="flex flex-col gap-1">
                               <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
                               {(() => {
-                                const coup = o.coupon_code ?? o.coupons?.data?.[0]?.code;
+                                const coup = o.promocode;
                                 return coup
                                   ? <span className="inline-flex self-start px-2 py-0.5 rounded"
                                       style={{ backgroundColor: 'rgba(74,222,128,0.07)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.18)', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>

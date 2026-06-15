@@ -58,14 +58,36 @@ export interface YampiOrder {
   value_shipping?:       number;
   value_wallet_discount?: number;
   total?:                string;
-  created_at:            string | number | DookiDate;
-  shipping_carrier?:     string;
-  shipping_method?:      string;
+  created_at:          string | number | DookiDate;
+  // Campos reais do Dooki v2 (nomes verificados via logs da API)
+  shipment_service?:   string | null;
+  shipment_icon_url?:  string | null;
+  shipment_cost?:      number | null;
+  track_code?:         string | null;
+  track_url?:          string | null;
+  date_delivery?:      string | null;
+  days_delivery?:      number | null;
+  promocode?:          string | null;
+  promocode_id?:       number | null;
+  value_shipment?:     number | null;
+  value_cashback?:     number | null;
   status?: {
     data?: { id: number; name: string; alias: string };
   };
   customer?: {
-    data?: { id: number; name: string; email?: string; mobile?: string; tax_id?: string };
+    data?: {
+      id:       number;
+      name:     string;
+      email?:   string;
+      cpf?:     string;
+      phone?: {
+        number?:          string;
+        formated_number?: string;
+        full_number?:     string;
+        area_code?:       string;
+        whatsapp_link?:   string;
+      };
+    };
   };
   address?:          { street?: string; city?: string; uf?: string; state?: string; state_code?: string }[];
   shipping_address?: { street?: string; city?: string; uf?: string; state?: string; state_code?: string }
@@ -89,30 +111,19 @@ export interface YampiOrder {
     data?: Array<{
       payment?: {
         data?: {
-          alias?:             string;  // mastercard | visa | elo | amex | pix | boleto
-          name?:              string;
-          is_pix?:            boolean;
-          is_credit_card?:    boolean;
-          is_billet?:         boolean;
+          alias?:          string;  // mastercard | visa | elo | amex | pix | boleto
+          name?:           string;
+          is_pix?:         boolean;
+          is_credit_card?: boolean;
+          is_billet?:      boolean;
         };
       };
-      billet_barcode?:   string | null;
-      installments?:     number;
-      truncated_card?:   string | null;
+      billet_barcode?: string | null;
+      installments?:   number;
+      truncated_card?: string | null;
     }>;
   };
   tracking?: { utm_source?: string; utm_campaign?: string };
-  tracking_code?: string | null;
-  tracking_url?:  string | null;
-  coupon_code?:   string | null;
-  coupons?: {
-    data?: Array<{ code?: string; discount?: number; type?: string }>;
-  };
-  delivery_date?:    string | null;
-  delivery_time?:    number | null;
-  shipping_days?:    number | null;
-  delivery_forecast?: string | null;
-  value_cashback?:   number | null;
 }
 
 export interface YampiCart {
