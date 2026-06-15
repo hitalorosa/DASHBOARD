@@ -62,7 +62,9 @@ export interface YampiOrder {
   customer?: {
     data?: { id: number; name: string; email?: string };
   };
-  address?: { street?: string; city?: string; uf?: string; state?: string; state_code?: string }[];
+  address?:          { street?: string; city?: string; uf?: string; state?: string; state_code?: string }[];
+  shipping_address?: { street?: string; city?: string; uf?: string; state?: string; state_code?: string }
+                   | { data?: { street?: string; city?: string; uf?: string; state?: string; state_code?: string } };
   items?: Array<{
     id?:       number;
     name?:     string;
@@ -285,7 +287,7 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
   const all = await fetchAllPages<YampiOrder>('search/orders', {
     'utm_source[]':   VIP_UTM.source,
     'utm_campaign[]': VIP_UTM.campaign,
-    'include':        'status,items,address,transactions',
+    'include':        'status,items,shipping_address,transactions',
   });
 
   const vip = all.filter(o => {
@@ -349,7 +351,10 @@ export function aggregateOrders(orders: YampiOrder[]) {
 
   const byState = new Map<string, { pedidos: number; faturamento: number }>();
   for (const o of orders) {
-    const addrRaw = unwrapArray<Record<string, unknown>>(o.address)[0];
+    // shipping_address pode vir como objeto direto ou como { data: {...} }
+    const sa      = o.shipping_address as Record<string, unknown> | undefined;
+    const addrRaw = (sa?.data as Record<string, unknown> | undefined) ?? sa
+                 ?? unwrapArray<Record<string, unknown>>(o.address)[0]; // fallback legacy
     const rawState =
       (addrRaw?.uf         as string | undefined) ??
       (addrRaw?.state_code as string | undefined) ??
