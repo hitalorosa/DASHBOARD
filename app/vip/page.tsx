@@ -265,6 +265,14 @@ function OrderDrawer({ order, orders, onClose }: {
 
   const shippingCarrier = order.shipping_carrier ?? order.shipping_method;
 
+  // Rastreio
+  const trackingCode = order.tracking_code ?? null;
+  const trackingUrl  = order.tracking_url  ?? null;
+
+  // Cupom
+  const couponList = order.coupons?.data ?? [];
+  const couponCode = order.coupon_code ?? couponList[0]?.code ?? null;
+
   // Histórico: outros pedidos do mesmo cliente no período carregado
   const customerId    = order.customer?.data?.id;
   const customerEmail = order.customer?.data?.email;
@@ -380,6 +388,11 @@ function OrderDrawer({ order, orders, onClose }: {
               {txn?.truncated_card && (
                 <p style={{ fontSize: 11, color: '#5E5E5E', ...MONO }}>•••• {txn.truncated_card}</p>
               )}
+              {couponCode && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '3px 8px', borderRadius: 4, backgroundColor: 'rgba(74,222,128,0.07)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                  <span style={{ fontSize: 10, color: '#4ADE80', ...MONO, letterSpacing: '0.06em' }}>CUPOM: {couponCode}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -470,6 +483,42 @@ function OrderDrawer({ order, orders, onClose }: {
               })}
             </div>
           )}
+
+          {/* Rastreamento */}
+          <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
+            <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
+              Rastreamento
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: '#8A8A8A' }}>Transportadora</span>
+                <span style={{ fontSize: 12, color: '#D0D0D0', ...MONO }}>
+                  {shippingCarrier ?? '—'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: '#8A8A8A' }}>Código de rastreio</span>
+                {trackingCode ? (
+                  <span style={{ fontSize: 12, color: '#60A5FA', ...MONO }}>{trackingCode}</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#3A3A3A', fontStyle: 'italic' }}>Não cadastrado</span>
+                )}
+              </div>
+              {trackingUrl && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: '#8A8A8A' }}>Link de rastreio</span>
+                  <a
+                    href={trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: '#60A5FA', textDecoration: 'underline', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {trackingUrl}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Histórico do cliente */}
           <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>

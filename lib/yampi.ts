@@ -102,6 +102,12 @@ export interface YampiOrder {
     }>;
   };
   tracking?: { utm_source?: string; utm_campaign?: string };
+  tracking_code?: string | null;
+  tracking_url?:  string | null;
+  coupon_code?:   string | null;
+  coupons?: {
+    data?: Array<{ code?: string; discount?: number; type?: string }>;
+  };
 }
 
 export interface YampiCart {
@@ -292,7 +298,7 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
   const all = await fetchAllPages<YampiOrder>('search/orders', {
     'utm_source[]':   VIP_UTM.source,
     'utm_campaign[]': VIP_UTM.campaign,
-    'include':        'status,items,shipping_address,transactions',
+    'include':        'status,items,shipping_address,transactions,coupons',
   });
 
   const vip = all.filter(o => {
