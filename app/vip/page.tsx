@@ -146,6 +146,25 @@ function fmtSmall(n: number) {
 const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
 const GOLD = '#D4A843';
 
+// Extrai string segura de campos Dooki que podem vir como string, number, ou objeto {data, code, name}
+function safeStr(v: unknown): string | null {
+  if (!v) return null;
+  if (typeof v === 'string') return v || null;
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    if (typeof o.code === 'string') return o.code || null;
+    if (typeof o.name === 'string') return o.name || null;
+    if (typeof o.data === 'string') return o.data || null;
+    if (o.data && typeof o.data === 'object') {
+      const d = o.data as Record<string, unknown>;
+      if (typeof d.code === 'string') return d.code || null;
+      if (typeof d.name === 'string') return d.name || null;
+    }
+  }
+  return null;
+}
+
 // ── KPI Card ──────────────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, sub, icon: Icon, color = '#ECECEC' }: {
@@ -263,11 +282,11 @@ function OrderDrawer({ order, orders, onClose }: {
   const valueShipping = typeof order.value_shipment === 'number' ? order.value_shipment : null;
   const valueTotal    = orderValue(order);
 
-  // Campos reais do Dooki v2
-  const shippingCarrier = order.shipment_service ?? null;
-  const trackingCode    = order.track_code ?? null;
-  const trackingUrl     = order.track_url  ?? null;
-  const couponCode      = order.promocode  ?? null;
+  // Campos reais do Dooki v2 — safeStr protege contra objeto {data:...}
+  const shippingCarrier = safeStr(order.shipment_service);
+  const trackingCode    = safeStr(order.track_code);
+  const trackingUrl     = safeStr(order.track_url);
+  const couponCode      = safeStr(order.promocode);
 
   // Histórico: outros pedidos do mesmo cliente no período carregado
   const customerId    = order.customer?.data?.id;
@@ -415,16 +434,19 @@ function OrderDrawer({ order, orders, onClose }: {
               ) : (
                 <p style={{ fontSize: 12, color: '#5E5E5E' }}>—</p>
               )}
-              {order.days_delivery != null && order.days_delivery > 0 && (
+              {typeof order.days_delivery === 'number' && order.days_delivery > 0 && (
                 <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>
                   Prazo: {order.days_delivery} dias
                 </p>
               )}
-              {order.date_delivery && (
-                <p style={{ fontSize: 11, color: '#8A8A8A' }}>
-                  Prev.: {order.date_delivery.includes('/') ? order.date_delivery : format(parseISO(order.date_delivery.slice(0, 10)), 'dd/MM/yyyy', { locale: ptBR })}
-                </p>
-              )}
+              {(() => {
+                const dd = safeStr(order.date_delivery);
+                if (!dd) return null;
+                try {
+                  const formatted = dd.includes('/') ? dd : format(parseISO(dd.slice(0, 10)), 'dd/MM/yyyy', { locale: ptBR });
+                  return <p style={{ fontSize: 11, color: '#8A8A8A' }}>Prev.: {formatted}</p>;
+                } catch { return null; }
+              })()}
               {shippingCarrier && (
                 <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 6, ...MONO }}>{shippingCarrier}</p>
               )}
@@ -1008,7 +1030,7 @@ export default function VipPage() {
                             <div className="flex flex-col gap-1">
                               <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
                               {(() => {
-                                const coup = o.promocode;
+                                const coup = safeStr(o.promocode);
                                 return coup
                                   ? <span className="inline-flex self-start px-2 py-0.5 rounded"
                                       style={{ backgroundColor: 'rgba(74,222,128,0.07)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.18)', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
