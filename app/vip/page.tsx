@@ -487,7 +487,11 @@ export default function VipPage() {
             </Section>
 
             {/* Products */}
-            <Section title="Produtos Mais Vendidos">
+            {(() => {
+              const totalProdutos = agg.byProduct.reduce((s, p) => s + p.faturamento, 0);
+              const cobertura = agg.totalFat > 0 ? Math.round((totalProdutos / agg.totalFat) * 100) : 0;
+              return (
+            <Section title={`Produtos Mais Vendidos · ${fmtSmall(totalProdutos)} em produtos (${cobertura}% do fat.)`}>
               {agg.byProduct.slice(0, 8).map((p, i) => {
                 const pct = agg.byProduct[0]?.faturamento > 0
                   ? (p.faturamento / agg.byProduct[0].faturamento) * 100 : 0;
@@ -512,6 +516,8 @@ export default function VipPage() {
                 );
               })}
             </Section>
+              );
+            })()}
           </div>
 
           {/* ── Orders table ── */}
