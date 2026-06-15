@@ -62,15 +62,22 @@ export interface YampiOrder {
   customer?: {
     data?: { id: number; name: string; email?: string };
   };
-  address?: { street?: string; city?: string; uf?: string; state?: string }[];
-  items?: {
+  address?: { street?: string; city?: string; uf?: string; state?: string; state_code?: string }[];
+  items?: Array<{
     id?:       number;
     name?:     string;
     quantity?: number;
     price?:    number | string;
     sku_id?:   number;
-    sku?:      { title?: string; sku?: string };
-  }[];
+    sku?: {
+      data?:   { title?: string; sku?: string };
+      title?:  string;
+      sku?:    string;
+    };
+    product?: {
+      data?: { id?: number; name?: string };
+    };
+  }>;
   transactions?: {
     data?: Array<{
       payment?: {
@@ -325,9 +332,13 @@ export function aggregateOrders(orders: YampiOrder[]) {
 
   const byState = new Map<string, { pedidos: number; faturamento: number }>();
   for (const o of orders) {
-    const addr = unwrapArray<{ uf?: string; state?: string }>(o.address)[0];
-    const st   = addr?.uf ?? addr?.state ?? 'N/A';
-    const cur  = byState.get(st) ?? { pedidos: 0, faturamento: 0 };
+    const addrRaw = unwrapArray<Record<string, unknown>>(o.address)[0];
+    const st =
+      (addrRaw?.uf         as string | undefined) ??
+      (addrRaw?.state_code as string | undefined) ??
+      (addrRaw?.state      as string | undefined) ??
+      'N/A';
+    const cur = byState.get(st) ?? { pedidos: 0, faturamento: 0 };
     cur.pedidos++;
     cur.faturamento += orderValue(o);
     byState.set(st, cur);
@@ -335,10 +346,19 @@ export function aggregateOrders(orders: YampiOrder[]) {
 
   const byProduct = new Map<string, { quantidade: number; faturamento: number }>();
   for (const o of orders) {
-    for (const item of unwrapArray<{ name?: string; quantity?: number; price?: number | string; sku?: { title?: string } }>(o.items)) {
-      const name  = item.sku?.title ?? item.name ?? 'Produto';
-      const price = typeof item.price === 'number' ? item.price : parseFloat(String(item.price ?? 0));
-      const qty   = item.quantity ?? 1;
+    for (const item of unwrapArray<Record<string, unknown>>(o.items)) {
+      const skuRaw     = item.sku     as Record<string, unknown> | undefined;
+      const skuData    = skuRaw?.data as Record<string, unknown> | undefined;
+      const productRaw = item.product as Record<string, unknown> | undefined;
+      const productData = productRaw?.data as Record<string, unknown> | undefined;
+      const name =
+        (skuData?.title    as string | undefined) ??
+        (skuRaw?.title     as string | undefined) ??
+        (productData?.name as string | undefined) ??
+        (item.name         as string | undefined) ??
+        'Produto';
+      const price = typeof item.price === 'number' ? item.price as number : parseFloat(String(item.price ?? 0));
+      const qty   = (item.quantity as number | undefined) ?? 1;
       const cur   = byProduct.get(name) ?? { quantidade: 0, faturamento: 0 };
       cur.quantidade  += qty;
       cur.faturamento += price * qty;
