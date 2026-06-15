@@ -255,29 +255,24 @@ async function fetchAllPages<T>(
     return results;
   }
 
-  // Fallback: paginacao por page number
+  // Fallback: paginacao por page number — 1 pagina por vez para evitar 429
   const total = getTotalPages(j1);
   if (total <= 1) return results;
 
-  const BATCH = 3;
-  for (let start = 2; start <= total; start += BATCH) {
-    const pages = Array.from({ length: Math.min(BATCH, total - start + 1) }, (_, i) => start + i);
-    const batch = await Promise.all(
-      pages.map(p => {
-        const pP   = new URLSearchParams({ ...params, limit: String(LIMIT), page: String(p) });
-        const urlP = `${BASE_URL}/${endpoint}?${pP}`;
-        return doFetch(urlP)
-          .then(async r => {
-            if (!r.ok) { console.error(`[Dooki] p${p} ${r.status}`); return [] as T[]; }
-            const j  = await r.json() as Record<string, unknown>;
-            const it = extractItems<T>(j);
-            console.log(`[Dooki] /${endpoint} p${p}/${total} — ${it.length} itens`);
-            return it;
-          })
-          .catch(e => { console.error(`[Dooki] p${p} erro:`, e); return [] as T[]; });
-      }),
-    );
-    results.push(...batch.flat());
+  for (let p = 2; p <= total; p++) {
+    await new Promise(r => setTimeout(r, 120)); // 120ms entre requests
+    const pP   = new URLSearchParams({ ...params, limit: String(LIMIT), page: String(p) });
+    const urlP = `${BASE_URL}/${endpoint}?${pP}`;
+    const rP   = await doFetch(urlP);
+    if (!rP.ok) {
+      console.error(`[Dooki] p${p}/${total} ${rP.status}`);
+      if (rP.status === 429) { console.warn('[Dooki] 429 — aguardando 2s'); await new Promise(r => setTimeout(r, 2000)); }
+      continue;
+    }
+    const jP  = await rP.json() as Record<string, unknown>;
+    const itP = extractItems<T>(jP);
+    console.log(`[Dooki] /${endpoint} p${p}/${total} — ${itP.length} itens`);
+    results.push(...itP);
   }
 
   return results;
@@ -306,11 +301,14 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
 
 export async function fetchVipCarts(dateMin: string, dateMax: string): Promise<YampiCart[]> {
   try {
+    // Filtra UTM no servidor para evitar buscar milhares de carrinhos
     const all = await fetchAllPages<YampiCart>('checkout/carts', {
-      'date': `created_at:${dateMin}|${dateMax}`,
+      'date':            `created_at:${dateMin}|${dateMax}`,
+      'utm_source[]':    VIP_UTM.source,
+      'utm_campaign[]':  VIP_UTM.campaign,
     });
     const vip = all.filter(c => cartIsVip(c));
-    console.log(`[Dooki] ${all.length} carrinhos no mes -> ${vip.length} VIP`);
+    console.log(`[Dooki] ${all.length} carrinhos VIP no servidor -> ${vip.length} confirmados`);
     return vip;
   } catch (e) {
     console.warn('[Dooki] /checkout/carts indisponivel:', e);
