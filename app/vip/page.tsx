@@ -902,9 +902,11 @@ export default function VipPage() {
             {(() => {
               const totalProdutos = agg.byProduct.reduce((s, p) => s + p.faturamento, 0);
               const cobertura = agg.totalFat > 0 ? Math.round((totalProdutos / agg.totalFat) * 100) : 0;
+              const SHOW = 12;
+              const restantes = Math.max(0, agg.byProduct.length - SHOW);
               return (
             <Section title={`Produtos Mais Vendidos · ${fmtSmall(totalProdutos)} em produtos (${cobertura}% do fat.)`}>
-              {agg.byProduct.slice(0, 8).map((p, i) => {
+              {agg.byProduct.slice(0, SHOW).map((p, i) => {
                 const pct = agg.byProduct[0]?.faturamento > 0
                   ? (p.faturamento / agg.byProduct[0].faturamento) * 100 : 0;
                 return (
@@ -927,6 +929,11 @@ export default function VipPage() {
                   </div>
                 );
               })}
+              {restantes > 0 && (
+                <p style={{ ...MONO, fontSize: 10, color: '#3A3A3A', marginTop: 8, textAlign: 'center' }}>
+                  + {restantes} produto{restantes !== 1 ? 's' : ''} com menor faturamento
+                </p>
+              )}
             </Section>
               );
             })()}
