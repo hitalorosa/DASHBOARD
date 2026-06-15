@@ -379,16 +379,11 @@ export function aggregateOrders(orders: YampiOrder[]) {
         (productData?.name as string | undefined) ??
         (item.name         as string | undefined) ??
         'Produto';
-      // unit_price é o preço unitário sem desconto; price pode ser o total da linha
-      const unitPrice =
-        typeof item.unit_price === 'number' ? item.unit_price as number :
-        parseFloat(String(item.unit_price ?? 0));
-      const linePrice =
+      // No Dooki v2 price = preço unitário; faturamento = price × qty
+      const price =
         typeof item.price === 'number' ? item.price as number :
         parseFloat(String(item.price ?? 0));
-      const qty   = (item.quantity as number | undefined) ?? 1;
-      // Usa unit_price se disponível; senão divide linePrice / qty para evitar double-count
-      const price = unitPrice > 0 ? unitPrice : linePrice / Math.max(qty, 1);
+      const qty = (item.quantity as number | undefined) ?? 1;
       const cur   = byProduct.get(name) ?? { quantidade: 0, faturamento: 0 };
       cur.quantidade  += qty;
       cur.faturamento += price * qty;
