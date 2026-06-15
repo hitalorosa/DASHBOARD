@@ -383,7 +383,9 @@ function OrderDrawer({ order, orders, onClose }: {
                 </span>
               </div>
               {txn?.installments && txn.installments > 1 && (
-                <p style={{ fontSize: 11, color: '#8A8A8A' }}>{txn.installments}x parcelas</p>
+                <p style={{ fontSize: 11, color: '#8A8A8A' }}>
+                  {txn.installments}x de {fmtSmall(valueTotal / txn.installments)}
+                </p>
               )}
               {txn?.truncated_card && (
                 <p style={{ fontSize: 11, color: '#5E5E5E', ...MONO }}>•••• {txn.truncated_card}</p>
@@ -415,8 +417,18 @@ function OrderDrawer({ order, orders, onClose }: {
               ) : (
                 <p style={{ fontSize: 12, color: '#5E5E5E' }}>—</p>
               )}
+              {(order.delivery_time ?? order.shipping_days) && (
+                <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>
+                  Prazo: {order.delivery_time ?? order.shipping_days} dias
+                </p>
+              )}
+              {(order.delivery_date ?? order.delivery_forecast) && (
+                <p style={{ fontSize: 11, color: '#8A8A8A' }}>
+                  Prev.: {format(parseISO((order.delivery_date ?? order.delivery_forecast)!.slice(0, 10)), 'dd/MM/yyyy', { locale: ptBR })}
+                </p>
+              )}
               {shippingCarrier && (
-                <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 8, ...MONO }}>{shippingCarrier}</p>
+                <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 6, ...MONO }}>{shippingCarrier}</p>
               )}
             </div>
           </div>
@@ -443,10 +455,22 @@ function OrderDrawer({ order, orders, onClose }: {
                   <span style={{ fontSize: 13, color: '#D0D0D0' }}>{fmtSmall(valueShipping)}</span>
                 </div>
               )}
+              {order.value_wallet_discount != null && order.value_wallet_discount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Saldo VIP usado</span>
+                  <span style={{ fontSize: 13, color: '#4ADE80' }}>- {fmtSmall(order.value_wallet_discount)}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #262626', paddingTop: 10, marginTop: 4 }}>
                 <span style={{ fontSize: 15, fontWeight: 700, color: '#ECECEC' }}>Total</span>
                 <span style={{ fontSize: 16, fontWeight: 700, color: GOLD }}>{fmtSmall(valueTotal)}</span>
               </div>
+              {order.value_cashback != null && order.value_cashback > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid #1C1C1C' }}>
+                  <span style={{ fontSize: 12, color: '#8A8A8A' }}>Cashback acumulado</span>
+                  <span style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>+ {fmtSmall(order.value_cashback)}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -982,11 +1006,18 @@ export default function VipPage() {
                               <span style={{ fontSize: 11, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
                             </div>
 
-                            {/* Total + tag -- */}
+                            {/* Total + cupom */}
                             <div className="flex flex-col gap-1">
                               <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
-                              <span className="inline-flex self-start px-2 py-0.5 rounded text-xs"
-                                style={{ backgroundColor: '#1A1A1A', color: '#5E5E5E', border: '1px solid #242424' }}>--</span>
+                              {(() => {
+                                const coup = o.coupon_code ?? o.coupons?.data?.[0]?.code;
+                                return coup
+                                  ? <span className="inline-flex self-start px-2 py-0.5 rounded"
+                                      style={{ backgroundColor: 'rgba(74,222,128,0.07)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.18)', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                                      {coup}
+                                    </span>
+                                  : null;
+                              })()}
                             </div>
 
                             {/* Status */}

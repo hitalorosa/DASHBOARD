@@ -108,6 +108,11 @@ export interface YampiOrder {
   coupons?: {
     data?: Array<{ code?: string; discount?: number; type?: string }>;
   };
+  delivery_date?:    string | null;
+  delivery_time?:    number | null;
+  shipping_days?:    number | null;
+  delivery_forecast?: string | null;
+  value_cashback?:   number | null;
 }
 
 export interface YampiCart {
@@ -298,7 +303,7 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
   const all = await fetchAllPages<YampiOrder>('search/orders', {
     'utm_source[]':   VIP_UTM.source,
     'utm_campaign[]': VIP_UTM.campaign,
-    'include':        'status,items,shipping_address,transactions,coupons',
+    'include':        'status,items,shipping_address,transactions,coupons,customer',
   });
 
   const vip = all.filter(o => {
