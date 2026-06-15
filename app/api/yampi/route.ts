@@ -64,6 +64,8 @@ export async function GET(req: NextRequest) {
 
     const agg = aggregateOrders(orders);
     console.log(`[API] ${key} → ${orders.length} pedidos | ${carts.length} carrinhos`);
+    if (orders[0]) console.log('[API] address[0] raw:', JSON.stringify(orders[0].address));
+    if (orders[0]) console.log('[API] items[0] raw:', JSON.stringify((orders[0] as unknown as Record<string,unknown>).items));
 
     return NextResponse.json({
       ok: true, source: 'live',
