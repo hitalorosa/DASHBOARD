@@ -1,8 +1,9 @@
 'use client';
 
-import Image from 'next/image';
+import Image      from 'next/image';
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useBrand } from '@/lib/brand-context';
 import { BRANDS } from '@/lib/brands';
 
@@ -16,6 +17,12 @@ const YEARS = [2026, 2027];
 export default function Header({ title }: { title: string }) {
   const { brand, setBrand, month, year, setMonth, setYear } = useBrand();
   const [brandOpen, setBrandOpen] = useState(false);
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  }
 
   return (
     <header
@@ -90,7 +97,7 @@ export default function Header({ title }: { title: string }) {
         />
       </div>
 
-      {/* Right — month / year selectors */}
+      {/* Right — month / year selectors + logout */}
       <div className="flex-1 flex items-center justify-end gap-1.5 md:gap-2">
         <select
           value={month}
@@ -108,6 +115,17 @@ export default function Header({ title }: { title: string }) {
         >
           {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
+
+        <button
+          onClick={handleLogout}
+          title="Sair"
+          className="flex items-center justify-center rounded-lg p-1.5 transition-colors"
+          style={{ color: '#5E5E5E', border: '1px solid #2A2A2A', backgroundColor: '#1A1A1A' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#5E5E5E'; }}
+        >
+          <LogOut size={14} />
+        </button>
       </div>
     </header>
   );

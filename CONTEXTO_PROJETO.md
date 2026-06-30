@@ -122,7 +122,7 @@ Login **server-side** via `middleware.ts` + `app/api/auth/login`:
 ```
 DASH DISPAROS/
 ├── app/
-│   ├── layout.tsx              # Root layout: AuthGuard → BrandProvider → BrandStoreWrapper → Sidebar
+│   ├── layout.tsx              # Root layout: Shell (pula sidebar no /login)
 │   ├── page.tsx                # Página Central (KPIs)
 │   ├── globals.css             # Design system: tokens CSS, .kpi-card, .disparo-row
 │   ├── disparos/page.tsx       # Disparos CRM
@@ -135,7 +135,7 @@ DASH DISPAROS/
 │       └── yampi-debug/route.ts  # Diagnóstico — DELETE após confirmar VIP estável
 │
 ├── components/
-│   ├── AuthGuard.tsx           # Tela de login simples (senha local)
+│   ├── Shell.tsx               # Wrapper de layout (esconde sidebar no /login)
 │   ├── Sidebar.tsx             # Navegação lateral (desktop)
 │   ├── BottomNav.tsx           # Navegação inferior (mobile)
 │   ├── Header.tsx              # Cabeçalho de página com seletor de mês/ano e marca
