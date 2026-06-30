@@ -9,12 +9,13 @@ function isAuthenticated(req: NextRequest): boolean {
   return req.cookies.get(SESSION_COOKIE)?.value === SESSION_VALUE;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rotas públicas — sem sessão necessária
   if (pathname.startsWith('/api/webhooks/'))  return NextResponse.next(); // HMAC próprio
-  if (pathname.startsWith('/api/auth/'))      return NextResponse.next(); // login/logout
+  // allowlist explícita (não prefixo) — evita que uma futura rota /api/auth/* nasça pública
+  if (pathname === '/api/auth/login' || pathname === '/api/auth/logout') return NextResponse.next();
   if (pathname === '/login')                  return NextResponse.next();
 
   // Arquivos estáticos passam direto

@@ -77,7 +77,7 @@ NEXT_PUBLIC_SUPABASE_URL=<url do projeto supabase>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key do supabase>
 SUPABASE_SERVICE_ROLE_KEY=<no .env.local / Vercel — só servidor>
 
-# Autenticação do dashboard (login server-side via middleware)
+# Autenticação do dashboard (login server-side via proxy.ts)
 DASHBOARD_PASSWORD=<senha de acesso — no .env.local / Vercel>
 DASHBOARD_SESSION_VALUE=<token aleatório longo p/ o cookie de sessão>
 
@@ -87,11 +87,11 @@ DOOKI_WEBHOOK_SECRET=<segredo gerado no admin Dooki>
 
 ### 2.4 Autenticação
 
-Login **server-side** via `middleware.ts` + `app/api/auth/login`:
+Login **server-side** via `proxy.ts` (convenção nova do Next 16 — ex-`middleware`) + `app/api/auth/login`:
 - A senha vive na env var `DASHBOARD_PASSWORD` (servidor) — nunca no bundle do browser.
 - Comparação com `timingSafeEqual` (anti timing-attack).
 - Sessão em cookie `dash-session` (`httpOnly`, `secure`, `sameSite=strict`), valor = `DASHBOARD_SESSION_VALUE`.
-- O `middleware.ts` protege todas as rotas exceto `/login`, `/api/auth/*` e `/api/webhooks/*`.
+- O `proxy.ts` protege todas as rotas exceto `/login`, `/api/auth/*` e `/api/webhooks/*`.
 
 > ⚠️ A senha NUNCA deve aparecer neste arquivo nem em qualquer código versionado.
 > Para trocar a senha: alterar `DASHBOARD_PASSWORD` no `.env.local` e na Vercel.

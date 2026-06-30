@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set('dash-session', SESSION_VALUE, {
-    httpOnly: true,   // JS do browser NÃO consegue ler este cookie
-    secure:   true,   // Só transmite via HTTPS
+    httpOnly: true,                                   // JS do browser NÃO consegue ler este cookie
+    secure:   process.env.NODE_ENV === 'production',  // HTTPS em prod; relaxa em http://localhost no dev
     sameSite: 'strict',
     maxAge:   60 * 60 * 24 * 30, // 30 dias
     path:     '/',
