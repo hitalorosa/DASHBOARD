@@ -62,24 +62,39 @@ all differ from your training data. Read the relevant guide in
 
 ### 2.3 Variáveis de Ambiente (Vercel)
 
+> ⚠️ **NUNCA colar valores reais aqui.** Este arquivo está no Git. Os valores
+> ficam APENAS no `.env.local` (local, gitignored) e no painel da Vercel.
+> Os placeholders abaixo são só a lista de chaves necessárias.
+
 ```env
 # Yampi / Dooki v2
 YAMPI_ALIAS=noue-cosmeticos
-YAMPI_TOKEN=3BoVPpsSXiYyHE8GVkWMIYeTtWcXDbDItu96hXXt
-YAMPI_SECRET_KEY=sk_Zbv1QobeoUbb5svbWWIn3D7DqGRz7SyibCrHQ
+YAMPI_TOKEN=<no .env.local / Vercel>
+YAMPI_SECRET_KEY=<no .env.local / Vercel>
 
 # Supabase (sincronização de dados entre dispositivos)
 NEXT_PUBLIC_SUPABASE_URL=<url do projeto supabase>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key do supabase>
+SUPABASE_SERVICE_ROLE_KEY=<no .env.local / Vercel — só servidor>
+
+# Autenticação do dashboard (login server-side via middleware)
+DASHBOARD_PASSWORD=<senha de acesso — no .env.local / Vercel>
+DASHBOARD_SESSION_VALUE=<token aleatório longo p/ o cookie de sessão>
+
+# Webhook Dooki
+DOOKI_WEBHOOK_SECRET=<segredo gerado no admin Dooki>
 ```
 
-### 2.4 Autenticação Local
+### 2.4 Autenticação
 
-Senha hardcoded no `AuthGuard.tsx`:
-```
-dash@26
-```
-Armazenada em `localStorage` com chave `noue-auth-v1`.
+Login **server-side** via `middleware.ts` + `app/api/auth/login`:
+- A senha vive na env var `DASHBOARD_PASSWORD` (servidor) — nunca no bundle do browser.
+- Comparação com `timingSafeEqual` (anti timing-attack).
+- Sessão em cookie `dash-session` (`httpOnly`, `secure`, `sameSite=strict`), valor = `DASHBOARD_SESSION_VALUE`.
+- O `middleware.ts` protege todas as rotas exceto `/login`, `/api/auth/*` e `/api/webhooks/*`.
+
+> ⚠️ A senha NUNCA deve aparecer neste arquivo nem em qualquer código versionado.
+> Para trocar a senha: alterar `DASHBOARD_PASSWORD` no `.env.local` e na Vercel.
 
 ---
 
@@ -382,8 +397,8 @@ GET /api/atribuicao?month=4&year=2026&brand=dryskin&debug=1
 **Env vars DrySkin (Vercel + .env.local):**
 ```
 DRYSKIN_YAMPI_ALIAS=dryskin-tratamento-para-o-suor-e-mau-odor-nas-axilas
-DRYSKIN_YAMPI_TOKEN=3BoVPpsSXiYyHE8GVkWMIYeTtWcXDbDItu96hXXt
-DRYSKIN_YAMPI_SECRET_KEY=sk_Zbv1QobeoUbb5svbWWIn3D7DqGRz7SyibCrHQ
+DRYSKIN_YAMPI_TOKEN=<no .env.local / Vercel>
+DRYSKIN_YAMPI_SECRET_KEY=<no .env.local / Vercel>
 ```
 (mesmo token/secret da Nouê — mesma conta Dooki, alias diferente)
 
@@ -518,7 +533,7 @@ Retorna (além dos dados normais):
 
 | Funcionalidade | Detalhe |
 |---------------|---------|
-| Autenticação | Senha `dash@26`, localStorage |
+| Autenticação | Login server-side (`DASHBOARD_PASSWORD` + cookie httpOnly) |
 | Multi-marca | Nouê + DrySkin, troca via Sidebar |
 | Central (KPIs) | Faturamento, ROAS, disparos do mês |
 | Disparos | Lista, edição inline, adição, remoção |
