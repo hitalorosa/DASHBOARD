@@ -524,7 +524,6 @@ export async function GET(req: NextRequest) {
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-    console.error('[atribuicao]', msg);
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
