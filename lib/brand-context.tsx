@@ -1,10 +1,10 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { Brand, BRANDS, DEFAULT_BRAND, findBrand, visibleBrands } from './brands';
+import { Brand, DEFAULT_BRAND, findBrand, visibleBrands } from './brands';
 import {
-  archiveModeFromUrl, readArchiveMode, writeArchiveMode,
-  UNLOCK_CLICKS, UNLOCK_WINDOW_MS,
+  archiveModeFromUrl, readArchiveMode, writeArchiveMode, shouldIgnoreKey,
+  SECRET_WORD, TYPING_RESET_MS,
 } from './archive-mode';
 
 interface BrandCtx {
@@ -16,11 +16,12 @@ interface BrandCtx {
   setYear: (y: number) => void;
   /** Lista de marcas para os seletores — já filtrada pelo modo arquivo. */
   brands: Brand[];
-  /** Modo arquivo destravado (dá acesso às marcas fora de operação). */
+  /** Modo arquivo ligado (dá acesso às marcas fora de operação). */
   archiveMode: boolean;
   setArchiveMode: (on: boolean) => void;
-  /** Registra um clique no logo — 5 em 3s destravam o modo arquivo. */
-  registerLogoClick: () => void;
+  /** Mensagem de confirmação a exibir, ou null. */
+  archiveToast: string | null;
+  dismissArchiveToast: () => void;
 }
 
 const Ctx = createContext<BrandCtx>({
@@ -28,7 +29,8 @@ const Ctx = createContext<BrandCtx>({
   month: new Date().getMonth(), year: new Date().getFullYear(),
   setMonth: () => {}, setYear: () => {},
   brands: visibleBrands(false),
-  archiveMode: false, setArchiveMode: () => {}, registerLogoClick: () => {},
+  archiveMode: false, setArchiveMode: () => {},
+  archiveToast: null, dismissArchiveToast: () => {},
 });
 
 function loadMonthYear(): { month: number; year: number } {
@@ -49,6 +51,7 @@ function loadMonthYear(): { month: number; year: number } {
 
 export function BrandProvider({ children }: { children: ReactNode }) {
   const [archiveMode, setArchiveModeState] = useState<boolean>(() => readArchiveMode());
+  const [archiveToast, setArchiveToast]    = useState<string | null>(null);
 
   const [brand, setBrandState] = useState<Brand>(() => {
     if (typeof window === 'undefined') return DEFAULT_BRAND;
@@ -59,7 +62,22 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [month, setMonthState] = useState<number>(() => loadMonthYear().month);
   const [year,  setYearState]  = useState<number>(() => loadMonthYear().year);
 
-  // ?arquivo=1 destrava / ?arquivo=0 trava — atalho para quando o gesto não for prático
+  const setBrand = useCallback((b: Brand) => {
+    localStorage.setItem('noue-selected-brand', b.id);
+    setBrandState(b);
+  }, []);
+
+  const setArchiveMode = useCallback((on: boolean) => {
+    writeArchiveMode(on);
+    setArchiveModeState(on);
+    setArchiveToast(on
+      ? 'Modo arquivo ligado — Nouê disponível no seletor'
+      : 'Modo arquivo desligado');
+  }, []);
+
+  const dismissArchiveToast = useCallback(() => setArchiveToast(null), []);
+
+  // ?arquivo=1 liga / ?arquivo=0 desliga
   useEffect(() => {
     const fromUrl = archiveModeFromUrl();
     if (fromUrl === null) return;
@@ -67,26 +85,40 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     setArchiveModeState(fromUrl);
   }, []);
 
-  const setArchiveMode = useCallback((on: boolean) => {
-    writeArchiveMode(on);
-    setArchiveModeState(on);
-  }, []);
+  // ── Palavra secreta: digitar SECRET_WORD fora de um campo alterna o modo ────
+  // Refs evitam re-registrar o listener a cada mudança de estado.
+  const modeRef  = useRef(archiveMode);
+  const brandRef = useRef(brand);
+  useEffect(() => { modeRef.current  = archiveMode; }, [archiveMode]);
+  useEffect(() => { brandRef.current = brand;       }, [brand]);
 
-  // ── Gesto secreto: 5 cliques no logo em menos de 3s ────────────────────────
-  const clicks = useRef<number[]>([]);
-  const registerLogoClick = useCallback(() => {
-    const now = Date.now();
-    clicks.current = [...clicks.current, now].filter((t) => now - t < UNLOCK_WINDOW_MS);
-    if (clicks.current.length >= UNLOCK_CLICKS) {
-      clicks.current = [];
-      setArchiveMode(true);
+  useEffect(() => {
+    let buffer = '';
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (shouldIgnoreKey(e)) return;
+
+      buffer = (buffer + e.key.toLowerCase()).slice(-SECRET_WORD.length);
+
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { buffer = ''; }, TYPING_RESET_MS);
+
+      if (buffer !== SECRET_WORD) return;
+
+      buffer = '';
+      const next = !modeRef.current;
+      setArchiveMode(next);
+      // Ao desligar estando numa marca arquivada, volta para uma marca ativa
+      if (!next && brandRef.current.archived) setBrand(DEFAULT_BRAND);
     }
-  }, [setArchiveMode]);
 
-  function setBrand(b: Brand) {
-    localStorage.setItem('noue-selected-brand', b.id);
-    setBrandState(b);
-  }
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (timer) clearTimeout(timer);
+    };
+  }, [setArchiveMode, setBrand]);
 
   function setMonth(m: number) {
     setMonthState(m);
@@ -102,7 +134,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{
       brand, setBrand, month, year, setMonth, setYear,
       brands: visibleBrands(archiveMode),
-      archiveMode, setArchiveMode, registerLogoClick,
+      archiveMode, setArchiveMode,
+      archiveToast, dismissArchiveToast,
     }}>
       {children}
     </Ctx.Provider>
@@ -112,5 +145,3 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 export function useBrand() {
   return useContext(Ctx);
 }
-
-export { BRANDS };

@@ -15,7 +15,7 @@ const MONTHS = [
 const YEARS = [2026, 2027];
 
 export default function Header({ title }: { title: string }) {
-  const { brand, setBrand, month, year, setMonth, setYear, brands, archiveMode, setArchiveMode, registerLogoClick } = useBrand();
+  const { brand, setBrand, month, year, setMonth, setYear, brands, archiveMode, setArchiveMode } = useBrand();
   const [brandOpen, setBrandOpen] = useState(false);
   const router = useRouter();
 
@@ -105,24 +105,17 @@ export default function Header({ title }: { title: string }) {
         )}
       </div>
 
-      {/* Center — brand logo. 5 cliques em 3s destravam o modo arquivo. */}
+      {/* Center — brand logo */}
       <div className="flex-1 flex items-center justify-center">
-        <button
-          onClick={registerLogoClick}
-          aria-label={brand.name}
-          className="flex items-center justify-center"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'default' }}
-        >
-          <Image
-            src={brand.logo}
-            alt={brand.name}
-            width={90}
-            height={36}
-            style={{ objectFit: 'contain' }}
-            priority
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-        </button>
+        <Image
+          src={brand.logo}
+          alt={brand.name}
+          width={90}
+          height={36}
+          style={{ objectFit: 'contain' }}
+          priority
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
       </div>
 
       {/* Right — month / year selectors + logout */}

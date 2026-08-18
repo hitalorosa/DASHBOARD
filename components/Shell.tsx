@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav';
 import { BrandProvider } from '@/lib/brand-context';
 import BrandStoreWrapper from '@/components/BrandStoreWrapper';
 import ArchivedGuard from '@/components/ArchivedGuard';
+import ArchiveToast from '@/components/ArchiveToast';
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,6 +22,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <ArchivedGuard>{children}</ArchivedGuard>
         </div>
         <BottomNav />
+        <ArchiveToast />
       </BrandStoreWrapper>
     </BrandProvider>
   );
