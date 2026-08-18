@@ -7,14 +7,9 @@ import { useStore } from '@/lib/store';
 import { datasazonais2025 } from '@/lib/data';
 import { Disparo, CampaignType } from '@/lib/types';
 import { useBrand } from '@/lib/brand-context';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, differenceInDays } from 'date-fns';
+import { format, parseISO, startOfMonth, startOfWeek, addDays, eachDayOfInterval, isSameDay, isSameMonth, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X, Plus } from 'lucide-react';
-
-const CAMPAIGN_COLOR: Record<CampaignType, string> = {
-  sazonal: '#D4A843', esquenta: '#FB923C', ressaca: '#F472B6',
-  comportamental: '#6BA8E5', produto: '#D4A843', brinde: '#7CC68A', fimmes: '#F87171',
-};
 
 const TIPO_LABELS: Record<CampaignType, string> = {
   sazonal: 'Sazonal', esquenta: 'Esquenta', ressaca: 'Ressaca',
@@ -27,6 +22,23 @@ const CAT_COLORS: Record<string, { bg: string; color: string }> = {
   feriado:    { bg: '#2D2208', color: '#FCD34D' },
   relevante:  { bg: '#1E1529', color: '#A78BFA' },
 };
+
+// Estados visuais do chip no calendário (feito / pilar / forte), no estilo do mockup
+type ChipKind = 'feito' | 'pilar' | 'forte';
+const CHIP_STYLE: Record<ChipKind, { bg: string; border: string; color: string; dashed?: boolean; label: string }> = {
+  feito: { bg: 'rgba(46,163,111,.16)',  border: 'rgba(46,163,111,.38)', color: '#7ee0b0', label: 'disparo feito · clique pra abrir' },
+  pilar: { bg: 'rgba(75,127,214,.14)',  border: 'rgba(75,127,214,.42)', color: '#9dbdf5', dashed: true, label: 'pilar (planejado)' },
+  forte: { bg: 'rgba(217,131,36,.18)',  border: 'rgba(217,131,36,.45)', color: '#f0b567', label: 'fim de mês (forte)' },
+};
+
+// Um disparo é "feito" quando já tem resultado lançado; senão é planejamento.
+function chipFor(d: Disparo, cupom: string): { kind: ChipKind; mark: string; text: string } {
+  const feito = d.faturamentoPago > 0 || d.enviados > 0;
+  const c = cupom.trim();
+  if (feito) return { kind: 'feito', mark: '✓', text: c || 'sem cupom' };
+  const kind: ChipKind = d.tipo === 'fimmes' ? 'forte' : 'pilar';
+  return { kind, mark: '◆', text: c || 'a definir' };
+}
 
 const REL_LABEL: Record<string, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 const MONO = { fontFamily: "'JetBrains Mono', monospace" };
@@ -154,15 +166,20 @@ function NovoDisparoModal({ month, year, onSave, onClose }: {
 }
 
 export default function CalendarioPage() {
-  const { month, year } = useBrand();
+  const { month, year, setMonth, setYear } = useBrand();
   const [selected, setSelected] = useState<Disparo | null>(null);
   const [showNewDisparo, setShowNewDisparo] = useState(false);
 
-  const { getDisparos, addDisparo } = useStore();
+  const { getDisparos, addDisparo, getDisparoContent } = useStore();
 
   const currentDate = useMemo(() => new Date(year, month, 1), [month, year]);
-  const days = useMemo(() => eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }), [currentDate]);
-  const firstDayOfWeek = useMemo(() => { const d = getDay(startOfMonth(currentDate)); return d === 0 ? 6 : d - 1; }, [currentDate]);
+  // Grade fixa de 6 semanas (42 células) começando no domingo — dias de outros
+  // meses aparecem esmaecidos, como no mockup.
+  const gridStart = useMemo(() => startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 }), [currentDate]);
+  const gridDays = useMemo(
+    () => eachDayOfInterval({ start: gridStart, end: addDays(gridStart, 41) }),
+    [gridStart],
+  );
 
   const disparosDoMes = useMemo(() => getDisparos(month, year), [month, year, getDisparos]);
 
@@ -171,7 +188,13 @@ export default function CalendarioPage() {
   const today = new Date();
   const futureDates = datasazonais2025.filter((s) => parseISO(s.data) >= today).slice(0, 12);
 
-  const WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+  const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  function goToday() { setMonth(today.getMonth()); setYear(today.getFullYear()); }
+  function shiftMonth(delta: number) {
+    const d = new Date(year, month + delta, 1);
+    setMonth(d.getMonth()); setYear(d.getFullYear());
+  }
 
   function handleAddDisparo(d: Disparo) {
     addDisparo(d);
@@ -205,27 +228,23 @@ export default function CalendarioPage() {
                 <span style={{ color: '#8A8A8A' }}>{year}</span>
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              {/* legend */}
-              <div className="hidden sm:flex items-center gap-4" style={{ ...MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8A8A8A' }}>
-                {[
-                  { label: 'Sazonal', color: '#D4A843' },
-                  { label: 'Brinde', color: '#7CC68A' },
-                  { label: 'Comp.', color: '#6BA8E5' },
-                  { label: 'Ressaca', color: '#F472B6' },
-                ].map(({ label, color }) => (
-                  <span key={label} className="flex items-center gap-1.5">
-                    <span style={{ display: 'block', width: 14, height: 4, borderRadius: 2, background: color }} />
-                    {label}
-                  </span>
-                ))}
-              </div>
+            <div className="flex items-center gap-2">
+              {/* nav ‹ hoje › */}
+              <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border text-sm transition-colors"
+                style={{ borderColor: '#2A2A2A', color: '#9A9A9A', backgroundColor: 'transparent' }}>‹</button>
+              <button onClick={goToday}
+                className="px-3 h-8 flex items-center rounded-lg border text-xs transition-colors"
+                style={{ borderColor: '#2A2A2A', color: '#9A9A9A', backgroundColor: 'transparent' }}>hoje</button>
+              <button onClick={() => shiftMonth(1)} aria-label="Próximo mês"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border text-sm transition-colors"
+                style={{ borderColor: '#2A2A2A', color: '#9A9A9A', backgroundColor: 'transparent' }}>›</button>
               {/* button */}
               <button
                 onClick={() => setShowNewDisparo(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold border transition-colors ml-1"
                 style={{ borderColor: '#D4A843', color: '#D4A843', backgroundColor: 'transparent' }}>
-                <Plus size={13} /> Novo Disparo
+                <Plus size={13} /> Novo
               </button>
             </div>
           </div>
@@ -240,49 +259,72 @@ export default function CalendarioPage() {
           </div>
 
           <div className="grid grid-cols-7 gap-0.5 md:gap-1.5">
-            {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
-            {days.map((day) => {
+            {gridDays.map((day) => {
               const dayDisparos = getDisparosForDay(day);
               const hasDisparo = dayDisparos.length > 0;
               const isToday = isSameDay(day, today);
+              const inMonth = isSameMonth(day, currentDate);
               const isSelected = selected && isSameDay(new Date(selected.data + 'T12:00:00'), day);
 
               return (
                 <div
                   key={day.toISOString()}
                   onClick={() => hasDisparo ? setSelected(dayDisparos[0]) : setSelected(null)}
-                  className={`relative overflow-hidden transition-all min-h-[44px] md:min-h-[72px] rounded-lg md:rounded-xl p-1 md:p-2 ${isToday ? 'cal-cell-today' : ''}`}
+                  className={`relative overflow-hidden transition-all min-h-[62px] md:min-h-[104px] rounded-lg md:rounded-xl p-1.5 md:p-2 ${isToday ? 'cal-cell-today' : ''}`}
                   style={{
                     background: isSelected
-                      ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.22), transparent 60%), #1a1814'
+                      ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.20), transparent 60%), #1a1814'
                       : isToday
-                      ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.18), transparent 60%), #1a1814'
-                      : hasDisparo ? '#161616' : '#141414',
+                      ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.16), transparent 60%), #17150f'
+                      : inMonth ? '#161618' : '#111113',
                     border: isSelected
                       ? '1.5px solid rgba(212,168,67,0.7)'
                       : isToday
-                      ? '1px solid rgba(212,168,67,0.45)'
-                      : hasDisparo ? '1px solid #1f1f1f' : '1px solid transparent',
+                      ? '1px solid rgba(212,168,67,0.5)'
+                      : inMonth ? '1px solid #232326' : '1px solid #191919',
                     cursor: hasDisparo ? 'pointer' : 'default',
                   }}>
-                  <span className="cal-num-mobile md:cal-num">{format(day, 'd')}</span>
+                  <span
+                    className="cal-num-mobile md:cal-num"
+                    style={{ color: !inMonth ? '#3a3a40' : isToday ? '#fff' : undefined, fontWeight: isToday ? 800 : undefined }}
+                  >
+                    {format(day, 'd')}
+                  </span>
 
-                  {dayDisparos.map((d) => (
-                    <div key={d.id} className="mt-0.5 truncate hidden md:block" style={{ fontSize: 9, color: CAMPAIGN_COLOR[d.tipo], opacity: 0.85 }}>
-                      {d.campanha}
-                    </div>
-                  ))}
-
-                  {hasDisparo && (
-                    <div style={{ position: 'absolute', left: 4, right: 4, bottom: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                      {dayDisparos.map((d) => (
-                        <span key={d.id} style={{ height: 3, borderRadius: 2, flex: 1, minWidth: 4, background: CAMPAIGN_COLOR[d.tipo] }} />
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-1 flex flex-col gap-1">
+                    {dayDisparos.map((d) => {
+                      const cupom = (getDisparoContent(d.id).cupom ?? '') as string;
+                      const { kind, mark, text } = chipFor(d, cupom);
+                      const s = CHIP_STYLE[kind];
+                      return (
+                        <span
+                          key={d.id}
+                          title={`${d.campanha} — ${d.base}`}
+                          className="block truncate"
+                          style={{
+                            fontSize: 9.5, fontWeight: 700, lineHeight: 1.25,
+                            borderRadius: 5, padding: '3px 5px',
+                            background: s.bg, color: s.color,
+                            border: `1px ${s.dashed ? 'dashed' : 'solid'} ${s.border}`,
+                          }}>
+                          {mark} {text}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
+          </div>
+
+          {/* legenda */}
+          <div className="flex flex-wrap gap-x-5 gap-y-2 mt-4 pt-3" style={{ borderTop: '1px solid #232326', fontSize: 11.5, color: '#6b6b73' }}>
+            {(['feito', 'pilar', 'forte'] as ChipKind[]).map((k) => (
+              <span key={k} className="flex items-center gap-2">
+                <i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, background: CHIP_STYLE[k].color }} />
+                {CHIP_STYLE[k].label}
+              </span>
+            ))}
           </div>
         </div>
 
