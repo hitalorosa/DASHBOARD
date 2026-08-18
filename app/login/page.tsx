@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react';
 import { useRouter }        from 'next/navigation';
-import Image                from 'next/image';
 
 const GOLD = '#D4A843';
 
@@ -47,16 +46,15 @@ export default function LoginPage() {
       className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{ backgroundColor: '#0A0A0A' }}
     >
-      {/* Logo */}
+      {/* Wordmark — o dashboard atende várias marcas, então a porta de entrada é neutra */}
       <div className="mb-10 flex flex-col items-center gap-4">
-        <Image
-          src="/logo-noue.png"
-          alt="Vante Dashboard"
-          width={100}
-          height={40}
-          style={{ objectFit: 'contain' }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
+        <p style={{
+          color: '#D4A843', fontSize: 26, fontWeight: 600,
+          letterSpacing: '0.28em', textTransform: 'uppercase',
+          fontFamily: "Georgia, 'Times New Roman', serif",
+        }}>
+          Vante
+        </p>
         <p style={{ color: '#3A3A3A', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
           Área restrita
         </p>

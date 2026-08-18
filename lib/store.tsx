@@ -155,7 +155,8 @@ function saveCloud(rowId: number, state: StoreState, immediate = false) {
 }
 
 function allDisparos(state: StoreState, brandId?: string): Disparo[] {
-  const fixed = brandId === 'noue' || brandId === undefined ? disparosMaio : [];
+  // Os disparos fixos de maio/2026 sao dados historicos da Noue — nenhuma outra marca os herda
+  const fixed = brandId === 'noue' ? disparosMaio : [];
   return [...fixed, ...(state.customDisparos ?? [])];
 }
 

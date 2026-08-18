@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import BottomNav from '@/components/BottomNav';
 import { BrandProvider } from '@/lib/brand-context';
 import BrandStoreWrapper from '@/components/BrandStoreWrapper';
+import ArchivedGuard from '@/components/ArchivedGuard';
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,7 +18,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <BrandStoreWrapper>
         <Sidebar />
         <div className="flex flex-col flex-1 min-h-screen overflow-auto pb-16 md:pb-0">
-          {children}
+          <ArchivedGuard>{children}</ArchivedGuard>
         </div>
         <BottomNav />
       </BrandStoreWrapper>

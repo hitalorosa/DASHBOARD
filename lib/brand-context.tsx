@@ -1,7 +1,11 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { Brand, BRANDS, DEFAULT_BRAND } from './brands';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { Brand, BRANDS, DEFAULT_BRAND, findBrand, visibleBrands } from './brands';
+import {
+  archiveModeFromUrl, readArchiveMode, writeArchiveMode,
+  UNLOCK_CLICKS, UNLOCK_WINDOW_MS,
+} from './archive-mode';
 
 interface BrandCtx {
   brand: Brand;
@@ -10,12 +14,21 @@ interface BrandCtx {
   year: number;
   setMonth: (m: number) => void;
   setYear: (y: number) => void;
+  /** Lista de marcas para os seletores — já filtrada pelo modo arquivo. */
+  brands: Brand[];
+  /** Modo arquivo destravado (dá acesso às marcas fora de operação). */
+  archiveMode: boolean;
+  setArchiveMode: (on: boolean) => void;
+  /** Registra um clique no logo — 5 em 3s destravam o modo arquivo. */
+  registerLogoClick: () => void;
 }
 
 const Ctx = createContext<BrandCtx>({
   brand: DEFAULT_BRAND, setBrand: () => {},
   month: new Date().getMonth(), year: new Date().getFullYear(),
   setMonth: () => {}, setYear: () => {},
+  brands: visibleBrands(false),
+  archiveMode: false, setArchiveMode: () => {}, registerLogoClick: () => {},
 });
 
 function loadMonthYear(): { month: number; year: number } {
@@ -35,14 +48,40 @@ function loadMonthYear(): { month: number; year: number } {
 }
 
 export function BrandProvider({ children }: { children: ReactNode }) {
+  const [archiveMode, setArchiveModeState] = useState<boolean>(() => readArchiveMode());
+
   const [brand, setBrandState] = useState<Brand>(() => {
     if (typeof window === 'undefined') return DEFAULT_BRAND;
     const saved = localStorage.getItem('noue-selected-brand');
-    return BRANDS.find((b) => b.id === saved) ?? DEFAULT_BRAND;
+    return findBrand(saved) ?? DEFAULT_BRAND;
   });
 
   const [month, setMonthState] = useState<number>(() => loadMonthYear().month);
   const [year,  setYearState]  = useState<number>(() => loadMonthYear().year);
+
+  // ?arquivo=1 destrava / ?arquivo=0 trava — atalho para quando o gesto não for prático
+  useEffect(() => {
+    const fromUrl = archiveModeFromUrl();
+    if (fromUrl === null) return;
+    writeArchiveMode(fromUrl);
+    setArchiveModeState(fromUrl);
+  }, []);
+
+  const setArchiveMode = useCallback((on: boolean) => {
+    writeArchiveMode(on);
+    setArchiveModeState(on);
+  }, []);
+
+  // ── Gesto secreto: 5 cliques no logo em menos de 3s ────────────────────────
+  const clicks = useRef<number[]>([]);
+  const registerLogoClick = useCallback(() => {
+    const now = Date.now();
+    clicks.current = [...clicks.current, now].filter((t) => now - t < UNLOCK_WINDOW_MS);
+    if (clicks.current.length >= UNLOCK_CLICKS) {
+      clicks.current = [];
+      setArchiveMode(true);
+    }
+  }, [setArchiveMode]);
 
   function setBrand(b: Brand) {
     localStorage.setItem('noue-selected-brand', b.id);
@@ -60,7 +99,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ brand, setBrand, month, year, setMonth, setYear }}>
+    <Ctx.Provider value={{
+      brand, setBrand, month, year, setMonth, setYear,
+      brands: visibleBrands(archiveMode),
+      archiveMode, setArchiveMode, registerLogoClick,
+    }}>
       {children}
     </Ctx.Provider>
   );
@@ -69,3 +112,5 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 export function useBrand() {
   return useContext(Ctx);
 }
+
+export { BRANDS };

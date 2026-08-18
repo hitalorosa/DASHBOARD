@@ -2,11 +2,33 @@
 // Docs: https://docs.yampi.com.br
 // Base: https://api.dooki.com.br/v2/{alias}
 
-const ALIAS      = process.env.YAMPI_ALIAS      ?? '';
-const TOKEN      = process.env.YAMPI_TOKEN      ?? '';
-const SECRET_KEY = process.env.YAMPI_SECRET_KEY ?? '';
+/**
+ * Credenciais da Yampi por marca. Resolvidas em tempo de execucao no servidor —
+ * nunca no escopo do modulo, que tambem e importado pelo bundle do browser.
+ */
+export interface YampiCreds {
+  alias:  string;
+  token:  string;
+  secret: string;
+}
 
-const BASE_URL = `https://api.dooki.com.br/v2/${ALIAS}`;
+/**
+ * Le as env vars da marca. `prefix` vazio = Noue (YAMPI_ALIAS, ...),
+ * senao DRYSKIN_YAMPI_ALIAS, NEWHAIR_YAMPI_ALIAS, etc.
+ * Retorna null se qualquer uma das tres estiver faltando.
+ */
+export function getBrandCreds(prefix: string): YampiCreds | null {
+  const env    = process.env;
+  const alias  = env[`${prefix}YAMPI_ALIAS`]      ?? '';
+  const token  = env[`${prefix}YAMPI_TOKEN`]      ?? '';
+  const secret = env[`${prefix}YAMPI_SECRET_KEY`] ?? '';
+  if (!alias || !token || !secret) return null;
+  return { alias, token, secret };
+}
+
+function baseUrl(creds: YampiCreds): string {
+  return `https://api.dooki.com.br/v2/${creds.alias}`;
+}
 
 export const VIP_UTM = { source: 'grupo_vip', campaign: 'whatsapp' } as const;
 
@@ -148,10 +170,10 @@ export interface VipStats {
 }
 
 // Auth
-function authHeaders(): HeadersInit {
+function authHeaders(creds: YampiCreds): HeadersInit {
   return {
-    'User-Token':      TOKEN,
-    'User-Secret-Key': SECRET_KEY,
+    'User-Token':      creds.token,
+    'User-Secret-Key': creds.secret,
     'Accept':          'application/json',
   };
 }
@@ -206,8 +228,8 @@ function cartIsVip(c: YampiCart): boolean {
 }
 
 // Fetch simples — sem retry para nao causar timeout
-async function doFetch(url: string): Promise<Response> {
-  return fetch(url, { method: 'GET', headers: authHeaders(), cache: 'no-store' });
+async function doFetch(url: string, creds: YampiCreds): Promise<Response> {
+  return fetch(url, { method: 'GET', headers: authHeaders(creds), cache: 'no-store' });
 }
 
 // Extrai items do envelope Dooki: { scroll_id, data: [...] }
@@ -239,30 +261,28 @@ function getTotalPages(json: unknown): number {
 }
 
 async function fetchAllPages<T>(
+  creds: YampiCreds,
   endpoint: string,
   params: Record<string, string>,
 ): Promise<T[]> {
   const LIMIT = 100;
   const results: T[] = [];
+  const BASE_URL = baseUrl(creds);
 
   const p1   = new URLSearchParams({ ...params, limit: String(LIMIT) });
   const url1 = `${BASE_URL}/${endpoint}?${p1}`;
-  console.log(`[Dooki] GET ${url1}`);
 
-  const r1 = await doFetch(url1);
+  const r1 = await doFetch(url1, creds);
   if (!r1.ok) {
-    const raw = await r1.text().catch(() => '');
-    console.error(`[Dooki] ${endpoint} ${r1.status}: ${raw.slice(0, 400)}`);
     if (r1.status === 429) {
       throw new Error('Limite de requisicoes atingido (429). Aguarde 1-2 minutos e tente novamente.');
     }
-    throw new Error(`Dooki API ${r1.status}: ${raw.slice(0, 200)}`);
+    throw new Error(`Dooki API ${r1.status}`);
   }
 
   const j1     = await r1.json() as Record<string, unknown>;
   const items1 = extractItems<T>(j1);
   results.push(...items1);
-  console.log(`[Dooki] /${endpoint} p1 — ${items1.length} itens`);
 
   // Paginacao por scroll_id (cursor)
   let scrollId = getScrollId(j1);
@@ -271,12 +291,11 @@ async function fetchAllPages<T>(
     while (scrollId) {
       const pN   = new URLSearchParams({ ...params, limit: String(LIMIT), scroll_id: scrollId });
       const urlN = `${BASE_URL}/${endpoint}?${pN}`;
-      const rN   = await doFetch(urlN);
-      if (!rN.ok) { console.error(`[Dooki] scroll p${page} ${rN.status}`); break; }
+      const rN   = await doFetch(urlN, creds);
+      if (!rN.ok) break;
       const jN     = await rN.json() as Record<string, unknown>;
       const itemsN = extractItems<T>(jN);
       results.push(...itemsN);
-      console.log(`[Dooki] /${endpoint} scroll p${page} — ${itemsN.length} itens`);
       scrollId = getScrollId(jN);
       page++;
       if (itemsN.length === 0) break;
@@ -289,18 +308,16 @@ async function fetchAllPages<T>(
   if (total <= 1) return results;
 
   for (let p = 2; p <= total; p++) {
-    await new Promise(r => setTimeout(r, 120)); // 120ms entre requests
+    await new Promise(r => setTimeout(r, 120));
     const pP   = new URLSearchParams({ ...params, limit: String(LIMIT), page: String(p) });
     const urlP = `${BASE_URL}/${endpoint}?${pP}`;
-    const rP   = await doFetch(urlP);
+    const rP   = await doFetch(urlP, creds);
     if (!rP.ok) {
-      console.error(`[Dooki] p${p}/${total} ${rP.status}`);
-      if (rP.status === 429) { console.warn('[Dooki] 429 — aguardando 2s'); await new Promise(r => setTimeout(r, 2000)); }
+      if (rP.status === 429) await new Promise(r => setTimeout(r, 2000));
       continue;
     }
     const jP  = await rP.json() as Record<string, unknown>;
     const itP = extractItems<T>(jP);
-    console.log(`[Dooki] /${endpoint} p${p}/${total} — ${itP.length} itens`);
     results.push(...itP);
   }
 
@@ -308,10 +325,10 @@ async function fetchAllPages<T>(
 }
 
 // API publica
-export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<YampiOrder[]> {
+export async function fetchVipOrders(creds: YampiCreds, dateMin: string, dateMax: string): Promise<YampiOrder[]> {
   // /search/orders filtra UTM no servidor — retorna so pedidos VIP (resultado pequeno, rapido)
   // Filtra data e status paid no cliente
-  const all = await fetchAllPages<YampiOrder>('search/orders', {
+  const all = await fetchAllPages<YampiOrder>(creds, 'search/orders', {
     'utm_source[]':   VIP_UTM.source,
     'utm_campaign[]': VIP_UTM.campaign,
     'include':        'status,items,shipping_address,transactions,coupons,customer',
@@ -324,23 +341,18 @@ export async function fetchVipOrders(dateMin: string, dateMax: string): Promise<
     return date >= dateMin && date <= dateMax;
   });
 
-  console.log(`[Dooki] ${all.length} pedidos VIP historicos -> ${vip.length} pagos no mes`);
   return vip;
 }
 
-export async function fetchVipCarts(dateMin: string, dateMax: string): Promise<YampiCart[]> {
+export async function fetchVipCarts(creds: YampiCreds, dateMin: string, dateMax: string): Promise<YampiCart[]> {
   try {
-    // Filtra UTM no servidor para evitar buscar milhares de carrinhos
-    const all = await fetchAllPages<YampiCart>('checkout/carts', {
+    const all = await fetchAllPages<YampiCart>(creds, 'checkout/carts', {
       'date':            `created_at:${dateMin}|${dateMax}`,
       'utm_source[]':    VIP_UTM.source,
       'utm_campaign[]':  VIP_UTM.campaign,
     });
-    const vip = all.filter(c => cartIsVip(c));
-    console.log(`[Dooki] ${all.length} carrinhos VIP no servidor -> ${vip.length} confirmados`);
-    return vip;
-  } catch (e) {
-    console.warn('[Dooki] /checkout/carts indisponivel:', e);
+    return all.filter(c => cartIsVip(c));
+  } catch {
     return [];
   }
 }

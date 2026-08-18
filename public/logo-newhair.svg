@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 96" width="240" height="96" role="img" aria-label="New Hair">
+  <!-- Placeholder até a logo oficial da New Hair entrar no lugar -->
+  <g fill="none" stroke="#D4A843" stroke-width="1.5" opacity="0.55">
+    <path d="M40 62 C 40 40, 60 30, 84 34" stroke-linecap="round"/>
+    <path d="M46 64 C 46 44, 64 36, 86 40" stroke-linecap="round"/>
+    <path d="M52 66 C 52 48, 68 42, 88 46" stroke-linecap="round"/>
+  </g>
+  <text x="104" y="48" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="600" fill="#D4A843" letter-spacing="1.5">NEW</text>
+  <text x="104" y="76" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="400" fill="#F1E7CB" letter-spacing="6">HAIR</text>
+</svg>

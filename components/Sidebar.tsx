@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Zap, Database, ChevronDown, Crown } from 'lucide-react';
+import { LayoutDashboard, Calendar, Zap, Database, ChevronDown, Crown, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import { useBrand } from '@/lib/brand-context';
-import { BRANDS } from '@/lib/brands';
+import { DEFAULT_BRAND } from '@/lib/brands';
 
 const navItems = [
   { href: '/', label: 'Central', icon: LayoutDashboard },
@@ -18,7 +18,7 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { brand, setBrand } = useBrand();
+  const { brand, setBrand, brands, archiveMode, setArchiveMode } = useBrand();
   const [open, setOpen] = useState(false);
 
   return (
@@ -53,7 +53,7 @@ export default function Sidebar() {
         {open && (
           <div className="absolute left-3 right-3 top-full mt-1 rounded-xl border overflow-hidden z-50"
             style={{ backgroundColor: '#161616', borderColor: '#2A2A2A' }}>
-            {BRANDS.map((b) => (
+            {brands.map((b) => (
               <button
                 key={b.id}
                 onClick={() => { setBrand(b); setOpen(false); }}
@@ -73,11 +73,32 @@ export default function Sidebar() {
                 <span className="text-xs font-medium truncate" style={{ color: b.id === brand.id ? '#D4A843' : '#9CA3AF' }}>
                   {b.name}
                 </span>
+                {b.archived && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide"
+                    style={{ backgroundColor: '#241E10', color: '#8A7A4E' }}>
+                    arquivo
+                  </span>
+                )}
                 {b.id === brand.id && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#D4A843' }} />
                 )}
               </button>
             ))}
+
+            {archiveMode && (
+              <button
+                onClick={() => {
+                  setArchiveMode(false);
+                  if (brand.archived) setBrand(DEFAULT_BRAND);
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+                style={{ borderTop: '1px solid #2A2A2A', color: '#6B6B6B' }}
+              >
+                <LogOut size={13} />
+                <span className="text-[11px] font-medium">Sair do arquivo</span>
+              </button>
+            )}
           </div>
         )}
 

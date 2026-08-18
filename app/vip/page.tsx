@@ -231,6 +231,26 @@ function Skeleton() {
   );
 }
 
+// ── Máscaras de dados sensíveis (LGPD) ───────────────────────────────────────
+
+function maskCpf(cpf: string): string {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11) return '***.***.**-**';
+  return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
+}
+
+function maskPhone(area: string | undefined, number: string): string {
+  const last4 = number.replace(/\D/g, '').slice(-4);
+  return `(**) *****-${last4 || '****'}`;
+}
+
+function maskEmail(email: string): string {
+  const [user, domain] = email.split('@');
+  if (!domain) return '***@***';
+  const visible = user.length > 2 ? user[0] + '*'.repeat(user.length - 2) + user.slice(-1) : user[0] + '**';
+  return `${visible}@${domain}`;
+}
+
 // ── Order Drawer ─────────────────────────────────────────────────────────────
 
 function OrderDrawer({ order, orders, onClose }: {
@@ -238,7 +258,8 @@ function OrderDrawer({ order, orders, onClose }: {
   orders:  YampiOrder[];
   onClose: () => void;
 }) {
-  const [visible, setVisible] = useState(false);
+  const [visible,     setVisible]     = useState(false);
+  const [piiRevealed, setPiiRevealed] = useState(false);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -371,20 +392,40 @@ function OrderDrawer({ order, orders, onClose }: {
             borderRadius: 12, padding: '16px 16px 14px',
           }}>
             <div>
-              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 10 }}>Cliente</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Cliente</p>
+                <button
+                  onClick={() => setPiiRevealed(v => !v)}
+                  style={{
+                    ...MONO, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: piiRevealed ? '#F87171' : '#5E5E5E',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  }}
+                >
+                  {piiRevealed ? 'ocultar' : 'revelar'}
+                </button>
+              </div>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#F2F2F2', lineHeight: 1.4, marginBottom: 4 }}>
                 {order.customer?.data?.name ?? '—'}
               </p>
               {order.customer?.data?.email && (
-                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>{order.customer.data.email}</p>
+                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>
+                  {piiRevealed
+                    ? order.customer.data.email
+                    : maskEmail(order.customer.data.email)}
+                </p>
               )}
               {order.customer?.data?.phone?.number && (
                 <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>
-                  ({order.customer.data.phone.area_code}) {order.customer.data.phone.number}
+                  {piiRevealed
+                    ? `(${order.customer.data.phone.area_code}) ${order.customer.data.phone.number}`
+                    : maskPhone(order.customer.data.phone.area_code, order.customer.data.phone.number)}
                 </p>
               )}
               {order.customer?.data?.cpf && (
-                <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>CPF: {order.customer.data.cpf}</p>
+                <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>
+                  CPF: {piiRevealed ? order.customer.data.cpf : maskCpf(order.customer.data.cpf)}
+                </p>
               )}
             </div>
 
@@ -623,32 +664,8 @@ function OrderDrawer({ order, orders, onClose }: {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function VipPage() {
+function VipDashboard() {
   const { brand, month, year } = useBrand();
-
-  // ── Guard: apenas Nouê tem integração VIP ────────────────────────────────────
-  if (brand.id !== 'noue') {
-    return (
-      <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-        <Header title="Grupo VIP" />
-        <main className="flex flex-1 items-center justify-center p-8">
-          <div className="flex flex-col items-center gap-4 text-center" style={{ maxWidth: 400 }}>
-            <div className="flex items-center justify-center w-16 h-16 rounded-full"
-              style={{ backgroundColor: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.18)' }}>
-              <Crown size={28} style={{ color: GOLD, opacity: 0.6 }} />
-            </div>
-            <p style={{ fontSize: 18, fontWeight: 600, color: '#ECECEC', letterSpacing: '-0.01em' }}>
-              Em breve
-            </p>
-            <p style={{ fontSize: 13, color: '#5E5E5E', lineHeight: 1.6 }}>
-              A integração do Grupo VIP com a <strong style={{ color: '#8A8A8A' }}>{brand.name}</strong> ainda não foi configurada.
-              <br />Em breve você poderá acompanhar os dados aqui.
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   // 'idle' = ainda não carregou, 'loading' = carregando, 'done' = tem dados, 'error' = falhou
   const [status, setStatus]     = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -673,7 +690,7 @@ export default function VipPage() {
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async (force = false) => {
-    const url = `/api/yampi?month=${m}&year=${year}${force ? '&force=1' : ''}`;
+    const url = `/api/yampi?brand=${brand.id}&month=${m}&year=${year}${force ? '&force=1' : ''}`;
 
     // Timeout de 30s — evita loading infinito se a API travar
     const controller = new AbortController();
@@ -708,7 +725,7 @@ export default function VipPage() {
     setPage(1); // reset paginação a cada nova sincronização
     setFetchedAt(json.fetchedAt as string);
     setError(null);
-  }, [m, year]);
+  }, [brand.id, m, year]);
 
   // ── Carga inicial ────────────────────────────────────────────────────────────
 
@@ -1176,4 +1193,65 @@ export default function VipPage() {
       )}
     </div>
   );
+}
+
+// ── Entrypoint ────────────────────────────────────────────────────────────────
+
+/**
+ * Marcas com vip: 'standby' têm o painel pronto, mas ainda sem credenciais
+ * próprias da Yampi. Ficam atrás deste aviso, com uma pré-visualização manual
+ * para inspecionar a tela antes de liberar para valer.
+ */
+function VipStandby({ onPreview }: { onPreview: () => void }) {
+  const { brand } = useBrand();
+
+  return (
+    <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
+      <Header title="Grupo VIP" />
+      <main className="flex flex-1 items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-4 text-center" style={{ maxWidth: 420 }}>
+          <div className="flex items-center justify-center w-16 h-16 rounded-full"
+            style={{ backgroundColor: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.18)' }}>
+            <Crown size={28} style={{ color: GOLD, opacity: 0.6 }} />
+          </div>
+
+          <p style={{ fontSize: 18, fontWeight: 600, color: '#ECECEC', letterSpacing: '-0.01em' }}>
+            Em preparação
+          </p>
+
+          <p style={{ fontSize: 13, color: '#5E5E5E', lineHeight: 1.6 }}>
+            O painel do Grupo VIP já funciona para a <strong style={{ color: '#8A8A8A' }}>{brand.name}</strong>,
+            mas depende das credenciais <code style={{ color: '#8A7A4E' }}>{brand.yampiEnvPrefix}YAMPI_*</code> na
+            Yampi e dos pedidos marcados com a UTM <code style={{ color: '#8A7A4E' }}>grupo_vip / whatsapp</code>.
+          </p>
+
+          <button
+            onClick={onPreview}
+            className="mt-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A', color: '#9CA3AF' }}
+          >
+            Pré-visualizar mesmo assim
+          </button>
+
+          <p style={{ fontSize: 11, color: '#3F3F3F' }}>
+            Sem credenciais, a pré-visualização abre o painel vazio ou com erro — é esperado.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function VipPage() {
+  const { brand } = useBrand();
+  const [preview, setPreview] = useState(false);
+
+  // Trocar de marca fecha a pré-visualização — senão ela vazaria para a próxima
+  useEffect(() => { setPreview(false); }, [brand.id]);
+
+  if (brand.vip === 'standby' && !preview) {
+    return <VipStandby onPreview={() => setPreview(true)} />;
+  }
+
+  return <VipDashboard key={brand.id} />;
 }

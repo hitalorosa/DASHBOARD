@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { ChevronDown, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useBrand } from '@/lib/brand-context';
-import { BRANDS } from '@/lib/brands';
+import { DEFAULT_BRAND } from '@/lib/brands';
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -15,7 +15,7 @@ const MONTHS = [
 const YEARS = [2026, 2027];
 
 export default function Header({ title }: { title: string }) {
-  const { brand, setBrand, month, year, setMonth, setYear } = useBrand();
+  const { brand, setBrand, month, year, setMonth, setYear, brands, archiveMode, setArchiveMode, registerLogoClick } = useBrand();
   const [brandOpen, setBrandOpen] = useState(false);
   const router = useRouter();
 
@@ -58,7 +58,7 @@ export default function Header({ title }: { title: string }) {
             className="md:hidden absolute left-4 top-14 rounded-xl border z-50 overflow-hidden"
             style={{ backgroundColor: '#161616', borderColor: '#2A2A2A', minWidth: 180 }}
           >
-            {BRANDS.map((b) => (
+            {brands.map((b) => (
               <button
                 key={b.id}
                 onClick={() => { setBrand(b); setBrandOpen(false); }}
@@ -75,26 +75,54 @@ export default function Header({ title }: { title: string }) {
                   style={{ color: b.id === brand.id ? '#D4A843' : '#9CA3AF' }}>
                   {b.name}
                 </span>
+                {b.archived && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide"
+                    style={{ backgroundColor: '#241E10', color: '#8A7A4E' }}>
+                    arquivo
+                  </span>
+                )}
                 {b.id === brand.id && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#D4A843' }} />
                 )}
               </button>
             ))}
+
+            {archiveMode && (
+              <button
+                onClick={() => {
+                  setArchiveMode(false);
+                  if (brand.archived) setBrand(DEFAULT_BRAND);
+                  setBrandOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+                style={{ borderTop: '1px solid #2A2A2A', color: '#6B6B6B' }}
+              >
+                <LogOut size={13} />
+                <span className="text-[11px] font-medium">Sair do arquivo</span>
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Center — brand logo */}
+      {/* Center — brand logo. 5 cliques em 3s destravam o modo arquivo. */}
       <div className="flex-1 flex items-center justify-center">
-        <Image
-          src={brand.logo}
-          alt={brand.name}
-          width={90}
-          height={36}
-          style={{ objectFit: 'contain' }}
-          priority
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
+        <button
+          onClick={registerLogoClick}
+          aria-label={brand.name}
+          className="flex items-center justify-center"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'default' }}
+        >
+          <Image
+            src={brand.logo}
+            alt={brand.name}
+            width={90}
+            height={36}
+            style={{ objectFit: 'contain' }}
+            priority
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </button>
       </div>
 
       {/* Right — month / year selectors + logout */}
