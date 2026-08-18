@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Header from '@/components/Header';
 import CampaignBadge from '@/components/CampaignBadge';
-import { useStore } from '@/lib/store';
+import { useStore, DisparoContent } from '@/lib/store';
 import { datasazonais2025 } from '@/lib/data';
 import { Disparo, CampaignType } from '@/lib/types';
 import { useBrand } from '@/lib/brand-context';
@@ -23,21 +23,26 @@ const CAT_COLORS: Record<string, { bg: string; color: string }> = {
   relevante:  { bg: '#1E1529', color: '#A78BFA' },
 };
 
-// Estados visuais do chip no calendário (feito / pilar / forte), no estilo do mockup
-type ChipKind = 'feito' | 'pilar' | 'forte';
+// Estados visuais do chip no calendário: a definir → pronto → executado
+type ChipKind = 'executado' | 'pronto' | 'pilar' | 'forte';
 const CHIP_STYLE: Record<ChipKind, { bg: string; border: string; color: string; dashed?: boolean; label: string }> = {
-  feito: { bg: 'rgba(46,163,111,.16)',  border: 'rgba(46,163,111,.38)', color: '#7ee0b0', label: 'disparo feito · clique pra abrir' },
-  pilar: { bg: 'rgba(75,127,214,.14)',  border: 'rgba(75,127,214,.42)', color: '#9dbdf5', dashed: true, label: 'pilar (planejado)' },
-  forte: { bg: 'rgba(217,131,36,.18)',  border: 'rgba(217,131,36,.45)', color: '#f0b567', label: 'fim de mês (forte)' },
+  executado: { bg: 'rgba(46,163,111,.16)',  border: 'rgba(46,163,111,.38)', color: '#7ee0b0', label: 'executado · resultado lançado' },
+  pronto:    { bg: 'rgba(212,168,67,.16)',  border: 'rgba(212,168,67,.42)', color: '#e5c475', label: 'pronto · copy e cupom prontos' },
+  pilar:     { bg: 'rgba(75,127,214,.14)',  border: 'rgba(75,127,214,.42)', color: '#9dbdf5', dashed: true, label: 'a definir (pilar)' },
+  forte:     { bg: 'rgba(217,131,36,.18)',  border: 'rgba(217,131,36,.45)', color: '#f0b567', dashed: true, label: 'a definir (fim de mês)' },
 };
 
-// Um disparo é "feito" quando já tem resultado lançado; senão é planejamento.
-function chipFor(d: Disparo, cupom: string): { kind: ChipKind; mark: string; text: string } {
-  const feito = d.faturamentoPago > 0 || d.enviados > 0;
-  const c = cupom.trim();
-  if (feito) return { kind: 'feito', mark: '✓', text: c || 'sem cupom' };
+// Três estágios: executado (tem resultado) > pronto (tem copy + cupom) > a definir (nada ainda)
+function chipFor(d: Disparo, content: Partial<DisparoContent>): { kind: ChipKind; mark: string; text: string } {
+  const executado = d.faturamentoPago > 0 || d.enviados > 0;
+  const cupom = (content.cupom ?? '').trim();
+  const temCopy = [content.msg1, content.msg2, content.msg3].some((m) => (m ?? '').trim().length > 0);
+  const pronto = temCopy && cupom.length > 0;
+
+  if (executado) return { kind: 'executado', mark: '✓', text: cupom || 'sem cupom' };
+  if (pronto) return { kind: 'pronto', mark: '●', text: cupom };
   const kind: ChipKind = d.tipo === 'fimmes' ? 'forte' : 'pilar';
-  return { kind, mark: '◆', text: c || 'a definir' };
+  return { kind, mark: '◆', text: 'a definir' };
 }
 
 const REL_LABEL: Record<string, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
@@ -293,8 +298,7 @@ export default function CalendarioPage() {
 
                   <div className="mt-1 flex flex-col gap-1">
                     {dayDisparos.map((d) => {
-                      const cupom = (getDisparoContent(d.id).cupom ?? '') as string;
-                      const { kind, mark, text } = chipFor(d, cupom);
+                      const { kind, mark, text } = chipFor(d, getDisparoContent(d.id));
                       const s = CHIP_STYLE[kind];
                       return (
                         <span
@@ -319,7 +323,7 @@ export default function CalendarioPage() {
 
           {/* legenda */}
           <div className="flex flex-wrap gap-x-5 gap-y-2 mt-4 pt-3" style={{ borderTop: '1px solid #232326', fontSize: 11.5, color: '#6b6b73' }}>
-            {(['feito', 'pilar', 'forte'] as ChipKind[]).map((k) => (
+            {(['executado', 'pronto', 'pilar', 'forte'] as ChipKind[]).map((k) => (
               <span key={k} className="flex items-center gap-2">
                 <i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, background: CHIP_STYLE[k].color }} />
                 {CHIP_STYLE[k].label}

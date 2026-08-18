@@ -59,6 +59,7 @@ export const BRANDS: Brand[] = [
     supabaseRowId: 3,
     metaMensal: 150000,
     metaRoas: 7,
+    archived: true,
     vip: 'standby',
     yampiEnvPrefix: 'NEWHAIR_',
   },
