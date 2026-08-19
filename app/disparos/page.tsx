@@ -130,8 +130,8 @@ function BotaoCopiar({ texto }: { texto: string }) {
 }
 
 // ── Painel de edição ─────────────────────────────────────────────────────────
-function PainelEdicao({ d, onFechar, onRemover }: {
-  d: Disparo; onFechar: () => void; onRemover: () => void;
+function PainelEdicao({ d, yampi, onFechar, onRemover }: {
+  d: Disparo; yampi?: AtribItem; onFechar: () => void; onRemover: () => void;
 }) {
   const {
     updateDisparo, addBaseEntry, updateBaseEntry, removeBaseEntry, getBaseEntries,
@@ -144,8 +144,12 @@ function PainelEdicao({ d, onFechar, onRemover }: {
   const [novaBase, setNovaBase] = useState('');
 
   const entries = getBaseEntries(d.id);
-  const multiBase = entries.length >= 2;
   const content = getDisparoContent(d.id);
+
+  // "Base única": o formulário inteiro vale para uma base só. Com o toggle
+  // desligado entram os cards por base, e 2+ bases viram soma automática.
+  const [baseUnica, setBaseUnica] = useState(entries.length === 0);
+  const multiBase = !baseUnica && entries.length >= 2;
 
   const v = (k: keyof DisparoData): number => (form[k] as number) ?? (d[k as keyof Disparo] as number) ?? 0;
   const set = (k: keyof DisparoData) => (raw: string) =>
@@ -227,6 +231,27 @@ function PainelEdicao({ d, onFechar, onRemover }: {
 
       {aba === 'resultado' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {yampi && yampi.faturamento > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+              background: C.surfaceAlt, border: `1px solid ${C.borderMid}`, borderRadius: 14, padding: '14px 16px',
+            }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>Dados calculados pela Yampi</div>
+                <div style={{ fontSize: 12.5, color: C.inkSoft }}>
+                  {fmtBRL(yampi.faturamento)} em faturamento pago · {yampi.pedidos} pedidos atribuídos por UTM
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, faturamentoPago: yampi.faturamento, pedidos: yampi.pedidos }))}
+                style={{ ...BTN_PRIMARY, fontSize: 13, padding: '10px 18px', borderRadius: 10, boxShadow: `0 4px 0 ${C.primaryDeep}` }}
+              >
+                Aplicar
+              </button>
+            </div>
+          )}
+
           {multiBase && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12, background: C.warn,
@@ -294,17 +319,50 @@ function PainelEdicao({ d, onFechar, onRemover }: {
           <div style={{ height: 1, background: C.border }} />
 
           <div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={eyebrow(C.inkSoft)}>Segmentação</div>
-              <h4 style={{ fontFamily: FONT.display, fontWeight: 700, fontSize: 16, margin: '4px 0 0' }}>
-                Detalhamento por base
-              </h4>
-              <p style={{ fontSize: 12.5, color: C.inkSoft, margin: '4px 0 0' }}>
-                Sem bases aqui, os campos acima valem para <strong style={{ color: C.ink }}>{d.base}</strong>.
-                Com duas ou mais, eles viram a soma das bases.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div>
+                <div style={eyebrow(C.inkSoft)}>Segmentação</div>
+                <h4 style={{ fontFamily: FONT.display, fontWeight: 700, fontSize: 16, margin: '4px 0 0' }}>
+                  Detalhamento por base
+                </h4>
+                <p style={{ fontSize: 12.5, color: C.inkSoft, margin: '4px 0 0' }}>
+                  {baseUnica
+                    ? <>O formulário acima será salvo inteiro para <strong style={{ color: C.ink }}>{d.base}</strong>.</>
+                    : 'Insira os números de cada base — os campos acima viram o total do dia.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setBaseUnica((v) => !v)}
+                aria-pressed={baseUnica}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 9, padding: '8px 14px',
+                  borderRadius: 999, cursor: 'pointer', flex: 'none',
+                  background: baseUnica ? C.ink : C.surface,
+                  color: baseUnica ? '#fff' : C.inkSoft,
+                  border: `1px solid ${baseUnica ? C.ink : C.borderMid}`,
+                }}
+              >
+                <span style={{
+                  width: 26, height: 15, borderRadius: 999, flex: 'none', position: 'relative',
+                  background: baseUnica ? C.accent : C.borderMid, transition: 'background .15s',
+                }}>
+                  <span style={{
+                    position: 'absolute', top: 2, left: baseUnica ? 13 : 2, width: 11, height: 11,
+                    borderRadius: '50%', background: '#fff', transition: 'left .15s',
+                  }} />
+                </span>
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Base única</span>
+              </button>
             </div>
 
+            {baseUnica ? (
+              <div style={{ fontSize: 12.5, color: C.inkSoft, background: C.surface, border: `1px dashed ${C.borderMid}`, borderRadius: 12, padding: '14px 16px' }}>
+                Desligue <strong style={{ color: C.ink }}>Base única</strong> para lançar os números
+                de cada base separadamente.
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {entries.map((e, i) => (
                 <BaseEntryCard
@@ -338,6 +396,7 @@ function PainelEdicao({ d, onFechar, onRemover }: {
                 </button>
               </div>
             </div>
+            )}
           </div>
         </div>
       ) : (
@@ -662,6 +721,7 @@ export default function DisparosPage() {
               {estaAberto && (
                 <PainelEdicao
                   d={d}
+                  yampi={yampi}
                   onFechar={() => setAberto(null)}
                   onRemover={() => setConfirmando(d.id)}
                 />

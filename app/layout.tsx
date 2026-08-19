@@ -3,8 +3,8 @@ import './globals.css';
 import Shell from '@/components/Shell';
 
 export const metadata: Metadata = {
-  title: 'Vante Dashboard',
-  description: 'Dashboard de controle de disparos CRM — Vante',
+  title: 'DrySkin CRM',
+  description: 'Painel de disparos e Grupo VIP — DrySkin',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

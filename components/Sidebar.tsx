@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useBrand } from '@/lib/brand-context';
@@ -37,10 +38,13 @@ export default function Sidebar() {
           }}
         >
           <span style={{
-            width: 30, height: 30, borderRadius: 9, background: C.accent, display: 'grid', placeItems: 'center',
-            flex: 'none', fontFamily: FONT.display, fontWeight: 800, fontSize: 15, color: '#fff',
+            width: 30, height: 30, borderRadius: 9, background: brand.simbolo ? '#fff' : C.accent,
+            display: 'grid', placeItems: 'center', flex: 'none', overflow: 'hidden',
+            fontFamily: FONT.display, fontWeight: 800, fontSize: 15, color: '#fff',
           }}>
-            {brand.name.charAt(0)}
+            {brand.simbolo
+              ? <Image src={brand.simbolo} alt="" width={26} height={26} style={{ objectFit: 'contain' }} />
+              : brand.name.charAt(0)}
           </span>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: 'block', fontFamily: FONT.display, fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
@@ -154,7 +158,7 @@ export default function Sidebar() {
           fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.16em', textTransform: 'uppercase',
           color: C.inkSoft, marginTop: 10,
         }}>
-          Vante · v2
+          DrySkin CRM · v2
         </div>
       </div>
     </aside>

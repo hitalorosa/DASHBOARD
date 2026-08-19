@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { C, FONT } from '@/lib/theme';
 
@@ -53,18 +54,22 @@ export default function LoginPage() {
     >
       <div className="entra" style={{ width: '100%', maxWidth: 392 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div
-            style={{
-              width: 52, height: 52, borderRadius: 16, background: C.primary,
-              display: 'grid', placeItems: 'center', margin: '0 auto 18px',
-              fontFamily: FONT.display, fontWeight: 800, fontSize: 24, color: '#fff',
-              boxShadow: `0 5px 0 ${C.primaryDeep}`,
-            }}
-          >
-            V
-          </div>
+          <Image
+            src="/dryskin-simbolo.png"
+            alt="DrySkin"
+            width={52}
+            height={52}
+            priority
+            style={{ objectFit: 'contain', display: 'block', margin: '0 auto 18px' }}
+          />
           <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 30, letterSpacing: '-.02em', lineHeight: 1 }}>
-            Vante
+            DrySkin
+          </div>
+          <div style={{
+            fontFamily: FONT.display, fontWeight: 700, fontSize: 13, letterSpacing: '.22em',
+            textTransform: 'uppercase', color: C.primary, marginTop: 2,
+          }}>
+            CRM
           </div>
           <div style={{
             fontFamily: FONT.mono, fontSize: 10, letterSpacing: '.22em',

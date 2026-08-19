@@ -20,6 +20,20 @@ const STATUS_LABEL: Record<string, string> = {
   delivered: 'Entregue', cancelled: 'Cancelado',
 };
 
+/** Régua de páginas com reticências: 1 … 4 5 6 … 12. `null` vira "…". */
+function paginasVisiveis(atual: number, total: number): (number | null)[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const paginas = new Set<number>([1, total, atual, atual - 1, atual + 1]);
+  const lista = [...paginas].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+
+  const saida: (number | null)[] = [];
+  lista.forEach((p, i) => {
+    if (i > 0 && p - lista[i - 1] > 1) saida.push(null);
+    saida.push(p);
+  });
+  return saida;
+}
+
 function tempoRelativo(d: Date): string {
   const min = Math.floor((Date.now() - d.getTime()) / 60000);
   if (min < 1) return 'agora';
@@ -607,12 +621,27 @@ function VipDashboard() {
                 {[10, 20, 30, 50].map((n) => <option key={n} value={n}>{n} por página</option>)}
               </select>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                 <button type="button" disabled={pagina === 1} onClick={() => setPagina((p) => p - 1)}
                   style={{ ...BTN_GHOST, padding: '7px 11px', opacity: pagina === 1 ? .4 : 1 }}>‹</button>
-                <span style={{ fontFamily: FONT.mono, fontSize: 12, color: C.inkSoft, padding: '0 8px' }}>
-                  {pagina} / {totalPaginas}
-                </span>
+
+                {paginasVisiveis(pagina, totalPaginas).map((p, i) =>
+                  p === null ? (
+                    <span key={`gap${i}`} style={{ color: C.inkMut, padding: '0 4px', fontSize: 12 }}>…</span>
+                  ) : (
+                    <button
+                      key={p} type="button" onClick={() => setPagina(p)}
+                      style={{
+                        ...BTN_GHOST, padding: '7px 11px', minWidth: 34,
+                        background: p === pagina ? C.ink : C.surface,
+                        color: p === pagina ? '#fff' : C.inkSoft,
+                        border: `1px solid ${p === pagina ? C.ink : C.borderMid}`,
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+
                 <button type="button" disabled={pagina >= totalPaginas} onClick={() => setPagina((p) => p + 1)}
                   style={{ ...BTN_GHOST, padding: '7px 11px', opacity: pagina >= totalPaginas ? .4 : 1 }}>›</button>
               </div>

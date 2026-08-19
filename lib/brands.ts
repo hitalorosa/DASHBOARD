@@ -25,6 +25,8 @@ export interface Brand {
   vip: VipStatus;
   /** Prefixo das env vars da Yampi. Vazio = sem prefixo (YAMPI_ALIAS, ...). */
   yampiEnvPrefix: string;
+  /** Símbolo quadrado em /public, usado no avatar da sidebar. Sem ele, cai na inicial do nome. */
+  simbolo?: string;
 }
 
 export const BRANDS: Brand[] = [
@@ -50,6 +52,7 @@ export const BRANDS: Brand[] = [
     metaRoas: 7,
     vip: 'standby',
     yampiEnvPrefix: 'DRYSKIN_',
+    simbolo: '/dryskin-simbolo.png',
   },
   {
     id: 'newhair',
