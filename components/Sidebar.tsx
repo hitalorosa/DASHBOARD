@@ -146,13 +146,22 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Rodapé — wordmark textual funciona para qualquer marca */}
+      {/* Rodapé — símbolo da marca ao lado do nome; sem símbolo, só o nome */}
       <div style={{ marginTop: 'auto', padding: 18 }}>
-        <div style={{
-          fontFamily: FONT.display, fontWeight: 800, fontSize: 17, letterSpacing: '.06em',
-          textTransform: 'uppercase', color: 'rgba(255,255,255,.85)',
-        }}>
-          {brand.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {brand.simbolo && (
+            <Image
+              src={brand.simbolo} alt=""
+              width={26} height={26}
+              style={{ objectFit: 'contain', flex: 'none', opacity: .95 }}
+            />
+          )}
+          <span style={{
+            fontFamily: FONT.display, fontWeight: 800, fontSize: 17, letterSpacing: '.06em',
+            textTransform: 'uppercase', color: 'rgba(255,255,255,.9)',
+          }}>
+            {brand.name}
+          </span>
         </div>
         <div style={{
           fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.16em', textTransform: 'uppercase',

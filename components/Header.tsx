@@ -13,10 +13,14 @@ const MESES = [
 ];
 const ANOS = [2026, 2027];
 
+/** Altura fixa nos três controles do header — select e button não batem só com padding. */
+const CONTROL_H = 38;
+
 const SELECT: React.CSSProperties = {
-  padding: '9px 12px', fontSize: 13, fontWeight: 600,
+  height: CONTROL_H, padding: '0 10px', fontSize: 13, fontWeight: 600, lineHeight: `${CONTROL_H}px`,
   border: `1px solid ${C.borderMid}`, borderRadius: 10,
   background: C.surface, color: C.ink, cursor: 'pointer',
+  appearance: 'auto', boxSizing: 'border-box',
 };
 
 /**
@@ -147,7 +151,8 @@ export default function Header({ title }: { title?: string }) {
             title="Esta sessão tem acesso parcial ao painel"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 7, background: C.surfaceAlt,
-              borderRadius: 999, padding: '6px 12px', fontFamily: FONT.mono, fontSize: 10,
+              height: CONTROL_H, boxSizing: 'border-box',
+              borderRadius: 999, padding: '0 12px', fontFamily: FONT.mono, fontSize: 10,
               letterSpacing: '.1em', textTransform: 'uppercase', color: C.primaryDeep, whiteSpace: 'nowrap',
             }}
           >
@@ -167,8 +172,9 @@ export default function Header({ title }: { title?: string }) {
           type="button"
           onClick={handleLogout}
           style={{
-            background: C.surface, color: C.inkSoft, fontWeight: 600, fontSize: 13,
-            padding: '9px 14px', border: `1px solid ${C.borderMid}`, borderRadius: 10, cursor: 'pointer',
+            height: CONTROL_H, background: C.surface, color: C.inkSoft, fontWeight: 600, fontSize: 13,
+            padding: '0 14px', border: `1px solid ${C.borderMid}`, borderRadius: 10, cursor: 'pointer',
+            boxSizing: 'border-box',
           }}
         >
           Sair

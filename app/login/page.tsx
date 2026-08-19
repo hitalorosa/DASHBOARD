@@ -127,14 +127,6 @@ export default function LoginPage() {
           >
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
-
-          <div style={{
-            marginTop: 20, paddingTop: 18, borderTop: `1px solid ${C.border}`,
-            fontSize: 12, color: C.inkSoft, lineHeight: 1.5,
-          }}>
-            A sessão herda o <strong style={{ fontWeight: 600, color: C.ink }}>nível de acesso</strong> da
-            senha: cada nível abre um recorte diferente do painel.
-          </div>
         </form>
       </div>
     </div>
