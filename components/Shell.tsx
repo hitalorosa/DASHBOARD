@@ -29,7 +29,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
             <main
               className="p-4 md:p-7 pb-24 md:pb-7"
-              style={{ flex: 1, minWidth: 0, maxWidth: 1420, width: '100%' }}
+              style={{ flex: 1, minWidth: 0, width: '100%' }}
             >
               <AccessGuard>
                 <ArchivedGuard>{children}</ArchivedGuard>

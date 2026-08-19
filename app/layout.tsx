@@ -7,10 +7,15 @@ export const metadata: Metadata = {
   description: 'Painel de disparos e Grupo VIP — DrySkin',
 };
 
+/**
+ * Nada de `h-full` no html/body: ele travava a altura no viewport, o container
+ * do Shell parava de crescer com o conteúdo e a sidebar sticky ficava sem curso
+ * para grudar. `min-h-screen` no body dá o piso sem impor teto.
+ */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="h-full">
-      <body className="flex h-full min-h-screen">
+    <html lang="pt-BR">
+      <body className="flex min-h-screen">
         <Shell>{children}</Shell>
       </body>
     </html>

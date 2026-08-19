@@ -37,7 +37,9 @@ body {
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  /* `clip` e não `hidden`: hidden cria contexto de rolagem e quebra o
+     position:sticky da sidebar e do header. */
+  overflow-x: clip;
 }
 
 a { color: var(--primary-deep); text-decoration: none; }

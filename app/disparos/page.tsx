@@ -688,11 +688,11 @@ export default function DisparosPage() {
 
                 {/* Faixa de métricas */}
                 <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(88px,1fr))', gap: 10,
+                  display: 'flex', flexWrap: 'wrap', gap: '10px 34px',
                   marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.borderSoft}`,
                 }}>
                   {metricas.map((m) => (
-                    <div key={m.rotulo} style={{ minWidth: 0 }}>
+                    <div key={m.rotulo} style={{ minWidth: 92 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
                         <span style={{ ...eyebrow(C.inkRail, 8.5), letterSpacing: '.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {m.rotulo}
@@ -738,7 +738,7 @@ export default function DisparosPage() {
               </span>
               <span style={roasPill(roasTotal)}>{roasTexto(roasTotal)}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(88px,1fr))', gap: 10, marginTop: 11 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 34px', marginTop: 11 }}>
               {[
                 { rotulo: 'Tam. base', valor: totalTam > 0 ? num(totalTam) : '—' },
                 { rotulo: 'Invest.',   valor: totalInvest > 0 ? fmtBRL(totalInvest) : '—' },
@@ -747,7 +747,7 @@ export default function DisparosPage() {
                 { rotulo: 'Leitura',   valor: leituraMed > 0 ? `${(leituraMed * 100).toFixed(0)}% média` : '—' },
                 { rotulo: 'Cliques',   valor: totalCli > 0 ? num(totalCli) : '—' },
               ].map((m) => (
-                <div key={m.rotulo} style={{ minWidth: 0 }}>
+                <div key={m.rotulo} style={{ minWidth: 92 }}>
                   <div style={{ ...eyebrow(C.primaryDeep, 8.5), letterSpacing: '.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {m.rotulo}
                   </div>
