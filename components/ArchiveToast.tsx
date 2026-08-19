@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useBrand } from '@/lib/brand-context';
+import { C } from '@/lib/theme';
 
 const VISIBLE_MS = 3500;
 
@@ -25,18 +26,19 @@ export default function ArchiveToast() {
       role="status"
       aria-live="polite"
       onClick={dismissArchiveToast}
-      // No mobile sobe acima da BottomNav (60px + safe area); no desktop encosta embaixo
-      className="archive-toast fixed z-[100] right-4 flex items-center gap-2.5 px-4 py-3
-                 rounded-xl cursor-pointer bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-5"
+      className="toast-vante fixed z-[100] right-4 cursor-pointer bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-6"
       style={{
         maxWidth: 'calc(100vw - 32px)',
-        backgroundColor: '#161616',
-        border: '1px solid rgba(212,168,67,0.35)',
-        boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
+        background: C.ink,
+        color: '#fff',
+        borderRadius: 14,
+        padding: '14px 18px',
+        fontSize: 13,
+        fontWeight: 500,
+        boxShadow: '0 14px 32px rgba(23,48,44,.24)',
       }}
     >
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#D4A843' }} />
-      <span style={{ fontSize: 12.5, color: '#ECECEC', lineHeight: 1.4 }}>{archiveToast}</span>
+      {archiveToast}
     </div>
   );
 }

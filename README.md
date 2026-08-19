@@ -1,6 +1,46 @@
 # Vante Dashboard
 
-Painel de disparos e Grupo VIP. Marcas em operação: **DrySkin** e **New Hair**.
+Painel de disparos e Grupo VIP. Marca em operação: **DrySkin** (Nouê e New Hair estão
+arquivadas).
+
+## Design
+
+A interface segue o **Painel Vante**, desenhado no Claude Design (projeto *Redesign do site
+Dryskin*). Os tokens vivem em dois lugares que precisam andar juntos:
+
+- `lib/theme.ts` — cores, tipografia e helpers de pílula, para os estilos inline
+- `app/globals.css` — as mesmas cores como variáveis CSS, mais o reset e as animações
+
+Fontes: **Archivo** (títulos e números) e **Inter** (corpo), com monoespaçada do sistema nos
+rótulos pequenos. Os ícones da navegação são glifos (`◧ ▦ ➤ ◍ ♛`), não uma biblioteca —
+o que também elimina a dependência do `lucide-react`, que dava problema com o OneDrive.
+
+O cabeçalho de cada página é montado uma vez em `components/Shell.tsx` e o título vem da
+rota, via `lib/nav.ts` — nenhuma página fica sem título.
+
+## Níveis de acesso
+
+Cada senha abre um recorte diferente do painel. O mapa está em `lib/nav.ts`:
+
+| Nível | Env var | Áreas |
+|---|---|---|
+| `total` | `DASHBOARD_PASSWORD` | Central · Calendário · Disparos · Bases · Grupo VIP |
+| `financeiro` | `DASHBOARD_PASSWORD_FINANCEIRO` | Central · Disparos · Bases · Grupo VIP |
+| `conteudo` | `DASHBOARD_PASSWORD_CONTEUDO` | Calendário · Disparos |
+
+Só a primeira é obrigatória — sem as outras duas, o dashboard funciona com uma senha só,
+como antes.
+
+**Como a barreira funciona.** O login grava dois cookies:
+
+- `dash-session` — httpOnly e **assinado** (`<nível>.<sha256 do segredo + nível>`, ver
+  `lib/session.ts`). É o que o `proxy.ts` valida. Trocar o nível aqui invalida a assinatura
+  e derruba a sessão.
+- `dash-nivel` — legível pelo JS, usado só para a interface montar a navegação. Adulterar
+  este cookie **não** dá acesso: quem decide é o proxy.
+
+Rotas de API que servem dados de uma área precisam ser mapeadas em `API_AREA`, dentro de
+`lib/nav.ts` — senão um nível sem acesso à tela ainda consegue ler os dados direto.
 
 ## Marcas arquivadas (modo arquivo)
 
@@ -42,7 +82,8 @@ como *online-only*. Com o OneDrive parado, ler esses arquivos falha com
 em arquivos que nunca foram usados antes (por exemplo, um ícone novo do `lucide-react`).
 
 Se acontecer: inicie o OneDrive, ou reinstale as dependências localmente com `npm ci`.
-No estado atual, só os ~19 ícones do `lucide-react` já em uso estão baixados — por isso
+O `lucide-react` não é mais importado por nenhuma tela (a navegação usa glifos), o que
+remove a causa mais comum desse erro — por isso
 alguns ícones neste projeto são SVG inline.
 
 ---

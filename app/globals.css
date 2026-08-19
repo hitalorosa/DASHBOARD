@@ -1,106 +1,77 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* Tokens do design "Painel Vante". O espelho em TS vive em lib/theme.ts — manter os dois em sincronia. */
 :root {
-  --sidebar-bg: #0D0D0D;
-  --sidebar-text: #6B7280;
-  --sidebar-active: #D4A843;
-  --sidebar-active-bg: #1C1C1C;
-  --page-bg: #111111;
-  --card-bg: #1A1A1A;
-  --card-border: #2A2A2A;
-  --noue-gold: #D4A843;
-  --text-primary: #ECECEC;
-  --text-secondary: #9CA3AF;
-  --text-muted: #5E5E5E;
+  --bg:          #F9FCFB;
+  --surface:     #FFFFFF;
+  --surface-alt: #E2F1EC;
+  --surface-mut: #F0F7F5;
+  --rail:        #E4EAE9;
+  --rail-border: #CBD6D3;
+
+  --border:      #E2F1EC;
+  --border-mid:  #C9DED7;
+  --border-soft: #E4EFEB;
+
+  --ink:         #17302C;
+  --ink-soft:    #557069;
+  --ink-mut:     #9BB3AC;
+  --ink-rail:    #2C4A44;
+
+  --primary:      #2E9C86;
+  --primary-deep: #1F7A68;
+  --accent:       #43B89F;
+  --on-dark:      #7FA79E;
+
+  --warn:        #FFE9A8;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-  background-color: var(--page-bg);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--text-primary);
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
+a { color: var(--primary-deep); text-decoration: none; }
+a:hover { color: var(--primary); text-decoration: underline; }
+
+input, select, textarea, button { font-family: inherit; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+::placeholder { color: var(--ink-mut); }
+
 textarea, input {
-  box-sizing: border-box;
   max-width: 100%;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
-/* KPI cards */
-.kpi-card {
-  position: relative;
-  background: linear-gradient(180deg, #1c1c1c 0%, #181818 100%);
-  border: 1px solid #262626;
-  border-radius: 14px;
-  padding: 20px 20px 16px;
-  overflow: hidden;
-  isolation: isolate;
-}
-.kpi-card::before {
-  content: "";
-  position: absolute; left: 0; top: 0; height: 2px; width: 42px;
-  background: linear-gradient(90deg, #D4A843, transparent);
-}
-.kpi-card::after {
-  content: "";
-  position: absolute; inset: auto -40px -60px auto;
-  width: 180px; height: 180px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(212,168,67,0.18), transparent 70%);
-  z-index: -1; pointer-events: none;
-}
+@keyframes gira   { to { transform: rotate(360deg) } }
+@keyframes entra  { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+@keyframes desliza{ from { transform: translateX(24px); opacity: .4 } to { transform: none; opacity: 1 } }
 
-/* Disparos table rows */
-.disparo-row td { color: #D8D8D8; }
-.disparo-row:nth-child(even) td { background-color: #161616; }
-.disparo-row:hover td { background-color: #1d1a13 !important; }
-.disparo-row:hover td:first-child { box-shadow: inset 2px 0 0 #D4A843; }
+.entra   { animation: entra .2s ease both; }
+.desliza { animation: desliza .22s ease both; }
 
-/* Calendar serif numerals + today cell */
-.cal-num {
-  font-family: 'Instrument Serif', serif;
-  font-size: 22px;
-  line-height: 1;
-  color: #D0D0D0;
-}
-.cal-num-mobile {
-  font-family: 'Instrument Serif', serif;
-  font-size: 14px;
-  line-height: 1;
-  color: #D0D0D0;
-}
-.cal-cell-today .cal-num,
-.cal-cell-today .cal-num-mobile { color: #D4A843; }
-.cal-cell-today::after {
-  content: "HOJE";
-  position: absolute; right: 4px; top: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 6px; letter-spacing: 0.18em; color: #D4A843;
-}
-@media (min-width: 768px) {
-  .cal-cell-today::after {
-    right: 7px; top: 7px;
-    font-size: 8px;
-  }
-}
+/* Linha clicável de lista/tabela */
+.row-hover:hover { background: var(--bg) !important; }
 
-/* Mobile scroll helper */
-@media (max-width: 767px) {
-  .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-}
+/* Cartão de disparo — realce sutil ao passar o mouse */
+.disparo-card { transition: box-shadow .15s ease, border-color .15s ease; }
+.disparo-card:hover { border-color: var(--border-mid); box-shadow: 0 2px 10px rgba(23,48,44,.07); }
 
-/* Toast do modo arquivo (components/ArchiveToast.tsx) */
-.archive-toast {
-  animation: archive-toast-in 0.18s ease-out;
-}
+/* Toast (modo arquivo e sincronização) */
+.toast-vante { animation: entra .2s ease both; }
 
-@keyframes archive-toast-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* Barra de rolagem discreta nos blocos que rolam na horizontal */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.scroll-x::-webkit-scrollbar { height: 8px; }
+.scroll-x::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 999px; }
+.scroll-x::-webkit-scrollbar-track { background: transparent; }

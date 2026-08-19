@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className="h-full">
-      <body className="flex h-full min-h-screen" style={{ backgroundColor: '#111111' }}>
+      <body className="flex h-full min-h-screen">
         <Shell>{children}</Shell>
       </body>
     </html>

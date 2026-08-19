@@ -2,142 +2,161 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Zap, Database, ChevronDown, Crown, LogOut } from 'lucide-react';
-import Image from 'next/image';
 import { useState } from 'react';
 import { useBrand } from '@/lib/brand-context';
 import { DEFAULT_BRAND } from '@/lib/brands';
-
-const navItems = [
-  { href: '/', label: 'Central', icon: LayoutDashboard },
-  { href: '/calendario', label: 'Calendário', icon: Calendar },
-  { href: '/disparos', label: 'Disparos', icon: Zap },
-  { href: '/bases', label: 'Bases', icon: Database },
-  { href: '/vip', label: 'Grupo VIP', icon: Crown },
-];
+import { NAV, areaDaRota, areasDoNivel } from '@/lib/nav';
+import { C, FONT } from '@/lib/theme';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { brand, setBrand, brands, archiveMode, setArchiveMode } = useBrand();
+  const { brand, setBrand, brands, archiveMode, setArchiveMode, nivel } = useBrand();
   const [open, setOpen] = useState(false);
 
-  return (
-    <aside className="hidden md:flex flex-col" style={{ width: 220, minHeight: '100vh', backgroundColor: '#0E0E0E', borderRight: '1px solid #262626', flexShrink: 0 }}>
+  const areaAtual = areaDaRota(pathname);
+  const itens = areasDoNivel(nivel).map((a) => NAV[a]);
 
-      {/* Brand selector */}
-      <div className="relative px-3 py-4">
+  return (
+    <aside
+      className="hidden md:flex flex-col"
+      style={{ width: 236, flex: 'none', background: C.ink, color: '#fff', position: 'sticky', top: 0, height: '100vh' }}
+    >
+      {/* Seletor de marca */}
+      <div style={{ padding: '20px 18px 16px', position: 'relative' }}>
+        <div style={{ fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: C.onDark, marginBottom: 10 }}>
+          Marca
+        </div>
+
         <button
+          type="button"
           onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all"
-          style={{ backgroundColor: open ? '#1A1A1A' : 'transparent' }}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.14)',
+            borderRadius: 14, padding: '10px 12px', color: '#fff', cursor: 'pointer', textAlign: 'left',
+          }}
         >
-          {/* brand logo */}
-          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0"
-            style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A' }}>
-            <Image
-              src={brand.logo}
-              alt={brand.name}
-              width={32}
-              height={32}
-              style={{ objectFit: 'contain' }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-xs font-semibold truncate" style={{ color: '#F2F2F2' }}>{brand.name}</p>
-          </div>
-          <ChevronDown size={14} style={{ color: '#5E5E5E', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          <span style={{
+            width: 30, height: 30, borderRadius: 9, background: C.accent, display: 'grid', placeItems: 'center',
+            flex: 'none', fontFamily: FONT.display, fontWeight: 800, fontSize: 15, color: '#fff',
+          }}>
+            {brand.name.charAt(0)}
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontFamily: FONT.display, fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
+              {brand.name}
+            </span>
+            <span style={{ display: 'block', fontSize: 11, color: C.onDark }}>
+              {brands.length} {brands.length === 1 ? 'marca' : 'marcas'}
+            </span>
+          </span>
+          <span style={{ fontSize: 10, color: C.onDark }}>{open ? '▲' : '▼'}</span>
         </button>
 
-        {/* dropdown */}
         {open && (
-          <div className="absolute left-3 right-3 top-full mt-1 rounded-xl border overflow-hidden z-50"
-            style={{ backgroundColor: '#161616', borderColor: '#2A2A2A' }}>
+          <div
+            className="entra"
+            style={{
+              marginTop: 8, background: '#0F2320', border: '1px solid rgba(255,255,255,.12)',
+              borderRadius: 14, padding: 6,
+            }}
+          >
             {brands.map((b) => (
               <button
                 key={b.id}
+                type="button"
                 onClick={() => { setBrand(b); setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-all text-left"
-                style={{ backgroundColor: b.id === brand.id ? '#1A1A1A' : 'transparent' }}>
-                <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: '#0D0D0D', border: '1px solid #2A2A2A' }}>
-                  <Image
-                    src={b.logo}
-                    alt={b.name}
-                    width={28}
-                    height={28}
-                    style={{ objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                </div>
-                <span className="text-xs font-medium truncate" style={{ color: b.id === brand.id ? '#D4A843' : '#9CA3AF' }}>
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent',
+                  border: 0, padding: '9px 10px', borderRadius: 10, color: '#fff', cursor: 'pointer',
+                  textAlign: 'left', fontSize: 13,
+                }}
+              >
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%', flex: 'none',
+                  background: b.id === brand.id ? C.accent : 'rgba(255,255,255,.25)',
+                }} />
+                <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {b.name}
                 </span>
                 {b.archived && (
-                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide"
-                    style={{ backgroundColor: '#241E10', color: '#8A7A4E' }}>
+                  <span style={{
+                    fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase',
+                    color: C.onDark, border: '1px solid rgba(255,255,255,.18)', borderRadius: 999, padding: '2px 7px',
+                  }}>
                     arquivo
                   </span>
-                )}
-                {b.id === brand.id && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#D4A843' }} />
                 )}
               </button>
             ))}
 
             {archiveMode && (
               <button
+                type="button"
                 onClick={() => {
                   setArchiveMode(false);
                   if (brand.archived) setBrand(DEFAULT_BRAND);
                   setOpen(false);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-                style={{ borderTop: '1px solid #2A2A2A', color: '#6B6B6B' }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent',
+                  border: 0, borderTop: '1px solid rgba(255,255,255,.12)', marginTop: 4, padding: '9px 10px',
+                  color: C.onDark, cursor: 'pointer', textAlign: 'left', fontSize: 11.5, fontWeight: 600,
+                }}
               >
-                <LogOut size={13} />
-                <span className="text-[11px] font-medium">Sair do arquivo</span>
+                Sair do arquivo
               </button>
             )}
           </div>
         )}
-
-        {/* gold divider */}
-        <span style={{
-          position: 'absolute', bottom: 0, left: 8, right: 8, height: 1,
-          background: 'linear-gradient(90deg, transparent 0%, #D4A843 18%, #D4A843 82%, transparent 100%)',
-          opacity: 0.5,
-        }} />
       </div>
 
-      {/* nav */}
-      <nav className="flex flex-col gap-0.5 px-3 mt-3">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+      <div style={{ height: 1, background: 'rgba(255,255,255,.12)', margin: '0 18px 14px' }} />
+
+      {/* Navegação */}
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px' }}>
+        {itens.map((n) => {
+          const ativo = n.area === areaAtual;
           return (
             <Link
-              key={href}
-              href={href}
-              className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150"
+              key={n.area}
+              href={n.href}
               style={{
-                color: active ? '#F1E7CB' : '#B8B8B8',
-                backgroundColor: active ? '#171513' : 'transparent',
-                fontWeight: active ? 600 : 400,
-                textDecoration: 'none',
+                position: 'relative', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 10, fontSize: 13.5, textDecoration: 'none',
+                fontWeight: ativo ? 700 : 500,
+                color: ativo ? '#fff' : C.onDark,
+                background: ativo ? 'rgba(255,255,255,.10)' : 'transparent',
               }}
             >
-              {active && (
+              {ativo && (
                 <span style={{
-                  position: 'absolute', left: -12, top: 8, bottom: 8,
-                  width: 2, background: '#D4A843', borderRadius: 2,
+                  position: 'absolute', left: 0, top: 9, bottom: 9, width: 3,
+                  background: C.accent, borderRadius: 999,
                 }} />
               )}
-              <Icon size={16} strokeWidth={active ? 2.2 : 1.8} style={{ color: active ? '#D4A843' : '#8A8A8A' }} />
-              {label}
+              <span style={{ width: 18, textAlign: 'center', fontSize: 13, opacity: .9 }}>{n.icone}</span>
+              <span>{n.rotulo}</span>
             </Link>
           );
         })}
       </nav>
+
+      {/* Rodapé — wordmark textual funciona para qualquer marca */}
+      <div style={{ marginTop: 'auto', padding: 18 }}>
+        <div style={{
+          fontFamily: FONT.display, fontWeight: 800, fontSize: 17, letterSpacing: '.06em',
+          textTransform: 'uppercase', color: 'rgba(255,255,255,.85)',
+        }}>
+          {brand.name}
+        </div>
+        <div style={{
+          fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.16em', textTransform: 'uppercase',
+          color: C.inkSoft, marginTop: 10,
+        }}>
+          Vante · v2
+        </div>
+      </div>
     </aside>
   );
 }

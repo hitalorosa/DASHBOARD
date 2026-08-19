@@ -1,82 +1,62 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Header from '@/components/Header';
-import CampaignBadge from '@/components/CampaignBadge';
 import { useStore, DisparoContent } from '@/lib/store';
 import { datasazonais2025 } from '@/lib/data';
 import { Disparo, CampaignType } from '@/lib/types';
 import { useBrand } from '@/lib/brand-context';
-import { format, parseISO, startOfMonth, startOfWeek, addDays, eachDayOfInterval, isSameDay, isSameMonth, differenceInDays } from 'date-fns';
+import {
+  format, parseISO, startOfMonth, startOfWeek, addDays,
+  eachDayOfInterval, isSameDay, isSameMonth, differenceInDays,
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { X, Plus } from 'lucide-react';
+import { C, FONT, eyebrow, heading, tipoPill, fmtBRL, BTN_PRIMARY, BTN_GHOST, INPUT } from '@/lib/theme';
 
 const TIPO_LABELS: Record<CampaignType, string> = {
   sazonal: 'Sazonal', esquenta: 'Esquenta', ressaca: 'Ressaca',
   comportamental: 'Comportamental', produto: 'LP Produto', brinde: 'Brinde', fimmes: 'Fim de Mês',
 };
 
-const CAT_COLORS: Record<string, { bg: string; color: string }> = {
-  diad:       { bg: '#0D1F3A', color: '#60A5FA' },
-  ecommerce:  { bg: '#0F2E1A', color: '#4ADE80' },
-  feriado:    { bg: '#2D2208', color: '#FCD34D' },
-  relevante:  { bg: '#1E1529', color: '#A78BFA' },
+const CAT_LABEL: Record<string, string> = {
+  diad: 'Dia D', ecommerce: 'E-commerce', feriado: 'Feriado', relevante: 'Relevante',
+};
+const REL_LABEL: Record<string, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+
+// ── Chip: a definir → pronto → executado ─────────────────────────────────────
+type ChipKind = 'executado' | 'pronto' | 'aDefinir' | 'aDefinirForte';
+
+const CHIP: Record<ChipKind, { style: React.CSSProperties; marcador: string; rotulo: string }> = {
+  executado:     { marcador: '✓', rotulo: 'executado',              style: { background: C.surfaceAlt, border: `1px solid ${C.borderMid}`, color: C.primaryDeep } },
+  pronto:        { marcador: '●', rotulo: 'pronto · copy e cupom',  style: { background: C.primary,    border: `1px solid ${C.primary}`,   color: '#fff' } },
+  aDefinir:      { marcador: '◆', rotulo: 'a definir',              style: { background: 'transparent', border: `1px dashed ${C.borderMid}`, color: C.inkSoft } },
+  aDefinirForte: { marcador: '◆', rotulo: 'a definir · fim de mês', style: { background: C.warnBg,     border: `1px dashed ${C.warnBorder}`, color: C.warnInk } },
 };
 
-// Estados visuais do chip no calendário: a definir → pronto → executado
-type ChipKind = 'executado' | 'pronto' | 'pilar' | 'forte';
-const CHIP_STYLE: Record<ChipKind, { bg: string; border: string; color: string; dashed?: boolean; label: string }> = {
-  executado: { bg: 'rgba(46,163,111,.16)',  border: 'rgba(46,163,111,.38)', color: '#7ee0b0', label: 'executado · resultado lançado' },
-  pronto:    { bg: 'rgba(212,168,67,.16)',  border: 'rgba(212,168,67,.42)', color: '#e5c475', label: 'pronto · copy e cupom prontos' },
-  pilar:     { bg: 'rgba(75,127,214,.14)',  border: 'rgba(75,127,214,.42)', color: '#9dbdf5', dashed: true, label: 'a definir (pilar)' },
-  forte:     { bg: 'rgba(217,131,36,.18)',  border: 'rgba(217,131,36,.45)', color: '#f0b567', dashed: true, label: 'a definir (fim de mês)' },
-};
-
-// Três estágios: executado (tem resultado) > pronto (tem copy + cupom) > a definir (nada ainda)
-function chipFor(d: Disparo, content: Partial<DisparoContent>): { kind: ChipKind; mark: string; text: string } {
+function chipFor(d: Disparo, content: Partial<DisparoContent>): { kind: ChipKind; texto: string } {
   const executado = d.faturamentoPago > 0 || d.enviados > 0;
   const cupom = (content.cupom ?? '').trim();
   const temCopy = [content.msg1, content.msg2, content.msg3].some((m) => (m ?? '').trim().length > 0);
-  const pronto = temCopy && cupom.length > 0;
 
-  if (executado) return { kind: 'executado', mark: '✓', text: cupom || 'sem cupom' };
-  if (pronto) return { kind: 'pronto', mark: '●', text: cupom };
-  const kind: ChipKind = d.tipo === 'fimmes' ? 'forte' : 'pilar';
-  return { kind, mark: '◆', text: 'a definir' };
+  if (executado) return { kind: 'executado', texto: cupom || 'sem cupom' };
+  if (temCopy && cupom) return { kind: 'pronto', texto: cupom };
+  return { kind: d.tipo === 'fimmes' ? 'aDefinirForte' : 'aDefinir', texto: 'a definir' };
 }
 
-const REL_LABEL: Record<string, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
-const MONO = { fontFamily: "'JetBrains Mono', monospace" };
-const INPUT = { backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', color: '#F9FAFB' };
-
-function fmt(n: number) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-}
-
+// ── Modal ────────────────────────────────────────────────────────────────────
 function NovoDisparoModal({ month, year, onSave, onClose }: {
-  month: number; year: number;
-  onSave: (d: Disparo) => void;
-  onClose: () => void;
+  month: number; year: number; onSave: (d: Disparo) => void; onClose: () => void;
 }) {
-  const defaultDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
   const [form, setForm] = useState({
-    data: defaultDate,
-    campanha: '',
-    tipo: 'sazonal' as CampaignType,
-    base: '',
+    data: `${year}-${String(month + 1).padStart(2, '0')}-01`,
+    campanha: '', tipo: 'sazonal' as CampaignType, base: '',
   });
+  const podeSalvar = form.campanha.trim() && form.base.trim() && form.data;
 
-  const canSave = form.campanha.trim() && form.base.trim() && form.data;
-
-  function handleSave() {
-    if (!canSave) return;
-    const id = `c-${Date.now()}`;
+  function salvar() {
+    if (!podeSalvar) return;
     onSave({
-      id,
-      data: form.data,
-      campanha: form.campanha.trim(),
-      tipo: form.tipo,
-      base: form.base.trim(),
+      id: `c-${Date.now()}`,
+      data: form.data, campanha: form.campanha.trim(), tipo: form.tipo, base: form.base.trim(),
       tamanhoBase: 0, enviados: 0, taxaEntrega: 0, entregas: 0, taxaLeitura: 0,
       cliques: 0, cotacaoUsd: 0, investimentoUsd: 0, investimentoBrl: 0,
       faturamentoPago: 0, pedidos: 0, ticketMedio: 0, roas: 0, observacoes: '',
@@ -84,235 +64,177 @@ function NovoDisparoModal({ month, year, onSave, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
-      <div className="w-full max-w-lg rounded-2xl border p-6" style={{ backgroundColor: '#1A1A1A', borderColor: '#D4A843' }}>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#D4A843' }}>Novo Disparo</p>
-            <p className="text-lg font-semibold mt-1" style={{ color: '#ECECEC' }}>Adicionar fora do calendário</p>
-          </div>
-          <button onClick={onClose} style={{ color: '#8A8A8A' }}><X size={18} /></button>
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(23,48,44,.42)', display: 'grid', placeItems: 'center', zIndex: 60, padding: 24 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="entra"
+        style={{ width: '100%', maxWidth: 512, background: C.surface, borderRadius: 24, padding: 28, boxShadow: '0 24px 60px rgba(23,48,44,.24)' }}
+      >
+        <h2 style={{ ...heading(22), marginBottom: 20 }}>Novo disparo</h2>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <label style={{ display: 'block' }}>
+            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Data</span>
+            <input type="date" value={form.data} onChange={(e) => setForm((p) => ({ ...p, data: e.target.value }))}
+              style={{ ...INPUT, padding: '11px 12px', colorScheme: 'light' }} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Tipo</span>
+            <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as CampaignType }))}
+              style={{ ...INPUT, padding: '11px 12px', cursor: 'pointer' }}>
+              {(Object.entries(TIPO_LABELS) as [CampaignType, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs mb-1.5" style={{ color: '#8A8A8A' }}>Data</label>
-              <input
-                type="date"
-                value={form.data}
-                onChange={(e) => setForm((p) => ({ ...p, data: e.target.value }))}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none border"
-                style={{ ...INPUT, colorScheme: 'dark' }}
-              />
-            </div>
-            <div>
-              <label className="block text-xs mb-1.5" style={{ color: '#8A8A8A' }}>Tipo</label>
-              <select
-                value={form.tipo}
-                onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as CampaignType }))}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none border cursor-pointer"
-                style={INPUT}
-              >
-                {(Object.entries(TIPO_LABELS) as [CampaignType, string][]).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+        <label style={{ display: 'block', marginTop: 14 }}>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nome da campanha</span>
+          <input type="text" placeholder="ex.: Esquenta Dia do Cliente" value={form.campanha}
+            onChange={(e) => setForm((p) => ({ ...p, campanha: e.target.value }))} style={{ ...INPUT, padding: '11px 12px' }} />
+        </label>
 
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: '#8A8A8A' }}>Nome da Campanha</label>
-            <input
-              type="text"
-              placeholder="Ex: Oferta Relâmpago — Lista VIP"
-              value={form.campanha}
-              onChange={(e) => setForm((p) => ({ ...p, campanha: e.target.value }))}
-              className="w-full rounded-lg px-3 py-2 text-sm outline-none border"
-              style={INPUT}
-            />
-          </div>
+        <label style={{ display: 'block', marginTop: 14 }}>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Base</span>
+          <input type="text" placeholder="ex.: Carrinho Abandonado" value={form.base}
+            onChange={(e) => setForm((p) => ({ ...p, base: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') salvar(); }} style={{ ...INPUT, padding: '11px 12px' }} />
+        </label>
 
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: '#8A8A8A' }}>Base</label>
-            <input
-              type="text"
-              placeholder="Ex: Base Toda, Carrinho Abandonado 60d..."
-              value={form.base}
-              onChange={(e) => setForm((p) => ({ ...p, base: e.target.value }))}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
-              className="w-full rounded-lg px-3 py-2 text-sm outline-none border"
-              style={INPUT}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleSave}
-            disabled={!canSave}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ backgroundColor: canSave ? '#D4A843' : '#2A2A2A', color: canSave ? '#0D0D0D' : '#5E5E5E' }}>
-            <Plus size={14} /> Criar Disparo
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
+          <button type="button" onClick={salvar} disabled={!podeSalvar}
+            style={{ ...BTN_PRIMARY, opacity: podeSalvar ? 1 : .5, cursor: podeSalvar ? 'pointer' : 'not-allowed' }}>
+            Criar disparo
           </button>
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm border"
-            style={{ borderColor: '#2A2A2A', color: '#8A8A8A' }}>
-            Cancelar
-          </button>
+          <button type="button" onClick={onClose} style={BTN_GHOST}>Cancelar</button>
         </div>
 
-        <p className="text-xs mt-4" style={{ color: '#3A3A3A' }}>
-          O disparo aparecerá no calendário, na tabela de Disparos e nos KPIs da Central.
-          Preencha os resultados depois pelo botão Preencher na página Disparos.
+        <p style={{ fontSize: 12, color: C.inkSoft, margin: '16px 0 0' }}>
+          O disparo nasce como <strong style={{ color: C.ink }}>a definir</strong>. A copy e o cupom
+          são preenchidos depois, na aba Conteúdo.
         </p>
       </div>
     </div>
   );
 }
 
+// ── Página ───────────────────────────────────────────────────────────────────
 export default function CalendarioPage() {
   const { month, year, setMonth, setYear } = useBrand();
-  const [selected, setSelected] = useState<Disparo | null>(null);
-  const [showNewDisparo, setShowNewDisparo] = useState(false);
-
+  const [selecionado, setSelecionado] = useState<Disparo | null>(null);
+  const [novoAberto, setNovoAberto] = useState(false);
   const { getDisparos, addDisparo, getDisparoContent } = useStore();
 
-  const currentDate = useMemo(() => new Date(year, month, 1), [month, year]);
-  // Grade fixa de 6 semanas (42 células) começando no domingo — dias de outros
-  // meses aparecem esmaecidos, como no mockup.
-  const gridStart = useMemo(() => startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 }), [currentDate]);
-  const gridDays = useMemo(
-    () => eachDayOfInterval({ start: gridStart, end: addDays(gridStart, 41) }),
-    [gridStart],
-  );
+  const dataAtual = useMemo(() => new Date(year, month, 1), [year, month]);
+  const gridStart = useMemo(() => startOfWeek(startOfMonth(dataAtual), { weekStartsOn: 0 }), [dataAtual]);
+  const dias = useMemo(() => eachDayOfInterval({ start: gridStart, end: addDays(gridStart, 41) }), [gridStart]);
 
   const disparosDoMes = useMemo(() => getDisparos(month, year), [month, year, getDisparos]);
+  const disparosDoDia = (dia: Date) => disparosDoMes.filter((d) => isSameDay(new Date(d.data + 'T12:00:00'), dia));
 
-  const getDisparosForDay = (day: Date) => disparosDoMes.filter((d) => isSameDay(new Date(d.data + 'T12:00:00'), day));
+  const hoje = new Date();
+  const sazonais = datasazonais2025.filter((s) => parseISO(s.data) >= hoje).slice(0, 8);
+  const SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  const today = new Date();
-  const futureDates = datasazonais2025.filter((s) => parseISO(s.data) >= today).slice(0, 12);
-
-  const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-  function goToday() { setMonth(today.getMonth()); setYear(today.getFullYear()); }
-  function shiftMonth(delta: number) {
+  function irHoje() { setMonth(hoje.getMonth()); setYear(hoje.getFullYear()); }
+  function mudarMes(delta: number) {
     const d = new Date(year, month + delta, 1);
     setMonth(d.getMonth()); setYear(d.getFullYear());
   }
 
-  function handleAddDisparo(d: Disparo) {
-    addDisparo(d);
-    setShowNewDisparo(false);
-  }
+  const navBtn: React.CSSProperties = {
+    height: 38, minWidth: 38, padding: '0 12px', border: `1px solid ${C.borderMid}`,
+    background: C.surface, borderRadius: 10, cursor: 'pointer', color: C.ink, fontSize: 13, fontWeight: 600,
+  };
 
   return (
-    <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Calendário" />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {showNewDisparo && (
+      {novoAberto && (
         <NovoDisparoModal
-          month={month}
-          year={year}
-          onSave={handleAddDisparo}
-          onClose={() => setShowNewDisparo(false)}
+          month={month} year={year}
+          onSave={(d) => { addDisparo(d); setNovoAberto(false); }}
+          onClose={() => setNovoAberto(false)}
         />
       )}
 
-      <main className="p-4 md:p-8 flex flex-col gap-6 md:gap-8">
-
-        {/* Calendar grid */}
-        <div className="rounded-2xl p-3 md:p-6 border relative overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <div className="flex items-center justify-between mb-4 md:mb-5">
-            <div>
-              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#8A8A8A' }}>
-                Calendário de disparos
-              </p>
-              <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: 28, marginTop: 2, color: '#ECECEC' }}>
-                {format(currentDate, 'MMMM', { locale: ptBR }).replace(/^\w/, (c) => c.toUpperCase())}{' '}
-                <span style={{ color: '#8A8A8A' }}>{year}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* nav ‹ hoje › */}
-              <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border text-sm transition-colors"
-                style={{ borderColor: '#2A2A2A', color: '#9A9A9A', backgroundColor: 'transparent' }}>‹</button>
-              <button onClick={goToday}
-                className="px-3 h-8 flex items-center rounded-lg border text-xs transition-colors"
-                style={{ borderColor: '#2A2A2A', color: '#9A9A9A', backgroundColor: 'transparent' }}>hoje</button>
-              <button onClick={() => shiftMonth(1)} aria-label="Próximo mês"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border text-sm transition-colors"
-                style={{ borderColor: '#2A2A2A', color: '#9A9A9A', backgroundColor: 'transparent' }}>›</button>
-              {/* button */}
-              <button
-                onClick={() => setShowNewDisparo(true)}
-                className="hidden sm:flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold border transition-colors ml-1"
-                style={{ borderColor: '#D4A843', color: '#D4A843', backgroundColor: 'transparent' }}>
-                <Plus size={13} /> Novo
-              </button>
-            </div>
+      {/* Grade */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '22px 20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+          <div>
+            <div style={eyebrow(C.inkSoft)}>Calendário de disparos</div>
+            <h2 style={{ ...heading(26), marginTop: 4, textTransform: 'capitalize' }}>
+              {format(dataAtual, 'MMMM', { locale: ptBR })} <span style={{ color: C.inkSoft }}>{year}</span>
+            </h2>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => mudarMes(-1)} aria-label="Mês anterior" style={navBtn}>‹</button>
+            <button type="button" onClick={irHoje} style={navBtn}>hoje</button>
+            <button type="button" onClick={() => mudarMes(1)} aria-label="Próximo mês" style={navBtn}>›</button>
+            <button
+              type="button" onClick={() => setNovoAberto(true)}
+              style={{ ...BTN_PRIMARY, height: 38, padding: '0 18px', fontSize: 14, borderRadius: 11, boxShadow: `0 4px 0 ${C.primaryDeep}`, marginLeft: 6 }}
+            >
+              + Novo
+            </button>
+          </div>
+        </div>
 
-          {/* gold separator */}
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, rgba(212,168,67,0.35) 40%, rgba(212,168,67,0.35) 60%, transparent 100%)', marginBottom: 16 }} />
-
-          <div className="grid grid-cols-7 mb-2">
-            {WEEKDAYS.map((d) => (
-              <div key={d} className="text-center py-2" style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E' }}>{d}</div>
+        <div style={{ background: C.rail, border: `1px solid ${C.railBorder}`, borderRadius: 16, padding: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 6, marginBottom: 8 }}>
+            {SEMANA.map((d) => (
+              <div key={d} style={{ ...eyebrow(C.inkRail), letterSpacing: '.14em', padding: '0 4px 2px' }}>{d}</div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-0.5 md:gap-1.5">
-            {gridDays.map((day) => {
-              const dayDisparos = getDisparosForDay(day);
-              const hasDisparo = dayDisparos.length > 0;
-              const isToday = isSameDay(day, today);
-              const inMonth = isSameMonth(day, currentDate);
-              const isSelected = selected && isSameDay(new Date(selected.data + 'T12:00:00'), day);
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 6 }}>
+            {dias.map((dia) => {
+              const doDia = disparosDoDia(dia);
+              const noMes = isSameMonth(dia, dataAtual);
+              const ehHoje = isSameDay(dia, hoje);
 
               return (
                 <div
-                  key={day.toISOString()}
-                  onClick={() => hasDisparo ? setSelected(dayDisparos[0]) : setSelected(null)}
-                  className={`relative overflow-hidden transition-all min-h-[62px] md:min-h-[104px] rounded-lg md:rounded-xl p-1.5 md:p-2 ${isToday ? 'cal-cell-today' : ''}`}
+                  key={dia.toISOString()}
                   style={{
-                    background: isSelected
-                      ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.20), transparent 60%), #1a1814'
-                      : isToday
-                      ? 'radial-gradient(140% 100% at 0% 0%, rgba(212,168,67,0.16), transparent 60%), #17150f'
-                      : inMonth ? '#161618' : '#111113',
-                    border: isSelected
-                      ? '1.5px solid rgba(212,168,67,0.7)'
-                      : isToday
-                      ? '1px solid rgba(212,168,67,0.5)'
-                      : inMonth ? '1px solid #232326' : '1px solid #191919',
-                    cursor: hasDisparo ? 'pointer' : 'default',
+                    minHeight: 76, borderRadius: 10, padding: '7px 7px 8px',
+                    background: noMes ? C.surface : 'transparent',
+                    border: ehHoje ? `1.5px solid ${C.accent}` : `1px solid ${noMes ? C.borderSoft : 'transparent'}`,
+                  }}
+                  className="md:min-h-[104px]"
+                >
+                  <div style={{
+                    fontFamily: FONT.mono, fontSize: 11,
+                    color: !noMes ? C.inkMut : ehHoje ? C.primaryDeep : C.inkSoft,
+                    fontWeight: ehHoje ? 700 : 400,
                   }}>
-                  <span
-                    className="cal-num-mobile md:cal-num"
-                    style={{ color: !inMonth ? '#3a3a40' : isToday ? '#fff' : undefined, fontWeight: isToday ? 800 : undefined }}
-                  >
-                    {format(day, 'd')}
-                  </span>
+                    {format(dia, 'd')}
+                  </div>
 
-                  <div className="mt-1 flex flex-col gap-1">
-                    {dayDisparos.map((d) => {
-                      const { kind, mark, text } = chipFor(d, getDisparoContent(d.id));
-                      const s = CHIP_STYLE[kind];
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                    {doDia.map((d) => {
+                      const { kind, texto } = chipFor(d, getDisparoContent(d.id));
+                      const cfg = CHIP[kind];
                       return (
-                        <span
+                        <button
                           key={d.id}
+                          type="button"
+                          onClick={() => setSelecionado(selecionado?.id === d.id ? null : d)}
                           title={`${d.campanha} — ${d.base}`}
-                          className="block truncate"
                           style={{
-                            fontSize: 9.5, fontWeight: 700, lineHeight: 1.25,
-                            borderRadius: 5, padding: '3px 5px',
-                            background: s.bg, color: s.color,
-                            border: `1px ${s.dashed ? 'dashed' : 'solid'} ${s.border}`,
-                          }}>
-                          {mark} {text}
-                        </span>
+                            display: 'flex', alignItems: 'center', gap: 4, width: '100%',
+                            fontFamily: FONT.mono, fontSize: 9.5, fontWeight: 600,
+                            borderRadius: 6, padding: '3px 5px', cursor: 'pointer', textAlign: 'left',
+                            ...cfg.style,
+                          }}
+                        >
+                          <span style={{ flex: 'none', fontSize: 9 }}>{cfg.marcador}</span>
+                          <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{texto}</span>
+                        </button>
                       );
                     })}
                   </div>
@@ -320,102 +242,115 @@ export default function CalendarioPage() {
               );
             })}
           </div>
+        </div>
 
-          {/* legenda */}
-          <div className="flex flex-wrap gap-x-5 gap-y-2 mt-4 pt-3" style={{ borderTop: '1px solid #232326', fontSize: 11.5, color: '#6b6b73' }}>
-            {(['executado', 'pronto', 'pilar', 'forte'] as ChipKind[]).map((k) => (
-              <span key={k} className="flex items-center gap-2">
-                <i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, background: CHIP_STYLE[k].color }} />
-                {CHIP_STYLE[k].label}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.borderSoft}` }}>
+          {(Object.keys(CHIP) as ChipKind[]).map((k) => (
+            <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: C.inkSoft }}>
+              <span style={{
+                display: 'inline-grid', placeItems: 'center', width: 20, height: 20, borderRadius: 6,
+                fontSize: 10, ...CHIP[k].style,
+              }}>
+                {CHIP[k].marcador}
               </span>
+              {CHIP[k].rotulo}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Detalhe do dia */}
+      {selecionado && (
+        <div className="entra" style={{ background: C.surface, border: `2px solid ${C.accent}`, borderRadius: 20, padding: '22px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={eyebrow(C.inkSoft)}>
+                {format(parseISO(selecionado.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5, flexWrap: 'wrap' }}>
+                <h2 style={heading(21)}>{selecionado.campanha}</h2>
+                <span style={tipoPill(selecionado.tipo === 'fimmes')}>{TIPO_LABELS[selecionado.tipo]}</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 4 }}>{selecionado.base}</div>
+            </div>
+            <button type="button" onClick={() => setSelecionado(null)} style={{ ...BTN_GHOST, padding: '8px 14px' }}>fechar</button>
+          </div>
+
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 1,
+            background: C.surfaceMut, border: `1px solid ${C.surfaceMut}`, borderRadius: 14, overflow: 'hidden', marginTop: 18,
+          }}>
+            {[
+              { rotulo: 'Base',         valor: selecionado.tamanhoBase > 0 ? selecionado.tamanhoBase.toLocaleString('pt-BR') : '—' },
+              { rotulo: 'Entregas',     valor: selecionado.entregas > 0 ? `${(selecionado.entregas / 1000).toFixed(1)}k` : '—' },
+              { rotulo: 'Investimento', valor: selecionado.investimentoBrl > 0 ? fmtBRL(selecionado.investimentoBrl) : '—' },
+              { rotulo: 'Faturamento',  valor: selecionado.faturamentoPago > 0 ? fmtBRL(selecionado.faturamentoPago) : '—' },
+              { rotulo: 'ROAS',         valor: selecionado.roas > 0 ? `${selecionado.roas.toFixed(1)}x` : '—' },
+              { rotulo: 'Pedidos',      valor: selecionado.pedidos > 0 ? String(selecionado.pedidos) : '—' },
+              { rotulo: 'Leitura',      valor: selecionado.taxaLeitura > 0 ? `${(selecionado.taxaLeitura * 100).toFixed(0)}%` : '—' },
+              { rotulo: 'Cliques',      valor: selecionado.cliques > 0 ? String(selecionado.cliques) : '—' },
+            ].map((m) => (
+              <div key={m.rotulo} style={{ background: C.surface, padding: '14px 16px' }}>
+                <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em' }}>{m.rotulo}</div>
+                <div style={{
+                  fontFamily: FONT.display, fontWeight: 700, fontSize: 17, marginTop: 4,
+                  fontVariantNumeric: 'tabular-nums', color: m.valor === '—' ? C.inkMut : C.ink,
+                }}>
+                  {m.valor}
+                </div>
+              </div>
             ))}
           </div>
         </div>
+      )}
 
-        {/* Selected day detail */}
-        {selected && (
-          <div className="rounded-2xl p-4 md:p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#D4A843' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <h3 className="font-semibold" style={{ color: '#ECECEC' }}>
-                  {format(parseISO(selected.data), "dd 'de' MMMM", { locale: ptBR })} — {selected.campanha}
-                </h3>
-                <CampaignBadge type={selected.tipo} />
+      {/* Sazonais */}
+      <div style={{ background: C.surfaceAlt, border: `1px solid ${C.borderMid}`, borderRadius: 20, padding: '22px 20px' }}>
+        <div style={eyebrow(C.primaryDeep)}>Planejamento</div>
+        <h2 style={{ ...heading(19), margin: '4px 0 16px' }}>Próximas datas sazonais</h2>
+
+        {sazonais.length === 0 ? (
+          <div style={{ fontSize: 13, color: C.primaryDeep }}>Nenhuma data sazonal futura cadastrada.</div>
+        ) : (
+          <div className="scroll-x">
+            <div style={{ minWidth: 720 }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '76px 1.2fr 120px 96px 96px 1.4fr',
+                padding: '0 14px 8px', ...eyebrow(C.primaryDeep), letterSpacing: '.12em',
+              }}>
+                <span>Data</span><span>Evento</span><span>Categoria</span>
+                <span>Faltam</span><span>Relevância</span><span>Estrutura sugerida</span>
               </div>
-              <button onClick={() => setSelected(null)} className="text-xs" style={{ color: '#8A8A8A' }}>fechar</button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: 'Base', value: selected.base },
-                { label: 'Entregas', value: selected.entregas > 0 ? `${(selected.entregas / 1000).toFixed(1)}k msgs` : 'A preencher' },
-                { label: 'Investimento', value: selected.investimentoBrl > 0 ? fmt(selected.investimentoBrl) : 'A preencher' },
-                { label: 'Faturamento', value: selected.faturamentoPago > 0 ? fmt(selected.faturamentoPago) : 'A preencher' },
-                { label: 'ROAS', value: selected.roas > 0 ? `${selected.roas.toFixed(1)}x` : 'A preencher' },
-                { label: 'Pedidos', value: selected.pedidos > 0 ? String(selected.pedidos) : 'A preencher' },
-                { label: 'Taxa Leitura', value: selected.taxaLeitura > 0 ? `${(selected.taxaLeitura * 100).toFixed(0)}%` : 'A preencher' },
-                { label: 'Cliques', value: selected.cliques > 0 ? String(selected.cliques) : 'A preencher' },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-xs mb-0.5" style={{ color: '#5E5E5E' }}>{label}</p>
-                  <p className="text-sm font-semibold" style={{ color: value === 'A preencher' ? '#5E5E5E' : '#ECECEC' }}>{value}</p>
-                </div>
-              ))}
+
+              <div style={{ background: C.surface, borderRadius: 14, overflow: 'hidden' }}>
+                {sazonais.map((s) => {
+                  const faltam = differenceInDays(parseISO(s.data), hoje);
+                  const urgente = faltam <= 15;
+                  return (
+                    <div key={s.data} style={{
+                      display: 'grid', gridTemplateColumns: '76px 1.2fr 120px 96px 96px 1.4fr',
+                      alignItems: 'center', padding: '13px 14px', borderBottom: `1px solid ${C.borderSoft}`, fontSize: 13.5,
+                    }}>
+                      <span style={{ fontFamily: FONT.mono, color: C.inkSoft }}>{format(parseISO(s.data), 'dd/MM')}</span>
+                      <span style={{ fontWeight: 600, paddingRight: 12 }}>{s.evento}</span>
+                      <span><span style={tipoPill(false)}>{CAT_LABEL[s.categoria] ?? s.categoria}</span></span>
+                      <span style={{ fontWeight: 700, color: urgente ? C.primaryDeep : C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                        {faltam === 0 ? 'hoje' : `${faltam}d`}
+                      </span>
+                      <span style={{ color: C.inkSoft }}>{REL_LABEL[s.relevancia]}</span>
+                      <span style={{ fontSize: 12.5, color: C.inkSoft }}>
+                        {s.relevancia === 'alta'
+                          ? 'Esquenta (−3d) → Dia D → Ressaca (+1d)'
+                          : s.relevancia === 'media' ? 'Dia D + Ressaca' : 'Disparo único'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
-
-        {/* Datas Sazonais */}
-        <div className="rounded-2xl p-6 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 20 }}>
-            Próximas Datas Sazonais
-          </p>
-          {futureDates.length === 0 ? (
-            <p className="text-sm" style={{ color: '#5E5E5E' }}>Nenhuma data sazonal futura encontrada.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #262626' }}>
-                    {['Data', 'Evento', 'Categoria', 'Dias Faltando', 'Relevância', 'Estrutura Sugerida'].map((h) => (
-                      <th key={h} className="pb-3 text-left"
-                        style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {futureDates.map((s) => {
-                    const diasFaltando = differenceInDays(parseISO(s.data), today);
-                    const { bg, color } = CAT_COLORS[s.categoria] ?? { bg: '#1A1A1A', color: '#5E5E5E' };
-                    const urgent = diasFaltando <= 15;
-                    return (
-                      <tr key={s.data} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                        <td className="py-3 font-medium whitespace-nowrap" style={{ color: '#9A9A9A' }}>
-                          {format(parseISO(s.data), 'dd/MM/yyyy')}
-                        </td>
-                        <td className="py-3 font-medium" style={{ color: '#F2F2F2' }}>{s.evento}</td>
-                        <td className="py-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: bg, color }}>
-                            {s.categoria === 'diad' ? 'Dia D' : s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1)}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <span className="text-sm font-bold" style={{ color: urgent ? '#F87171' : '#D8D8D8' }}>
-                            {diasFaltando === 0 ? 'Hoje!' : `${diasFaltando} dias`}
-                          </span>
-                        </td>
-                        <td className="py-3 text-sm" style={{ color: '#D8D8D8' }}>{REL_LABEL[s.relevancia]}</td>
-                        <td className="py-3 text-xs" style={{ color: '#9A9A9A' }}>
-                          {s.relevancia === 'alta' ? 'Esquenta (-3d) > Dia D > Ressaca (+1d)' : s.relevancia === 'media' ? 'Dia D + Ressaca' : 'Disparo único'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

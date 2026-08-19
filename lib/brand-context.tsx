@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Brand, DEFAULT_BRAND, findBrand, visibleBrands } from './brands';
+import { Nivel, isNivel } from './nav';
 import {
   archiveModeFromUrl, readArchiveMode, writeArchiveMode, shouldIgnoreKey,
   SECRET_WORD, TYPING_RESET_MS,
@@ -22,6 +23,12 @@ interface BrandCtx {
   /** Mensagem de confirmação a exibir, ou null. */
   archiveToast: string | null;
   dismissArchiveToast: () => void;
+  /**
+   * Nível de acesso da sessão, só para montar a UI (nav, chip do header).
+   * Vem de um cookie legível — a barreira real é o proxy, que valida a
+   * sessão assinada no servidor. Nunca trate isto como autorização.
+   */
+  nivel: Nivel;
 }
 
 const Ctx = createContext<BrandCtx>({
@@ -31,7 +38,16 @@ const Ctx = createContext<BrandCtx>({
   brands: visibleBrands(false),
   archiveMode: false, setArchiveMode: () => {},
   archiveToast: null, dismissArchiveToast: () => {},
+  nivel: 'total',
 });
+
+/** Lê o nível do cookie não-httpOnly gravado no login. */
+function lerNivel(): Nivel {
+  if (typeof document === 'undefined') return 'total';
+  const m = document.cookie.match(/(?:^|;\s*)dash-nivel=([^;]+)/);
+  const v = m ? decodeURIComponent(m[1]) : null;
+  return isNivel(v) ? v : 'total';
+}
 
 function loadMonthYear(): { month: number; year: number } {
   if (typeof window === 'undefined') {
@@ -61,6 +77,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   const [month, setMonthState] = useState<number>(() => loadMonthYear().month);
   const [year,  setYearState]  = useState<number>(() => loadMonthYear().year);
+
+  // Só no cliente — o servidor não tem o cookie no primeiro render
+  const [nivel, setNivel] = useState<Nivel>('total');
+  useEffect(() => { setNivel(lerNivel()); }, []);
 
   const setBrand = useCallback((b: Brand) => {
     localStorage.setItem('noue-selected-brand', b.id);
@@ -136,6 +156,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       brands: visibleBrands(archiveMode),
       archiveMode, setArchiveMode,
       archiveToast, dismissArchiveToast,
+      nivel,
     }}>
       {children}
     </Ctx.Provider>

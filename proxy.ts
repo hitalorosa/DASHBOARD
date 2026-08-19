@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { lerSessao, SESSION_COOKIE } from '@/lib/session';
+import { areaDaRota, podeAcessar, areasDoNivel, NAV } from '@/lib/nav';
 
-const SESSION_COOKIE = 'dash-session';
 // DASHBOARD_SESSION_VALUE existe só no servidor — nunca vai pro bundle do browser
-const SESSION_VALUE  = process.env.DASHBOARD_SESSION_VALUE ?? '';
+const SESSION_VALUE = process.env.DASHBOARD_SESSION_VALUE ?? '';
 
-function isAuthenticated(req: NextRequest): boolean {
-  if (!SESSION_VALUE) return false;
-  return req.cookies.get(SESSION_COOKIE)?.value === SESSION_VALUE;
-}
-
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rotas públicas — sem sessão necessária
@@ -25,13 +21,26 @@ export function proxy(request: NextRequest) {
     pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/)
   ) return NextResponse.next();
 
-  if (!isAuthenticated(request)) {
+  const nivel = await lerSessao(request.cookies.get(SESSION_COOKIE)?.value, SESSION_VALUE);
+
+  if (!nivel) {
     // Chamada de API → retorna 401 JSON
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ ok: false, error: 'Não autorizado' }, { status: 401 });
     }
     // Página → redireciona para /login
     return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Sessão válida, mas o nível pode não alcançar esta área.
+  // Esta é a barreira real — o cookie `dash-nivel` que a interface lê é só espelho.
+  const area = areaDaRota(pathname);
+  if (!podeAcessar(nivel, area)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ ok: false, error: 'Sem acesso a esta área' }, { status: 403 });
+    }
+    // Manda para a primeira área que este nível enxerga, em vez de deixar a tela vazia
+    return NextResponse.redirect(new URL(NAV[areasDoNivel(nivel)[0]].href, request.url));
   }
 
   return NextResponse.next();

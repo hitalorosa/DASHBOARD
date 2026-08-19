@@ -1,252 +1,244 @@
 'use client';
 
-import Header from '@/components/Header';
 import { useStore } from '@/lib/store';
 import { useBrand } from '@/lib/brand-context';
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { C, FONT, eyebrow, heading, metric, roasPill, roasTexto, fmtBRL } from '@/lib/theme';
 
-function fmt(n: number) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-}
+const CARD: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20 };
+const GRID_COLS = '52px minmax(120px,1fr) minmax(76px,.8fr) minmax(84px,.9fr) minmax(64px,.7fr)';
 
-function RoasChip({ roas }: { roas: number }) {
-  if (roas === 0) return <span style={{ color: '#5E5E5E', fontSize: 12 }}>A preencher</span>;
-  let bg = '#3F1010', color = '#F87171';
-  if (roas >= 7) { bg = '#0F2E1A'; color = '#4ADE80'; }
-  else if (roas >= 4) { bg = '#2D2208'; color = '#FCD34D'; }
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color }}>{roas.toFixed(1)}x</span>;
-}
-
-function KpiCard({ label, value, sub, gold, roasColor, progress }: {
-  label: string; value: string; sub?: string; gold?: boolean;
-  roasColor?: 'green' | 'yellow' | 'red' | 'muted'; progress?: number;
+function KpiCard({ rotulo, valor, sub, destaque, progresso }: {
+  rotulo: string; valor: string; sub: string; destaque?: boolean; progresso?: number;
 }) {
-  const col = roasColor
-    ? ({ green: '#4ADE80', yellow: '#FCD34D', red: '#F87171', muted: '#5E5E5E' } as Record<string, string>)[roasColor]
-    : gold ? '#D4A843' : '#ECECEC';
-
   return (
-    <div className="kpi-card">
-      <p className="flex items-center gap-2 mb-3.5" style={{
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A',
-      }}>
-        <span style={{
-          display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-          background: '#D4A843', boxShadow: '0 0 0 3px rgba(212,168,67,0.12)', flexShrink: 0,
-        }} />
-        {label}
-      </p>
-      <p className="truncate" style={{
-        fontSize: 30, fontWeight: 600, lineHeight: 1.05,
-        letterSpacing: '-0.02em', color: col,
-        fontVariantNumeric: 'tabular-nums',
-      }}>{value}</p>
-      {sub && <p className="text-xs mt-1 truncate" style={{ color: '#5E5E5E' }}>{sub}</p>}
-      {progress !== undefined && (
-        <div className="mt-3 rounded-full h-1.5 overflow-hidden" style={{ backgroundColor: '#2A2A2A' }}>
-          <div className="h-full rounded-full" style={{ width: `${Math.min(progress, 100)}%`, background: 'linear-gradient(90deg,#D4A843,#F0C060)' }} />
+    <div style={{ ...CARD, borderRadius: 16, padding: '18px 16px 16px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: destaque ? C.primary : C.borderMid, flex: 'none' }} />
+        <span style={{ ...eyebrow(), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rotulo}</span>
+      </div>
+      <div style={{ ...metric(28), color: destaque ? C.primaryDeep : C.ink }}>{valor}</div>
+      <div style={{ fontSize: 11.5, color: C.inkSoft, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>
+      {progresso !== undefined && (
+        <div style={{ height: 6, borderRadius: 999, background: C.surfaceAlt, overflow: 'hidden', marginTop: 2 }}>
+          <div style={{ height: '100%', width: `${Math.min(progresso, 100)}%`, background: C.primary, borderRadius: 999 }} />
         </div>
       )}
     </div>
   );
 }
 
-
 export default function CentralPage() {
   const { brand, month, year } = useBrand();
   const { getDisparos, getBases } = useStore();
   const disparos = getDisparos(month, year);
 
-  const totalInvest = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
-  const totalFat = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
+  const totalInvest  = disparos.reduce((s, d) => s + d.investimentoBrl, 0);
+  const totalFat     = disparos.reduce((s, d) => s + d.faturamentoPago, 0);
   const totalPedidos = disparos.reduce((s, d) => s + d.pedidos, 0);
-  const totalLeads = disparos.reduce((s, d) => s + d.tamanhoBase, 0);
-  const roasGeral = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
-  const metaPct = (totalFat / brand.metaMensal) * 100;
+  const totalLeads   = disparos.reduce((s, d) => s + d.tamanhoBase, 0);
+  const roasGeral    = totalInvest > 0 && totalFat > 0 ? totalFat / totalInvest : 0;
+  const metaPct      = (totalFat / brand.metaMensal) * 100;
 
   const melhor = disparos.filter((d) => d.roas > 0).sort((a, b) => b.roas - a.roas)[0] ?? null;
-  const hasFinancialData = disparos.some((d) => d.faturamentoPago > 0 || d.investimentoBrl > 0);
+  const temDados = disparos.some((d) => d.faturamentoPago > 0 || d.investimentoBrl > 0);
 
-  const chartData = disparos.map((d) => ({
-    label: format(parseISO(d.data), 'dd/MM'),
-    campanha: d.campanha,
-    investimento: d.investimentoBrl > 0 ? Math.round(d.investimentoBrl) : 0,
-    faturamento: d.faturamentoPago > 0 ? Math.round(d.faturamentoPago) : 0,
-    roas: d.roas > 0 ? d.roas : null,
-  }));
+  // Barras proporcionais ao maior valor do mês — sem biblioteca de gráfico
+  const maxBarra = Math.max(...disparos.map((d) => Math.max(d.investimentoBrl, d.faturamentoPago)), 1);
+  const comRoas  = disparos.filter((d) => d.roas > 0);
+  const maxRoas  = Math.max(...comRoas.map((d) => d.roas), 1);
 
-  // Top 3 bases by faturamento
-  const allBases = getBases();
-  const top3 = allBases.slice(0, 3).map((b) => {
-    const investimento = b.roasMedio > 0 ? Math.round(b.faturamento / b.roasMedio) : 0;
-    const shortName = b.nome.length > 14 ? b.nome.substring(0, 13) + '…' : b.nome;
-    return {
-      nome: shortName,
-      faturamento: Math.round(b.faturamento),
-      investimento,
-      roas: b.roasMedio > 0 ? b.roasMedio : null,
-    };
-  });
-
-  const MONO = { fontFamily: "'JetBrains Mono', monospace" };
+  const bases = getBases().slice(0, 3);
+  const maxFatBase = Math.max(...bases.map((b) => b.faturamento), 1);
 
   return (
-    <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Central" />
-      <main className="p-4 md:p-8 flex flex-col gap-4 md:gap-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* KPI row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <KpiCard label="Investimento" value={totalInvest > 0 ? fmt(totalInvest) : 'A preencher'} sub="BRL acumulado" />
-          <KpiCard label="Faturamento" value={totalFat > 0 ? fmt(totalFat) : 'A preencher'} sub="Status Pago" gold />
-          <KpiCard label="ROAS Geral" value={roasGeral > 0 ? `${roasGeral.toFixed(1)}x` : 'A preencher'} sub={`Meta: ${brand.metaRoas}x`}
-            roasColor={roasGeral >= brand.metaRoas ? 'green' : roasGeral >= brand.metaRoas * 0.6 ? 'yellow' : roasGeral > 0 ? 'red' : 'muted'} />
-          <KpiCard label="Meta %" value={metaPct > 0 ? `${metaPct.toFixed(1)}%` : '0%'} sub={`de ${fmt(brand.metaMensal)}`} progress={metaPct} />
-          <KpiCard label="Disparos" value={String(disparos.length)} sub="no mês" />
-          <KpiCard label="Melhor Disparo" value={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'Aguardando dados'} />
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(158px,1fr))', gap: 14 }}>
+        <KpiCard rotulo="Investimento" valor={totalInvest > 0 ? fmtBRL(totalInvest) : 'A preencher'} sub="BRL acumulado" />
+        <KpiCard rotulo="Faturamento"  valor={totalFat > 0 ? fmtBRL(totalFat) : 'A preencher'} sub="status pago" destaque />
+        <KpiCard rotulo="ROAS geral"   valor={roasGeral > 0 ? `${roasGeral.toFixed(1)}x` : 'A preencher'} sub={`meta ${brand.metaRoas}x`} />
+        <KpiCard rotulo="Meta"         valor={metaPct > 0 ? `${metaPct.toFixed(1)}%` : '0%'} sub={`de ${fmtBRL(brand.metaMensal)}`} progresso={metaPct} />
+        <KpiCard rotulo="Disparos"     valor={String(disparos.length)} sub="no mês" />
+        <KpiCard rotulo="Melhor disparo" valor={melhor ? `${melhor.roas.toFixed(1)}x` : 'A preencher'} sub={melhor ? melhor.campanha : 'aguardando dados'} />
+      </div>
+
+      {/* Gráfico */}
+      <div style={{ ...CARD, padding: '22px 20px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+          <div>
+            <div style={eyebrow(C.inkSoft)}>Desempenho do mês</div>
+            <h2 style={{ ...heading(19), marginTop: 4 }}>Investimento × faturamento por disparo</h2>
+          </div>
+          <div style={{ display: 'flex', gap: 16, fontSize: 11.5, color: C.inkSoft, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: C.borderMid }} />Investimento
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: C.accent }} />Faturamento
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 14, height: 2, background: C.ink }} />ROAS
+            </span>
+          </div>
         </div>
 
-        {/* Chart — full width */}
-        <div className="rounded-2xl p-4 md:p-5 border" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-          <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 16 }}>
-            Investimento × Faturamento por Disparo
-          </p>
-          {hasFinancialData ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 20, left: 4, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#5E5E5E' }} />
-                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#D4A843' }} tickFormatter={(v) => `${v}x`} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC' }}
-                  formatter={(value, name) => {
-                    if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
-                    return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
-                  }}
-                  labelFormatter={(label, p) => `${label} — ${p?.[0]?.payload?.campanha ?? ''}`}
-                />
-                <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
-                  formatter={(v) => v === 'investimento' ? 'Investimento' : v === 'faturamento' ? 'Faturamento' : 'ROAS'} />
-                <Bar yAxisId="left" dataKey="investimento" fill="#2A2A2A" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="roas" stroke="#ECECEC" strokeWidth={2} dot={{ r: 3, fill: '#ECECEC' }} connectNulls={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-48 gap-3" style={{ color: '#5E5E5E' }}>
-              <p className="text-sm">Nenhum dado financeiro preenchido ainda.</p>
-              <p className="text-xs" style={{ color: '#2A2A2A' }}>Vá em Disparos e clique em Preencher Resultado.</p>
-            </div>
-          )}
-        </div>
+        {temDados ? (
+          <div className="scroll-x">
+            <div style={{ position: 'relative', height: 280, display: 'flex', alignItems: 'flex-end', paddingBottom: 26, borderBottom: `1px solid ${C.border}`, minWidth: disparos.length * 44 }}>
+              {/* Linha de ROAS por cima das barras */}
+              {comRoas.length > 1 && (
+                <svg
+                  viewBox="0 0 100 100" preserveAspectRatio="none"
+                  style={{ position: 'absolute', inset: '0 0 26px', width: '100%', height: 'calc(100% - 26px)', pointerEvents: 'none', overflow: 'visible' }}
+                >
+                  <polyline
+                    points={disparos.map((d, i) => {
+                      const x = ((i + 0.5) / disparos.length) * 100;
+                      const y = 100 - (d.roas / maxRoas) * 88;
+                      return d.roas > 0 ? `${x},${y}` : '';
+                    }).filter(Boolean).join(' ')}
+                    fill="none" stroke={C.ink} strokeWidth="1.4"
+                    vectorEffect="non-scaling-stroke" strokeLinejoin="round"
+                  />
+                </svg>
+              )}
 
-        {/* Disparos do Mês + side cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:items-stretch">
-
-          {/* Table — 2/3 */}
-          <div className="lg:col-span-2 rounded-2xl border overflow-hidden" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-            <div className="px-5 pt-5 pb-3">
-              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E' }}>
-                Disparos do Mês
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="text-sm" style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: 130 }} />
-                  <col style={{ width: 210 }} />
-                  <col style={{ width: 130 }} />
-                  <col style={{ width: 130 }} />
-                  <col style={{ width: 100 }} />
-                </colgroup>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #262626' }}>
-                    <th className="pb-3 pl-5 pr-3 text-left" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Data</th>
-                    <th className="pb-3 px-3 text-left" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Campanha</th>
-                    <th className="pb-3 px-3 text-right" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Invest. R$</th>
-                    <th className="pb-3 px-3 text-right" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>Fat. R$</th>
-                    <th className="pb-3 pl-3 pr-5 text-right" style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 500 }}>ROAS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {disparos.map((d) => (
-                    <tr key={d.id} className="disparo-row" style={{ borderBottom: '1px solid #1c1c1c' }}>
-                      <td className="py-2.5 pl-5 pr-3 font-medium whitespace-nowrap" style={{ color: '#D4A843' }}>
-                        {format(parseISO(d.data), "dd 'de' MMM", { locale: ptBR })}
-                      </td>
-                      <td className="py-2.5 px-3 truncate" style={{ color: '#F2F2F2', fontWeight: 500 }}>{d.campanha}</td>
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap" style={{ color: d.investimentoBrl > 0 ? '#D8D8D8' : '#374151' }}>
-                        {d.investimentoBrl > 0 ? fmt(d.investimentoBrl) : '—'}
-                      </td>
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap" style={{ color: d.faturamentoPago > 0 ? '#D4A843' : '#374151' }}>
-                        {d.faturamentoPago > 0 ? fmt(d.faturamentoPago) : '—'}
-                      </td>
-                      <td className="py-2.5 pl-3 pr-5 text-right"><RoasChip roas={d.roas} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {disparos.map((d) => (
+                <div key={d.id} style={{ flex: 1, minWidth: 36, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', height: '100%', position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: '100%', width: '100%', justifyContent: 'center' }}>
+                    <div
+                      title={`Investimento ${fmtBRL(d.investimentoBrl)}`}
+                      style={{ width: 12, height: `${(d.investimentoBrl / maxBarra) * 88}%`, background: C.borderMid, borderRadius: '4px 4px 0 0' }}
+                    />
+                    <div
+                      title={`Faturamento ${fmtBRL(d.faturamentoPago)}`}
+                      style={{ width: 12, height: `${(d.faturamentoPago / maxBarra) * 88}%`, background: C.accent, borderRadius: '4px 4px 0 0' }}
+                    />
+                  </div>
+                  <div style={{ position: 'absolute', bottom: -26, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.mono, fontSize: 10, color: C.inkSoft }}>
+                    {format(parseISO(d.data), 'dd/MM')}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* Side column — 1/3 */}
-          <div className="flex flex-col gap-4">
-
-            {/* Pedidos + Leads lado a lado */}
-            <div className="grid grid-cols-2 gap-4">
-              <KpiCard
-                label="Pedidos"
-                value={totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : 'A preencher'}
-                sub="via disparos"
-              />
-              <KpiCard
-                label="Leads"
-                value={totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : 'A preencher'}
-                sub="bases do mês"
-              />
-            </div>
-
-            {/* Top 3 Bases — flex-1 para ocupar o restante da altura da tabela */}
-            <div className="rounded-2xl border flex flex-col flex-1 min-h-0" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626', padding: '16px 16px 12px' }}>
-              <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12, flexShrink: 0 }}>
-                Top 3 Bases
-              </p>
-              <div className="flex-1 min-h-0">
-                {top3.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={top3} margin={{ top: 8, right: 44, left: 8, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                      <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8A8A8A', fontWeight: 500 }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#5E5E5E' }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#818CF8' }} tickFormatter={(v) => `${v}x`} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 12 }}
-                        formatter={(value, name) => {
-                          if (name === 'roas') return value ? [`${Number(value).toFixed(1)}x`, 'ROAS'] : ['—', 'ROAS'];
-                          return [fmt(Number(value)), name === 'investimento' ? 'Investimento' : 'Faturamento'];
-                        }}
-                      />
-                      <Legend wrapperStyle={{ color: '#8A8A8A', fontSize: 11 }}
-                        formatter={(v) => v === 'investimento' ? 'Invest.' : v === 'faturamento' ? 'Fat.' : 'ROAS'} />
-                      <Bar yAxisId="left" dataKey="investimento" fill="#3A3A3A" radius={[4, 4, 0, 0]} barSize={40} />
-                      <Bar yAxisId="left" dataKey="faturamento" fill="#D4A843" radius={[4, 4, 0, 0]} barSize={40} />
-                      <Bar yAxisId="right" dataKey="roas" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={40} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full" style={{ color: '#5E5E5E' }}>
-                    <p className="text-xs text-center">Preencha resultados<br />nos disparos para ver as bases</p>
-                  </div>
-                )}
+        ) : (
+          <div style={{ height: 240, display: 'grid', placeItems: 'center', textAlign: 'center', border: `1px dashed ${C.borderMid}`, borderRadius: 16, background: C.bg }}>
+            <div>
+              <div style={{ fontFamily: FONT.display, fontWeight: 700, fontSize: 16 }}>Nenhum dado financeiro preenchido ainda.</div>
+              <div style={{ fontSize: 13, color: C.inkSoft, marginTop: 6 }}>
+                Vá em <strong style={{ color: C.primaryDeep }}>Disparos</strong> e clique em <strong style={{ color: C.primaryDeep }}>Preencher</strong>.
               </div>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Tabela + coluna lateral */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,420px),1fr))', gap: 20, alignItems: 'start' }}>
+
+        <div style={{ ...CARD, overflow: 'hidden' }}>
+          <div style={{ padding: '20px 20px 14px' }}>
+            <div style={eyebrow(C.inkSoft)}>Lançamentos</div>
+            <h2 style={{ ...heading(19), marginTop: 4 }}>Disparos do mês</h2>
+          </div>
+
+          <div className="scroll-x">
+            <div style={{ minWidth: 460 }}>
+              <div style={{
+                display: 'grid', gridTemplateColumns: GRID_COLS, gap: 8, padding: '10px 18px',
+                background: C.rail, borderTop: `1px solid ${C.railBorder}`, borderBottom: `1px solid ${C.railBorder}`,
+                ...eyebrow(C.inkRail), letterSpacing: '.12em', whiteSpace: 'nowrap',
+              }}>
+                <span>Data</span><span>Campanha</span>
+                <span style={{ textAlign: 'right' }}>Invest.</span>
+                <span style={{ textAlign: 'right' }}>Fat.</span>
+                <span style={{ textAlign: 'right' }}>ROAS</span>
+              </div>
+
+              {disparos.map((d) => (
+                <div key={d.id} className="row-hover" style={{
+                  display: 'grid', gridTemplateColumns: GRID_COLS, alignItems: 'center', gap: 8,
+                  padding: '11px 18px', borderTop: `1px solid ${C.borderSoft}`, fontSize: 13.5,
+                }}>
+                  <span style={{ fontFamily: FONT.mono, color: C.inkSoft }}>{format(parseISO(d.data), 'dd/MM')}</span>
+                  <span style={{ minWidth: 0, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.campanha}</span>
+                  <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: d.investimentoBrl > 0 ? C.ink : C.inkMut }}>
+                    {d.investimentoBrl > 0 ? fmtBRL(d.investimentoBrl) : '—'}
+                  </span>
+                  <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: d.faturamentoPago > 0 ? C.ink : C.inkMut }}>
+                    {d.faturamentoPago > 0 ? fmtBRL(d.faturamentoPago) : '—'}
+                  </span>
+                  <span style={{ textAlign: 'right' }}><span style={roasPill(d.roas)}>{roasTexto(d.roas)}</span></span>
+                </div>
+              ))}
+
+              {disparos.length === 0 && (
+                <div style={{ padding: '36px 24px', borderTop: `1px solid ${C.borderSoft}`, textAlign: 'center' }}>
+                  <div style={{ fontWeight: 600 }}>Nenhum disparo lançado neste mês.</div>
+                  <div style={{ fontSize: 13, color: C.inkSoft, marginTop: 4 }}>
+                    Vá em <strong style={{ color: C.primaryDeep }}>Calendário</strong> e clique em <strong style={{ color: C.primaryDeep }}>+ Novo</strong>.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-      </main>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ ...CARD, borderRadius: 16, padding: '18px 16px' }}>
+              <div style={eyebrow()}>Pedidos</div>
+              <div style={{ ...metric(30), marginTop: 6 }}>{totalPedidos > 0 ? totalPedidos.toLocaleString('pt-BR') : '—'}</div>
+              <div style={{ fontSize: 11.5, color: C.inkSoft }}>via disparos</div>
+            </div>
+            <div style={{ ...CARD, borderRadius: 16, padding: '18px 16px' }}>
+              <div style={eyebrow()}>Leads</div>
+              <div style={{ ...metric(30), marginTop: 6 }}>{totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : '—'}</div>
+              <div style={{ fontSize: 11.5, color: C.inkSoft }}>bases do mês</div>
+            </div>
+          </div>
+
+          <div style={{ background: C.surfaceAlt, border: `1px solid ${C.borderMid}`, borderRadius: 20, padding: 20 }}>
+            <div style={eyebrow(C.primaryDeep)}>Ranking</div>
+            <h2 style={{ ...heading(17), margin: '4px 0 16px' }}>Top 3 bases</h2>
+
+            {bases.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {bases.map((b) => {
+                  const invest = b.roasMedio > 0 ? b.faturamento / b.roasMedio : 0;
+                  return (
+                    <div key={b.nome}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.nome}</span>
+                        <span style={roasPill(b.roasMedio)}>{roasTexto(b.roasMedio)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}>
+                        <div style={{ flex: 1, height: 8, borderRadius: 999, background: C.surface, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(b.faturamento / maxFatBase) * 100}%`, background: C.primary, borderRadius: 999 }} />
+                        </div>
+                        <span style={{ fontFamily: FONT.mono, fontSize: 10.5, color: C.primaryDeep, width: 62, textAlign: 'right' }}>{fmtBRL(b.faturamento)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                        <div style={{ flex: 1, height: 5, borderRadius: 999, background: C.surface, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(invest / maxFatBase) * 100}%`, background: C.borderMid, borderRadius: 999 }} />
+                        </div>
+                        <span style={{ fontFamily: FONT.mono, fontSize: 10.5, color: C.inkSoft, width: 62, textAlign: 'right' }}>{invest > 0 ? fmtBRL(invest) : '—'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: C.primaryDeep, padding: '18px 0' }}>
+                Preencha resultados nos disparos para ver as bases.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

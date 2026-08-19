@@ -1,23 +1,41 @@
 'use client';
 
-import Image      from 'next/image';
 import { useState } from 'react';
-import { ChevronDown, LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useBrand } from '@/lib/brand-context';
 import { DEFAULT_BRAND } from '@/lib/brands';
+import { NAV, areaDaRota, areasDoNivel } from '@/lib/nav';
+import { C, FONT, heading } from '@/lib/theme';
 
-const MONTHS = [
+const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
+const ANOS = [2026, 2027];
 
-const YEARS = [2026, 2027];
+const SELECT: React.CSSProperties = {
+  padding: '9px 12px', fontSize: 13, fontWeight: 600,
+  border: `1px solid ${C.borderMid}`, borderRadius: 10,
+  background: C.surface, color: C.ink, cursor: 'pointer',
+};
 
-export default function Header({ title }: { title: string }) {
-  const { brand, setBrand, month, year, setMonth, setYear, brands, archiveMode, setArchiveMode } = useBrand();
-  const [brandOpen, setBrandOpen] = useState(false);
+/**
+ * `title` é opcional: por padrão o header deriva título e eyebrow da rota atual,
+ * então nenhuma página fica sem cabeçalho (era o caso no design antigo).
+ */
+export default function Header({ title }: { title?: string }) {
+  const pathname = usePathname();
   const router = useRouter();
+  const {
+    brand, setBrand, brands, month, year, setMonth, setYear,
+    archiveMode, setArchiveMode, nivel,
+  } = useBrand();
+  const [brandOpen, setBrandOpen] = useState(false);
+
+  const area = areaDaRota(pathname);
+  const item = area ? NAV[area] : null;
+  const titulo  = title ?? item?.rotulo ?? 'Painel';
+  const eyebrowTxt = `${brand.name} · ${item?.eyebrow ?? 'painel'}`;
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -26,126 +44,134 @@ export default function Header({ title }: { title: string }) {
 
   return (
     <header
-      className="relative flex items-center justify-between px-4 md:px-8 py-3 border-b"
-      style={{ backgroundColor: '#0D0D0D', borderColor: '#2A2A2A', minHeight: 64 }}
+      style={{
+        minHeight: 68, flex: 'none', display: 'flex', alignItems: 'center', gap: 16,
+        padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`,
+        position: 'sticky', top: 0, zIndex: 30, flexWrap: 'wrap',
+      }}
+      className="md:!px-7 md:!py-0 md:!flex-nowrap"
     >
-      {/* Left — mobile brand switcher / desktop spacer */}
-      <div className="flex-1 flex items-center">
+      {/* Seletor de marca — só mobile; no desktop vive na sidebar */}
+      <div className="md:hidden" style={{ position: 'relative', flex: 'none' }}>
         <button
-          className="md:hidden flex items-center gap-1.5 px-2 py-1.5 rounded-lg"
-          style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A' }}
+          type="button"
           onClick={() => setBrandOpen((v) => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, background: C.surfaceAlt,
+            border: `1px solid ${C.borderMid}`, borderRadius: 10, padding: '7px 10px', cursor: 'pointer',
+          }}
         >
-          <div className="w-5 h-5 flex items-center justify-center">
-            <Image
-              src={brand.logo}
-              alt={brand.name}
-              width={20}
-              height={20}
-              style={{ objectFit: 'contain' }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-          <ChevronDown
-            size={12}
-            style={{ color: '#5E5E5E', transform: brandOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-          />
+          <span style={{
+            width: 22, height: 22, borderRadius: 7, background: C.accent, display: 'grid', placeItems: 'center',
+            fontFamily: FONT.display, fontWeight: 800, fontSize: 12, color: '#fff',
+          }}>
+            {brand.name.charAt(0)}
+          </span>
+          <span style={{ fontSize: 10, color: C.primaryDeep }}>{brandOpen ? '▲' : '▼'}</span>
         </button>
 
-        {/* Mobile brand dropdown */}
         {brandOpen && (
           <div
-            className="md:hidden absolute left-4 top-14 rounded-xl border z-50 overflow-hidden"
-            style={{ backgroundColor: '#161616', borderColor: '#2A2A2A', minWidth: 180 }}
+            className="entra"
+            style={{
+              position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 50, minWidth: 190,
+              background: C.surface, border: `1px solid ${C.borderMid}`, borderRadius: 14, padding: 6,
+              boxShadow: '0 12px 28px rgba(23,48,44,.14)',
+            }}
           >
             {brands.map((b) => (
               <button
                 key={b.id}
+                type="button"
                 onClick={() => { setBrand(b); setBrandOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
-                style={{ backgroundColor: b.id === brand.id ? '#1A1A1A' : 'transparent' }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent',
+                  border: 0, padding: '9px 10px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                  fontSize: 13, color: C.ink,
+                }}
               >
-                <div className="w-6 h-6 flex items-center justify-center rounded"
-                  style={{ backgroundColor: '#0D0D0D', border: '1px solid #2A2A2A' }}>
-                  <Image src={b.logo} alt={b.name} width={22} height={22}
-                    style={{ objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                </div>
-                <span className="text-xs font-medium truncate"
-                  style={{ color: b.id === brand.id ? '#D4A843' : '#9CA3AF' }}>
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%', flex: 'none',
+                  background: b.id === brand.id ? C.primary : C.borderMid,
+                }} />
+                <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {b.name}
                 </span>
                 {b.archived && (
-                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide"
-                    style={{ backgroundColor: '#241E10', color: '#8A7A4E' }}>
+                  <span style={{
+                    fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase',
+                    color: C.inkMut, border: `1px solid ${C.borderMid}`, borderRadius: 999, padding: '2px 6px',
+                  }}>
                     arquivo
                   </span>
-                )}
-                {b.id === brand.id && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#D4A843' }} />
                 )}
               </button>
             ))}
 
             {archiveMode && (
               <button
+                type="button"
                 onClick={() => {
                   setArchiveMode(false);
                   if (brand.archived) setBrand(DEFAULT_BRAND);
                   setBrandOpen(false);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-                style={{ borderTop: '1px solid #2A2A2A', color: '#6B6B6B' }}
+                style={{
+                  width: '100%', textAlign: 'left', background: 'transparent', border: 0,
+                  borderTop: `1px solid ${C.border}`, marginTop: 4, padding: '9px 10px',
+                  fontSize: 11.5, fontWeight: 600, color: C.inkSoft, cursor: 'pointer',
+                }}
               >
-                <LogOut size={13} />
-                <span className="text-[11px] font-medium">Sair do arquivo</span>
+                Sair do arquivo
               </button>
             )}
           </div>
         )}
       </div>
 
-      {/* Center — brand logo */}
-      <div className="flex-1 flex items-center justify-center">
-        <Image
-          src={brand.logo}
-          alt={brand.name}
-          width={90}
-          height={36}
-          style={{ objectFit: 'contain' }}
-          priority
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
+      {/* Título da página */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
+          color: C.inkSoft, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {eyebrowTxt}
+        </div>
+        <h1 style={{ ...heading(23), lineHeight: 1.15, marginTop: 1 }}>{titulo}</h1>
       </div>
 
-      {/* Right — month / year selectors + logout */}
-      <div className="flex-1 flex items-center justify-end gap-1.5 md:gap-2">
-        <select
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="text-xs md:text-sm rounded-lg px-1.5 md:px-3 py-1.5 outline-none cursor-pointer border"
-          style={{ borderColor: '#2A2A2A', color: '#D4A843', backgroundColor: '#1A1A1A', maxWidth: 80 }}
-        >
-          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+      {/* Controles */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {areasDoNivel(nivel).length < 5 && (
+          <span
+            title="Esta sessão tem acesso parcial ao painel"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7, background: C.surfaceAlt,
+              borderRadius: 999, padding: '6px 12px', fontFamily: FONT.mono, fontSize: 10,
+              letterSpacing: '.1em', textTransform: 'uppercase', color: C.primaryDeep, whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent }} />
+            acesso {nivel}
+          </span>
+        )}
+
+        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={SELECT} aria-label="Mês">
+          {MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="text-xs md:text-sm rounded-lg px-1.5 md:px-3 py-1.5 outline-none cursor-pointer border"
-          style={{ borderColor: '#2A2A2A', color: '#D4A843', backgroundColor: '#1A1A1A' }}
-        >
-          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={SELECT} aria-label="Ano">
+          {ANOS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
 
         <button
+          type="button"
           onClick={handleLogout}
-          title="Sair"
-          className="flex items-center justify-center rounded-lg p-1.5 transition-colors"
-          style={{ color: '#5E5E5E', border: '1px solid #2A2A2A', backgroundColor: '#1A1A1A' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#5E5E5E'; }}
+          style={{
+            background: C.surface, color: C.inkSoft, fontWeight: 600, fontSize: 13,
+            padding: '9px 14px', border: `1px solid ${C.borderMid}`, borderRadius: 10, cursor: 'pointer',
+          }}
         >
-          <LogOut size={14} />
+          Sair
         </button>
       </div>
     </header>

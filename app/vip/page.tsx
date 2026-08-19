@@ -1,1243 +1,661 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import Header from '@/components/Header';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useBrand } from '@/lib/brand-context';
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, Cell,
-} from 'recharts';
-import { RefreshCw, Crown, ShoppingBag, TrendingUp, Users, AlertTriangle, ChevronDown, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { YampiOrder, YampiCart } from '@/lib/yampi';
 import { aggregateOrders, cartValue, orderValue, toIso, unwrapArray } from '@/lib/yampi';
+import {
+  C, FONT, eyebrow, heading, metric, statusPedidoPill, fmtBRL, BTN_PRIMARY, BTN_GHOST,
+} from '@/lib/theme';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const CARD: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20 };
+const COLS = '58px 76px minmax(0,1.5fr) 104px 104px 128px';
 
-function fmt(n: number) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-}
-
-function timeAgo(date: Date): string {
-  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (mins < 1)   return 'agora';
-  if (mins < 60)  return `há ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24)   return `há ${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  return `há ${days}d`;
-}
-
-const STATUS_CFG: Record<string, { label: string; bg: string; color: string }> = {
-  paid:                { label: 'Pago',             bg: '#0F2E1A', color: '#4ADE80' },
-  payment_approved:    { label: 'Pagto. aprovado',  bg: '#0F2E1A', color: '#4ADE80' },
-  approved:            { label: 'Aprovado',          bg: '#0F2E1A', color: '#4ADE80' },
-  handling_products:   { label: 'Em produção',       bg: '#1C1A09', color: '#FCD34D' },
-  in_separation:       { label: 'Em separação',      bg: '#1C1A09', color: '#FCD34D' },
-  invoiced:            { label: 'Faturado',          bg: '#1C1A09', color: '#FCD34D' },
-  ready_for_shipping:  { label: 'Pronto p/ envio',   bg: '#0D1A2E', color: '#60A5FA' },
-  on_carriage:         { label: 'Saiu p/ entrega',   bg: '#0D1A2E', color: '#60A5FA' },
-  shipped:             { label: 'Enviado',            bg: '#0D1A2E', color: '#60A5FA' },
-  delivered:           { label: 'Entregue',          bg: '#0A2020', color: '#34D399' },
-  cancelled:           { label: 'Cancelado',         bg: '#2E0F0F', color: '#F87171' },
+const STATUS_LABEL: Record<string, string> = {
+  paid: 'Pago', payment_approved: 'Pagto. aprovado', approved: 'Aprovado',
+  handling_products: 'Em produção', in_separation: 'Em separação', invoiced: 'Faturado',
+  ready_for_shipping: 'Pronto p/ envio', on_carriage: 'Saiu p/ entrega', shipped: 'Enviado',
+  delivered: 'Entregue', cancelled: 'Cancelado',
 };
 
-// ── Ícones de forma de pagamento ─────────────────────────────────────────────
-
-function PaymentIcon({ method, brand }: { method?: string; brand?: string }) {
-  const b = (brand ?? '').toLowerCase().replace(/[^a-z]/g, '');
-  const m = (method ?? '').toLowerCase();
-
-  const isMaster = b.includes('master');
-  const isVisa   = b.includes('visa');
-  const isElo    = b === 'elo';
-  const isAmex   = b.includes('amex') || b.includes('american');
-  const isHiper  = b.includes('hiper');
-  const isPix    = m === 'pix' || b === 'pix';
-  const isBoleto = m === 'boleto' || b === 'boleto';
-
-  if (isMaster) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
-      <circle cx="15" cy="13" r="7" fill="#EB001B"/>
-      <circle cx="23" cy="13" r="7" fill="#F79E1B"/>
-      <path d="M19 7.1a7 7 0 0 1 0 11.8A7 7 0 0 1 19 7.1z" fill="#FF5F00"/>
-    </svg>
-  );
-
-  if (isVisa) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
-      <rect x="0" y="0" width="38" height="6" rx="0" fill="#1A1F71"/>
-      <rect x="0" y="20" width="38" height="6" rx="0" fill="#F7A600"/>
-      <rect x="0" y="0" width="38" height="5" rx="5" fill="#1A1F71"/>
-      <rect x="0" y="21" width="38" height="5" rx="0" fill="#F7A600"/>
-      <path d="M0 21 L38 21 L38 26 Q19 26 0 26 Z" fill="#F7A600"/>
-      <text x="19" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="11" fill="#1A1F71" letterSpacing="-0.5">VISA</text>
-    </svg>
-  );
-
-  if (isElo) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
-      <text x="19" y="17.5" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="12" fill="#000000" letterSpacing="1">ELO</text>
-    </svg>
-  );
-
-  if (isAmex) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#016FD0"/>
-      <text x="19" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="9.5" fill="#FFFFFF" letterSpacing="0.8">AMEX</text>
-    </svg>
-  );
-
-  if (isHiper) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
-      <text x="19" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="6.5" fill="#CC1720" letterSpacing="0.5">HIPERCARD</text>
-    </svg>
-  );
-
-  if (isPix) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
-      {/* Símbolo Pix — 4 losangos em cruz */}
-      <path d="M19 5 L22.5 8.5 L19 12 L15.5 8.5 Z" fill="#32BCAD"/>
-      <path d="M22.5 8.5 L26 12 L22.5 15.5 L19 12 Z" fill="#32BCAD"/>
-      <path d="M19 12 L22.5 15.5 L19 19 L15.5 15.5 Z" fill="#32BCAD"/>
-      <path d="M15.5 8.5 L19 12 L15.5 15.5 L12 12 Z" fill="#32BCAD"/>
-    </svg>
-  );
-
-  if (isBoleto) return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF"/>
-      {[6,7.5,9,10.5,12,13.5,15,16.5,18,19.5,21,22.5,24,25.5,27,28.5,30,31.5].map((x, i) => (
-        <rect key={i} x={x} y="6" width={i % 4 === 0 ? 1.5 : 0.8} height="14" fill="#374151"/>
-      ))}
-    </svg>
-  );
-
-  return (
-    <svg width="38" height="26" viewBox="0 0 38 26" fill="none">
-      <rect width="38" height="26" rx="5" fill="#FFFFFF" fillOpacity="0.06" stroke="#333" strokeWidth="0.5"/>
-      <rect x="5" y="9" width="28" height="3.5" rx="1" fill="#333"/>
-      <rect x="5" y="16" width="10" height="2" rx="0.5" fill="#333"/>
-      <rect x="17" y="16" width="8" height="2" rx="0.5" fill="#333"/>
-    </svg>
-  );
+function tempoRelativo(d: Date): string {
+  const min = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h / 24)}d`;
 }
 
-function StatusBadge({ alias }: { alias?: string }) {
-  if (!alias) return null;
-  const cfg = STATUS_CFG[alias] ?? { label: alias, bg: '#1A1A1A', color: '#9CA3AF' };
-  return (
-    <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
-      style={{ backgroundColor: cfg.bg, color: cfg.color, letterSpacing: '0.01em' }}>
-      {cfg.label}
-    </span>
-  );
-}
-function fmtSmall(n: number) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
-}
-
-const MONO: React.CSSProperties = { fontFamily: "'JetBrains Mono', monospace" };
-const GOLD = '#D4A843';
-
-// Extrai string segura de campos Dooki que podem vir como string, number, ou objeto {data, code, name}
-function safeStr(v: unknown): string | null {
-  if (!v) return null;
-  if (typeof v === 'string') return v || null;
-  if (typeof v === 'number') return String(v);
-  if (typeof v === 'object') {
-    const o = v as Record<string, unknown>;
-    if (typeof o.code === 'string') return o.code || null;
-    if (typeof o.name === 'string') return o.name || null;
-    if (typeof o.data === 'string') return o.data || null;
-    if (o.data && typeof o.data === 'object') {
-      const d = o.data as Record<string, unknown>;
-      if (typeof d.code === 'string') return d.code || null;
-      if (typeof d.name === 'string') return d.name || null;
-    }
+function mascarar(valor: string | undefined, tipo: 'email' | 'fone' | 'cpf', revelar: boolean): string {
+  if (!valor) return '—';
+  if (revelar) return valor;
+  if (tipo === 'email') {
+    const [u, dom] = valor.split('@');
+    if (!dom || u.length < 2) return valor;
+    return `${u[0]}${'*'.repeat(Math.max(u.length - 2, 1))}${u[u.length - 1]}@${dom}`;
   }
-  return null;
+  if (tipo === 'fone') {
+    const d = valor.replace(/\D/g, '');
+    return d.length >= 4 ? `(**) *****-${d.slice(-4)}` : '****';
+  }
+  const d = valor.replace(/\D/g, '');
+  return d.length === 11 ? `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**` : '***.***.***-**';
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────────────────
+function pagamentoDe(o: YampiOrder): { curto: string; longo: string; parcelas: string; cartao: string } {
+  const t = o.transactions?.data?.[0];
+  const p = t?.payment?.data;
+  const alias = (p?.alias ?? '').toLowerCase();
+  const curto = p?.is_pix ? 'PIX' : p?.is_billet ? 'BOLETO' : (alias || 'CARTÃO').toUpperCase().slice(0, 8);
+  const parcelas = (t?.installments ?? 0) > 1 ? `${t?.installments}x` : 'à vista';
+  return { curto, longo: p?.name ?? curto, parcelas, cartao: t?.truncated_card ?? '' };
+}
 
-function KpiCard({ label, value, sub, icon: Icon, color = '#ECECEC' }: {
-  label: string; value: string; sub?: string;
-  icon: React.ElementType; color?: string;
-}) {
+function enderecoDe(o: YampiOrder) {
+  const sa = o.shipping_address as Record<string, unknown> | undefined;
+  const raw = ((sa?.data as Record<string, unknown> | undefined) ?? sa
+    ?? unwrapArray<Record<string, unknown>>(o.address)[0]) as Record<string, string> | undefined;
+  if (!raw) return null;
+  const uf = raw.uf ?? raw.state_code ?? raw.state ?? '';
+  return { rua: raw.street ?? '', cidade: raw.city ?? '', uf };
+}
+
+// ── Painel de espera para marcas sem integração ──────────────────────────────
+function VipStandby({ onPreview }: { onPreview: () => void }) {
+  const { brand } = useBrand();
   return (
-    <div className="kpi-card">
-      <div className="flex items-start justify-between mb-3">
-        <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#8A8A8A' }}>
-          {label}
-        </p>
-        <Icon size={15} style={{ color: GOLD, opacity: 0.7 }} />
+    <div style={{ maxWidth: 440, margin: '60px auto', textAlign: 'center', ...CARD, borderRadius: 24, padding: '44px 36px' }}>
+      <div style={{
+        width: 56, height: 56, borderRadius: '50%', background: C.surfaceAlt,
+        display: 'grid', placeItems: 'center', margin: '0 auto 20px', fontSize: 24, color: C.primaryDeep,
+      }}>
+        ♛
       </div>
-      <p style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.05, letterSpacing: '-0.02em', color, fontVariantNumeric: 'tabular-nums' }}>
-        {value}
+      <h2 style={{ ...heading(24), marginBottom: 10 }}>Em preparação</h2>
+      <p style={{ color: C.inkSoft, fontSize: 14, margin: '0 0 22px' }}>
+        O painel do Grupo VIP já funciona para a <strong style={{ color: C.ink }}>{brand.name}</strong>, mas
+        depende das credenciais <code style={{ fontFamily: FONT.mono, color: C.primaryDeep }}>{brand.yampiEnvPrefix}YAMPI_*</code>{' '}
+        e dos pedidos marcados com a UTM{' '}
+        <code style={{ fontFamily: FONT.mono, color: C.primaryDeep }}>grupo_vip / whatsapp</code>.
       </p>
-      {sub && <p className="text-xs mt-1" style={{ color: '#5E5E5E' }}>{sub}</p>}
-    </div>
-  );
-}
-
-// ── Section wrapper ───────────────────────────────────────────────────────────
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border p-4 md:p-5" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-      <p style={{ ...MONO, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 16 }}>
-        {title}
+      <button type="button" onClick={onPreview} style={BTN_GHOST}>Pré-visualizar mesmo assim</button>
+      <p style={{ fontSize: 11, color: C.inkMut, marginTop: 14 }}>
+        Sem credenciais, a pré-visualização abre o painel vazio ou com erro — é esperado.
       </p>
-      {children}
     </div>
   );
 }
 
-// ── Skeleton loader ───────────────────────────────────────────────────────────
-
-function Skeleton() {
-  return (
-    <div className="flex flex-col gap-4 animate-pulse">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="kpi-card">
-            <div className="h-3 rounded mb-4" style={{ backgroundColor: '#2A2A2A', width: '60%' }} />
-            <div className="h-8 rounded" style={{ backgroundColor: '#2A2A2A', width: '80%' }} />
-          </div>
-        ))}
-      </div>
-      <div className="rounded-2xl border p-5 h-48" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-        <div className="h-3 rounded mb-4" style={{ backgroundColor: '#2A2A2A', width: '30%' }} />
-        <div className="h-32 rounded" style={{ backgroundColor: '#1F1F1F' }} />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="rounded-2xl border p-5 h-48" style={{ backgroundColor: '#1A1A1A', borderColor: '#262626' }}>
-            <div className="h-3 rounded mb-4" style={{ backgroundColor: '#2A2A2A', width: '40%' }} />
-            {[...Array(4)].map((_, j) => (
-              <div key={j} className="h-4 rounded mb-3" style={{ backgroundColor: '#2A2A2A', width: `${70 - j * 10}%` }} />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Máscaras de dados sensíveis (LGPD) ───────────────────────────────────────
-
-function maskCpf(cpf: string): string {
-  const d = cpf.replace(/\D/g, '');
-  if (d.length !== 11) return '***.***.**-**';
-  return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
-}
-
-function maskPhone(area: string | undefined, number: string): string {
-  const last4 = number.replace(/\D/g, '').slice(-4);
-  return `(**) *****-${last4 || '****'}`;
-}
-
-function maskEmail(email: string): string {
-  const [user, domain] = email.split('@');
-  if (!domain) return '***@***';
-  const visible = user.length > 2 ? user[0] + '*'.repeat(user.length - 2) + user.slice(-1) : user[0] + '**';
-  return `${visible}@${domain}`;
-}
-
-// ── Order Drawer ─────────────────────────────────────────────────────────────
-
-function OrderDrawer({ order, orders, onClose }: {
-  order:   YampiOrder;
-  orders:  YampiOrder[];
-  onClose: () => void;
-}) {
-  const [visible,     setVisible]     = useState(false);
-  const [piiRevealed, setPiiRevealed] = useState(false);
+// ── Drawer ───────────────────────────────────────────────────────────────────
+function DrawerPedido({ o, todos, onClose }: { o: YampiOrder; todos: YampiOrder[]; onClose: () => void }) {
+  const [revelar, setRevelar] = useState(false);
+  const cli = o.customer?.data;
+  const pg = pagamentoDe(o);
+  const end = enderecoDe(o);
+  const status = STATUS_LABEL[o.status?.data?.alias ?? ''] ?? o.status?.data?.name ?? '—';
+  const criado = new Date(toIso(o.created_at));
 
   useEffect(() => {
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', esc);
     document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
+    return () => { window.removeEventListener('keydown', esc); document.body.style.overflow = ''; };
   }, [onClose]);
 
-  const oRaw = order as unknown as Record<string, unknown>;
+  const itens = o.items ?? [];
+  const historico = todos.filter((x) =>
+    x.id !== o.id && cli?.id && x.customer?.data?.id === cli.id
+  ).sort((a, b) => toIso(b.created_at).localeCompare(toIso(a.created_at)));
 
-  const txn       = order.transactions?.data?.[0];
-  const pay       = txn?.payment?.data;
-  const payBrand  = pay?.alias;
-  const payMethod = pay?.is_pix ? 'pix' : pay?.is_billet ? 'boleto' : pay?.is_credit_card ? 'credit_card' : undefined;
-  const statusAlias = (order.status as { data?: { alias?: string } } | undefined)?.data?.alias;
+  const valores: [string, string][] = [
+    ['Produtos', fmtBRL(o.value_products ?? 0, true)],
+    ...((o.value_discount ?? 0) > 0 ? [['Desconto', `− ${fmtBRL(o.value_discount ?? 0, true)}`] as [string, string]] : []),
+    ['Frete', fmtBRL(o.value_shipment ?? o.value_shipping ?? 0, true)],
+    ...((o.value_wallet_discount ?? 0) > 0 ? [['Saldo VIP', `− ${fmtBRL(o.value_wallet_discount ?? 0, true)}`] as [string, string]] : []),
+  ];
 
-  // Endereço de entrega (pode vir direto ou em {data:{...}})
-  const sa   = oRaw.shipping_address as Record<string, unknown> | undefined;
-  const addr = (sa?.data as Record<string, unknown> | undefined) ?? sa;
-
-  // Items
-  const rawItems = oRaw.items as unknown;
-  const items: Record<string, unknown>[] =
-    Array.isArray(rawItems)
-      ? (rawItems as Record<string, unknown>[])
-      : Array.isArray((rawItems as Record<string, unknown>)?.data)
-        ? ((rawItems as Record<string, unknown>).data as Record<string, unknown>[])
-        : [];
-
-  // Valores financeiros
-  const valueProducts = typeof order.value_products === 'number' ? order.value_products : null;
-  const valueDiscount = typeof order.value_discount === 'number' ? order.value_discount : null;
-  const valueShipping = typeof order.value_shipment === 'number' ? order.value_shipment : null;
-  const valueTotal    = orderValue(order);
-
-  // Campos reais do Dooki v2 — safeStr protege contra objeto {data:...}
-  const shippingCarrier = safeStr(order.shipment_service);
-  const trackingCode    = safeStr(order.track_code);
-  const trackingUrl     = safeStr(order.track_url);
-  const couponCode      = safeStr(order.promocode);
-
-  // Histórico: outros pedidos do mesmo cliente no período carregado
-  const customerId    = order.customer?.data?.id;
-  const customerEmail = order.customer?.data?.email;
-  const otherOrders   = orders
-    .filter(o =>
-      o.id !== order.id &&
-      ((customerId    && o.customer?.data?.id    === customerId) ||
-       (customerEmail && o.customer?.data?.email === customerEmail))
-    )
-    .sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime());
-
-  const dt = new Date(toIso(order.created_at));
+  const bloco: React.CSSProperties = { ...CARD, borderRadius: 16, padding: 18 };
 
   return (
-    <>
-      {/* Overlay */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 40,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(2px)',
-          opacity: visible ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-        }}
-      />
-
-      {/* Painel */}
-      <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0,
-        width: 'min(600px, 95vw)',
-        zIndex: 50,
-        backgroundColor: '#111111',
-        borderLeft: '1px solid #1E1E1E',
-        overflowY: 'auto',
-        boxShadow: '-24px 0 64px rgba(0,0,0,0.55)',
-        display: 'flex',
-        flexDirection: 'column',
-        transform: visible ? 'translateX(0)' : 'translateX(100%)',
-        transition: 'transform 0.26s cubic-bezier(0.32,0.72,0,1)',
+    <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', justifyContent: 'flex-end' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(23,48,44,.42)' }} />
+      <div className="desliza" style={{
+        position: 'relative', width: 600, maxWidth: '95vw', height: '100%', background: C.bg,
+        overflowY: 'auto', boxShadow: '-16px 0 48px rgba(23,48,44,.18)',
       }}>
-
-        {/* Header sticky */}
         <div style={{
-          position: 'sticky', top: 0, zIndex: 2,
-          backgroundColor: '#111111',
-          borderBottom: '1px solid #1C1C1C',
-          padding: '18px 24px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          position: 'sticky', top: 0, zIndex: 2, background: C.surface, borderBottom: `1px solid ${C.border}`,
+          padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
         }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#ECECEC', fontVariantNumeric: 'tabular-nums' }}>
-                Pedido #{order.number}
-              </span>
-              <StatusBadge alias={statusAlias} />
-            </div>
-            <span style={{ fontSize: 11, color: '#5E5E5E' }}>
-              {format(dt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </span>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ ...eyebrow(C.inkSoft, 10), letterSpacing: '.14em' }}>Pedido #{o.number}</div>
+            <div style={{ ...heading(20), marginTop: 2 }}>{cli?.name ?? 'Cliente'}</div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '6px 8px', borderRadius: 8,
-              backgroundColor: '#1A1A1A', border: '1px solid #262626',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0,
-            }}
-          >
-            <X size={15} color="#6B7280" />
-          </button>
+          <span style={statusPedidoPill(status)}>{status}</span>
+          <button type="button" onClick={onClose} aria-label="Fechar" style={{ ...BTN_GHOST, width: 36, height: 36, padding: 0, flex: 'none' }}>✕</button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Cliente · Pagamento · Entrega */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16,
-            backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E',
-            borderRadius: 12, padding: '16px 16px 14px',
-          }}>
+        <div style={{ padding: '20px 20px 40px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Cliente · Pagamento · Entrega — auto-fit, não aperta no celular */}
+          <div style={{ ...bloco, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 18 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Cliente</p>
-                <button
-                  onClick={() => setPiiRevealed(v => !v)}
-                  style={{
-                    ...MONO, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    color: piiRevealed ? '#F87171' : '#5E5E5E',
-                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                  }}
-                >
-                  {piiRevealed ? 'ocultar' : 'revelar'}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                <span style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em' }}>Cliente</span>
+                <button type="button" onClick={() => setRevelar((v) => !v)}
+                  style={{ background: 'transparent', border: 0, fontSize: 11, fontWeight: 600, color: C.primaryDeep, cursor: 'pointer', padding: 0 }}>
+                  {revelar ? 'ocultar' : 'revelar'}
                 </button>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#F2F2F2', lineHeight: 1.4, marginBottom: 4 }}>
-                {order.customer?.data?.name ?? '—'}
-              </p>
-              {order.customer?.data?.email && (
-                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>
-                  {piiRevealed
-                    ? order.customer.data.email
-                    : maskEmail(order.customer.data.email)}
-                </p>
-              )}
-              {order.customer?.data?.phone?.number && (
-                <p style={{ fontSize: 11, color: '#8A8A8A', marginBottom: 2 }}>
-                  {piiRevealed
-                    ? `(${order.customer.data.phone.area_code}) ${order.customer.data.phone.number}`
-                    : maskPhone(order.customer.data.phone.area_code, order.customer.data.phone.number)}
-                </p>
-              )}
-              {order.customer?.data?.cpf && (
-                <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>
-                  CPF: {piiRevealed ? order.customer.data.cpf : maskCpf(order.customer.data.cpf)}
-                </p>
-              )}
+              <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600 }}>{cli?.name ?? '—'}</div>
+                <div style={{ color: C.inkSoft, fontFamily: FONT.mono, fontSize: 11.5 }}>{mascarar(cli?.email, 'email', revelar)}</div>
+                <div style={{ color: C.inkSoft, fontFamily: FONT.mono, fontSize: 11.5 }}>
+                  {mascarar(cli?.phone?.formated_number ?? cli?.phone?.number, 'fone', revelar)}
+                </div>
+                <div style={{ color: C.inkSoft, fontFamily: FONT.mono, fontSize: 11.5 }}>{mascarar(cli?.cpf, 'cpf', revelar)}</div>
+              </div>
             </div>
 
             <div>
-              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 10 }}>Pagamento</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <PaymentIcon method={payMethod} brand={payBrand} />
-                <span style={{ fontSize: 13, color: '#D0D0D0', fontWeight: 500 }}>
-                  {pay?.name ??
-                    (payMethod === 'pix' ? 'Pix' :
-                     payMethod === 'boleto' ? 'Boleto' :
-                     payBrand ?? '—')}
-                </span>
+              <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em', marginBottom: 8 }}>Pagamento</div>
+              <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600 }}>{pg.longo}</div>
+                <div style={{ color: C.inkSoft }}>{pg.parcelas}</div>
+                {pg.cartao && <div style={{ color: C.inkSoft, fontFamily: FONT.mono, fontSize: 11.5 }}>•••• {pg.cartao}</div>}
+                {o.promocode && (
+                  <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.primaryDeep, marginTop: 2 }}>
+                    CUPOM: {o.promocode}
+                  </div>
+                )}
               </div>
-              {txn?.installments && txn.installments > 1 && (
-                <p style={{ fontSize: 11, color: '#8A8A8A' }}>
-                  {txn.installments}x de {fmtSmall(valueTotal / txn.installments)}
-                </p>
-              )}
-              {txn?.truncated_card && (
-                <p style={{ fontSize: 11, color: '#5E5E5E', ...MONO }}>•••• {txn.truncated_card}</p>
-              )}
-              {couponCode && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, padding: '3px 8px', borderRadius: 4, backgroundColor: 'rgba(74,222,128,0.07)', border: '1px solid rgba(74,222,128,0.2)' }}>
-                  <span style={{ fontSize: 10, color: '#4ADE80', ...MONO, letterSpacing: '0.06em' }}>CUPOM: {couponCode}</span>
-                </div>
-              )}
             </div>
 
             <div>
-              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 10 }}>Entrega</p>
-              {addr ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <p style={{ fontSize: 12, color: '#D0D0D0' }}>
-                    {[addr.street, addr.number].filter(Boolean).join(', ')}
-                  </p>
-                  {!!addr.complement && (
-                    <p style={{ fontSize: 11, color: '#8A8A8A' }}>{addr.complement as string}</p>
-                  )}
-                  <p style={{ fontSize: 12, color: '#8A8A8A' }}>
-                    {[addr.city, addr.uf].filter(Boolean).join(' / ')}
-                  </p>
-                  {!!addr.zipcode && (
-                    <p style={{ fontSize: 10, color: '#5E5E5E', ...MONO }}>CEP: {addr.zipcode as string}</p>
-                  )}
-                </div>
-              ) : (
-                <p style={{ fontSize: 12, color: '#5E5E5E' }}>—</p>
-              )}
-              {typeof order.days_delivery === 'number' && order.days_delivery > 0 && (
-                <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6 }}>
-                  Prazo: {order.days_delivery} dias
-                </p>
-              )}
-              {(() => {
-                const dd = safeStr(order.date_delivery);
-                if (!dd) return null;
-                try {
-                  const formatted = dd.includes('/') ? dd : format(parseISO(dd.slice(0, 10)), 'dd/MM/yyyy', { locale: ptBR });
-                  return <p style={{ fontSize: 11, color: '#8A8A8A' }}>Prev.: {formatted}</p>;
-                } catch { return null; }
-              })()}
-              {shippingCarrier && (
-                <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 6, ...MONO }}>{shippingCarrier}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Valor Total */}
-          <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-            <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>Valor Total</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {valueProducts !== null && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Produtos</span>
-                  <span style={{ fontSize: 13, color: '#D0D0D0' }}>{fmtSmall(valueProducts)}</span>
-                </div>
-              )}
-              {valueDiscount !== null && valueDiscount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Desconto</span>
-                  <span style={{ fontSize: 13, color: '#4ADE80' }}>- {fmtSmall(valueDiscount)}</span>
-                </div>
-              )}
-              {valueShipping !== null && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Frete</span>
-                  <span style={{ fontSize: 13, color: '#D0D0D0' }}>{fmtSmall(valueShipping)}</span>
-                </div>
-              )}
-              {order.value_wallet_discount != null && order.value_wallet_discount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#8A8A8A' }}>Saldo VIP usado</span>
-                  <span style={{ fontSize: 13, color: '#4ADE80' }}>- {fmtSmall(order.value_wallet_discount)}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #262626', paddingTop: 10, marginTop: 4 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#ECECEC' }}>Total</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: GOLD }}>{fmtSmall(valueTotal)}</span>
+              <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em', marginBottom: 8 }}>Entrega</div>
+              <div style={{ fontSize: 13, lineHeight: 1.7, color: C.inkSoft }}>
+                {end ? (
+                  <>
+                    <div style={{ fontWeight: 600, color: C.ink }}>{end.cidade} · {end.uf}</div>
+                    <div>{end.rua}</div>
+                    {o.shipment_service && <div>{o.shipment_service}</div>}
+                    {(o.days_delivery ?? 0) > 0 && <div>Prazo: {o.days_delivery} dias</div>}
+                  </>
+                ) : '—'}
               </div>
-              {order.value_cashback != null && order.value_cashback > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid #1C1C1C' }}>
-                  <span style={{ fontSize: 12, color: '#8A8A8A' }}>Cashback acumulado</span>
-                  <span style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>+ {fmtSmall(order.value_cashback)}</span>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Produtos */}
-          {items.length > 0 && (
-            <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-              <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
-                Produtos · {items.length} {items.length === 1 ? 'item' : 'itens'}
-              </p>
-              {items.map((item, i) => {
-                const skuData     = (item.sku as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
-                const productData = (item.product as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
-                const name        = (skuData?.title as string) || (productData?.name as string) || (item.name as string) || 'Produto';
-                const sku         = (skuData?.sku as string) ?? '';
-                const qty         = Number(item.quantity ?? 1);
-                const price       = parseFloat(String(item.price ?? 0));
+          <div style={bloco}>
+            <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em', marginBottom: 12 }}>Valor total</div>
+            {valores.map(([rot, val]) => (
+              <div key={rot} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, color: C.inkSoft }}>
+                <span>{rot}</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{val}</span>
+              </div>
+            ))}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', marginTop: 6,
+              borderTop: `1px solid ${C.borderSoft}`, fontSize: 15, fontWeight: 700,
+            }}>
+              <span>Total</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(orderValue(o), true)}</span>
+            </div>
+            {(o.value_cashback ?? 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, fontSize: 12.5, color: C.primaryDeep }}>
+                <span>Cashback</span><span>+ {fmtBRL(o.value_cashback ?? 0, true)}</span>
+              </div>
+            )}
+          </div>
+
+          {itens.length > 0 && (
+            <div style={bloco}>
+              <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em', marginBottom: 12 }}>
+                Produtos · {itens.length} {itens.length === 1 ? 'item' : 'itens'}
+              </div>
+              {itens.map((i, idx) => {
+                const nome = i.sku?.data?.title ?? i.sku?.title ?? i.product?.data?.name ?? i.name ?? 'Produto';
+                const sku = i.sku?.data?.sku ?? i.sku?.sku ?? '';
+                const preco = typeof i.price === 'number' ? i.price : parseFloat(String(i.price ?? 0));
+                const qtd = i.quantity ?? 1;
                 return (
-                  <div key={i} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                    padding: '10px 0',
-                    borderBottom: i < items.length - 1 ? '1px solid #1C1C1C' : 'none',
-                    gap: 12,
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, color: '#D0D0D0', fontWeight: 500, lineHeight: 1.4 }}>{name}</p>
-                      {sku && <p style={{ fontSize: 10, color: '#5E5E5E', fontFamily: 'monospace', marginTop: 2 }}>SKU: {sku}</p>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: 12, color: '#5E5E5E', whiteSpace: 'nowrap' }}>{qty}x {fmtSmall(price)}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: GOLD, minWidth: 80, textAlign: 'right' }}>{fmtSmall(price * qty)}</span>
-                    </div>
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: `1px solid ${C.borderSoft}` }}>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500 }}>{nome}</span>
+                      {sku && <span style={{ display: 'block', fontFamily: FONT.mono, fontSize: 10.5, color: C.inkSoft }}>SKU: {sku}</span>}
+                    </span>
+                    <span style={{ textAlign: 'right', flex: 'none' }}>
+                      <span style={{ display: 'block', fontSize: 12.5, color: C.inkSoft }}>{qtd}x {fmtBRL(preco, true)}</span>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                        {fmtBRL(preco * qtd, true)}
+                      </span>
+                    </span>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Rastreamento */}
-          <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-            <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
-              Rastreamento
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: '#8A8A8A' }}>Transportadora</span>
-                <span style={{ fontSize: 12, color: '#D0D0D0', ...MONO }}>
-                  {shippingCarrier ?? '—'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: '#8A8A8A' }}>Código de rastreio</span>
-                {trackingCode ? (
-                  <span style={{ fontSize: 12, color: '#60A5FA', ...MONO }}>{trackingCode}</span>
-                ) : (
-                  <span style={{ fontSize: 11, color: '#3A3A3A', fontStyle: 'italic' }}>Não cadastrado</span>
-                )}
-              </div>
-              {trackingUrl && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: '#8A8A8A' }}>Link de rastreio</span>
-                  <a
-                    href={trackingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 11, color: '#60A5FA', textDecoration: 'underline', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  >
-                    {trackingUrl}
-                  </a>
-                </div>
-              )}
+          <div style={{ ...bloco, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 14 }}>
+            <div>
+              <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em' }}>Transportadora</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 3 }}>{o.shipment_service ?? '—'}</div>
             </div>
-          </div>
-
-          {/* Histórico do cliente */}
-          <div style={{ backgroundColor: '#1A1A1A', border: '1px solid #1E1E1E', borderRadius: 12, padding: 16 }}>
-            <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 12 }}>
-              Histórico do Cliente
-              {otherOrders.length > 0 && ` · ${otherOrders.length} pedido${otherOrders.length !== 1 ? 's' : ''} no período`}
-            </p>
-            {otherOrders.length === 0 ? (
-              <div style={{
-                padding: '12px 14px',
-                backgroundColor: 'rgba(212,168,67,0.04)',
-                border: '1px solid rgba(212,168,67,0.1)',
-                borderRadius: 8,
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                <Crown size={13} style={{ color: GOLD, opacity: 0.5, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: '#6B7280' }}>Nenhum outro pedido VIP deste cliente neste período.</span>
+            <div>
+              <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em' }}>Código</div>
+              <div style={{ fontFamily: FONT.mono, fontSize: 12.5, marginTop: 3, color: o.track_code ? C.ink : C.inkMut }}>
+                {o.track_code ?? 'Não cadastrado'}
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {otherOrders.map(other => {
-                  const otherStatus = (other.status as { data?: { alias?: string } } | undefined)?.data?.alias;
-                  const otherDt     = new Date(toIso(other.created_at));
-                  const otherTxn    = other.transactions?.data?.[0];
-                  const otherPay    = otherTxn?.payment?.data;
-                  const otherMethod = otherPay?.is_pix ? 'pix' : otherPay?.is_billet ? 'boleto' : otherPay?.is_credit_card ? 'credit_card' : undefined;
-                  const otherBrand  = otherPay?.alias;
-                  return (
-                    <div key={other.id} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '10px 12px',
-                      backgroundColor: '#111111', border: '1px solid #262626', borderRadius: 8,
-                      gap: 12,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <PaymentIcon method={otherMethod} brand={otherBrand} />
-                        <div>
-                          <p style={{ fontSize: 13, color: '#F2F2F2', fontWeight: 500 }}>#{other.number}</p>
-                          <p style={{ fontSize: 11, color: '#5E5E5E' }}>{format(otherDt, 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        <span style={{ fontSize: 13, color: GOLD, fontWeight: 600 }}>{fmtSmall(orderValue(other))}</span>
-                        <StatusBadge alias={otherStatus} />
-                      </div>
-                    </div>
-                  );
-                })}
+            </div>
+            {o.track_url && (
+              <div>
+                <div style={{ ...eyebrow(C.inkSoft), letterSpacing: '.12em' }}>Rastreio</div>
+                <div style={{ marginTop: 3, fontSize: 13.5 }}>
+                  <a href={o.track_url} target="_blank" rel="noopener noreferrer">abrir link</a>
+                </div>
               </div>
             )}
           </div>
 
+          <div style={{ background: C.surfaceAlt, border: `1px solid ${C.borderMid}`, borderRadius: 16, padding: 18 }}>
+            <div style={{ ...eyebrow(C.primaryDeep), letterSpacing: '.12em', marginBottom: 10 }}>
+              Histórico do cliente {historico.length > 0 && `· ${historico.length} no período`}
+            </div>
+            {historico.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: C.primaryDeep }}>
+                Nenhum outro pedido VIP deste cliente neste período.
+              </div>
+            ) : historico.map((h) => (
+              <div key={h.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                padding: '9px 0', borderTop: '1px solid rgba(23,48,44,.08)', fontSize: 13,
+              }}>
+                <span style={{ fontFamily: FONT.mono, fontSize: 12, color: C.inkSoft }}>#{h.number}</span>
+                <span style={{ flex: 1, color: C.inkSoft }}>
+                  {format(new Date(toIso(h.created_at)), 'dd/MM/yyyy HH:mm')}
+                </span>
+                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(orderValue(h), true)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
+// ── Painel ───────────────────────────────────────────────────────────────────
 function VipDashboard() {
   const { brand, month, year } = useBrand();
-
-  // 'idle' = ainda não carregou, 'loading' = carregando, 'done' = tem dados, 'error' = falhou
-  const [status, setStatus]     = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
-  const [syncing, setSyncing]   = useState(false); // atualização manual pelo botão
-  const [error, setError]       = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [sincronizando, setSincronizando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
   const [orders, setOrders] = useState<YampiOrder[]>([]);
   const [carts, setCarts]   = useState<YampiCart[]>([]);
   const [agg, setAgg]       = useState<ReturnType<typeof aggregateOrders> | null>(null);
 
-  // ── Drawer de pedido ─────────────────────────────────────────────────────────
-  const [selectedOrder, setSelectedOrder] = useState<YampiOrder | null>(null);
+  const [selecionado, setSelecionado] = useState<YampiOrder | null>(null);
+  const [porPagina, setPorPagina] = useState(10);
+  const [pagina, setPagina] = useState(1);
 
-  // ── Paginação da tabela de pedidos ───────────────────────────────────────────
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage]         = useState(1);
-  const [showSizeMenu, setShowSizeMenu] = useState(false);
+  const m = month + 1;
 
-  const m = month + 1; // useBrand é 0-indexed
-
-  // ── Fetch ───────────────────────────────────────────────────────────────────
-
-  const fetchData = useCallback(async (force = false) => {
+  const buscar = useCallback(async (force = false) => {
     const url = `/api/yampi?brand=${brand.id}&month=${m}&year=${year}${force ? '&force=1' : ''}`;
-
-    // Timeout de 30s — evita loading infinito se a API travar
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30_000);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30_000);
 
     let res: Response;
     try {
-      res = await fetch(url, { signal: controller.signal });
+      res = await fetch(url, { signal: ctrl.signal });
     } catch (e: unknown) {
       clearTimeout(timer);
-      const msg = e instanceof Error && e.name === 'AbortError'
+      throw new Error(e instanceof Error && e.name === 'AbortError'
         ? 'Timeout — a API demorou mais de 30s para responder.'
-        : (e instanceof Error ? e.message : String(e));
-      throw new Error(msg);
+        : (e instanceof Error ? e.message : String(e)));
     }
     clearTimeout(timer);
 
     let json: Record<string, unknown>;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`Resposta inválida do servidor (HTTP ${res.status})`);
-    }
+    try { json = await res.json(); }
+    catch { throw new Error(`Resposta inválida do servidor (HTTP ${res.status})`); }
+    if (!json.ok) throw new Error((json.error as string) ?? `HTTP ${res.status}`);
 
-    if (!json.ok) {
-      throw new Error((json.error as string) ?? `HTTP ${res.status}`);
-    }
-
-    setOrders((json.orders as YampiOrder[])   ?? []);
-    setCarts((json.carts   as YampiCart[])    ?? []);
-    setAgg(aggregateOrders((json.orders as YampiOrder[]) ?? []));
-    setPage(1); // reset paginação a cada nova sincronização
+    const novos = (json.orders as YampiOrder[]) ?? [];
+    setOrders(novos);
+    setCarts((json.carts as YampiCart[]) ?? []);
+    setAgg(aggregateOrders(novos));
+    setPagina(1);
     setFetchedAt(json.fetchedAt as string);
-    setError(null);
+    setErro(null);
   }, [brand.id, m, year]);
-
-  // ── Carga inicial ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     setStatus('loading');
-    setError(null);
-    fetchData()
+    setErro(null);
+    buscar()
       .then(() => setStatus('done'))
-      .catch(e => {
-        setError(e instanceof Error ? e.message : String(e));
-        setStatus('error');
-      });
-  }, [fetchData]);
+      .catch((e) => { setErro(e instanceof Error ? e.message : String(e)); setStatus('error'); });
+  }, [buscar]);
 
+  async function sincronizar() {
+    setSincronizando(true);
+    try { await buscar(true); }
+    catch (e) { setErro(e instanceof Error ? e.message : String(e)); }
+    finally { setSincronizando(false); }
+  }
 
-  // ── Sincronização manual ──────────────────────────────────────────────────
-
-  const sync = useCallback(async () => {
-    setSyncing(true);
-    setError(null);
-    try {
-      await fetchData(true); // force=1 ignora cache servidor
-      setStatus('done');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
-      setStatus('error');
-    } finally {
-      setSyncing(false);
-    }
-  }, [fetchData]);
-
-  // ── Derived ───────────────────────────────────────────────────────────────
-
-  const hasData    = orders.length > 0;
-  const monthLabel = format(new Date(year, month), 'MMMM yyyy', { locale: ptBR });
-
-  const hourlyData = (agg?.byHour ?? Array(24).fill(0)).map((count, h) => ({
-    hora: `${String(h).padStart(2, '0')}h`,
-    pedidos: count,
-  }));
-  const peakHour = agg ? agg.byHour.indexOf(Math.max(...agg.byHour)) : -1;
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
-  return (
-    <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Grupo VIP" />
-      <main className="p-4 md:p-8 flex flex-col gap-4 md:gap-6">
-
-        {/* ── Top bar ── */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor: 'rgba(212,168,67,0.1)', border: '1px solid rgba(212,168,67,0.25)' }}>
-              <Crown size={13} style={{ color: GOLD }} />
-              <span style={{ ...MONO, fontSize: 10, color: GOLD, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                Grupo VIP · {monthLabel}
-              </span>
-            </div>
-            {fetchedAt && !syncing && (
-              <span style={{ fontSize: 11, color: '#5E5E5E' }}>
-                Atualizado às {format(parseISO(fetchedAt), 'HH:mm', { locale: ptBR })}
-              </span>
-            )}
-            {(status === 'loading' || syncing) && (
-              <span style={{ fontSize: 11, color: '#5E5E5E' }}>
-                {syncing ? 'Atualizando…' : 'Carregando…'}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={sync}
-            disabled={syncing || status === 'loading'}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-            style={{
-              backgroundColor: (syncing || status === 'loading') ? '#1A1A1A' : GOLD,
-              color:           (syncing || status === 'loading') ? '#5E5E5E' : '#0D0D0D',
-              border:          (syncing || status === 'loading') ? '1px solid #2A2A2A' : 'none',
-              cursor:          (syncing || status === 'loading') ? 'wait' : 'pointer',
-            }}>
-            <RefreshCw size={14} className={(syncing || status === 'loading') ? 'animate-spin' : ''} />
-            {syncing ? 'Atualizando…' : 'Sincronizar VIP'}
-          </button>
-        </div>
-
-        {/* ── Erro ── */}
-        {error && (
-          <div className="flex items-start gap-3 p-4 rounded-xl" style={{ backgroundColor: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.2)' }}>
-            <AlertTriangle size={16} style={{ color: '#F87171', flexShrink: 0, marginTop: 1 }} />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: '#F87171' }}>Erro ao carregar dados</p>
-              <p className="text-xs mt-1" style={{ color: '#8A8A8A' }}>{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Skeleton (carga inicial) ── */}
-        {status === 'loading' && <Skeleton />}
-
-        {/* ── Sem dados após carregar ── */}
-        {status !== 'loading' && !hasData && !error && (
-          <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: '#5E5E5E' }}>
-            <Crown size={40} style={{ color: '#2A2A2A' }} />
-            <p className="text-sm">Nenhum pedido VIP encontrado em {monthLabel}</p>
-            <p className="text-xs" style={{ color: '#3A3A3A' }}>utm_source=grupo_vip &amp; utm_campaign=whatsapp</p>
-          </div>
-        )}
-
-        {/* ── Dados ── */}
-        {hasData && agg && (<>
-
-          {/* ── KPI Row ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KpiCard
-              label="Faturamento VIP"
-              value={fmt(agg.totalFat)}
-              sub="status pago via UTM VIP"
-              icon={TrendingUp}
-              color={GOLD}
-            />
-            <KpiCard
-              label="Pedidos"
-              value={agg.totalPed.toLocaleString('pt-BR')}
-              sub={`média ${fmtSmall(agg.ticket)} / pedido`}
-              icon={ShoppingBag}
-            />
-            <KpiCard
-              label="Ticket Médio"
-              value={fmtSmall(agg.ticket)}
-              sub="faturamento ÷ pedidos"
-              icon={TrendingUp}
-            />
-            <KpiCard
-              label="Carrinhos Abnd."
-              value={carts.length.toLocaleString('pt-BR')}
-              sub="UTM grupo_vip capturados"
-              icon={Users}
-              color={carts.length > 0 ? '#F87171' : '#5E5E5E'}
-            />
-          </div>
-
-          {/* ── Hourly chart ── */}
-          <Section title={`Pedidos por Horário${peakHour >= 0 ? ` · Pico às ${String(peakHour).padStart(2, '0')}h` : ''}`}>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={hourlyData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" />
-                <XAxis dataKey="hora" tick={{ fontSize: 9, fill: '#5E5E5E' }} interval={1} />
-                <YAxis tick={{ fontSize: 9, fill: '#5E5E5E' }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #262626', borderRadius: 8, color: '#ECECEC', fontSize: 11 }}
-                  formatter={(v) => [`${v} pedido${Number(v) !== 1 ? 's' : ''}`, 'Pedidos']}
-                />
-                <Bar dataKey="pedidos" radius={[3, 3, 0, 0]}>
-                  {hourlyData.map((_, i) => (
-                    <Cell key={i} fill={i === peakHour ? GOLD : '#2A2A2A'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Section>
-
-          {/* ── States + Products ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-            {/* States */}
-            <Section title="Faturamento por Estado">
-              {agg.byState.slice(0, 8).map((s, i) => {
-                const pct = agg.totalFat > 0 ? (s.faturamento / agg.totalFat) * 100 : 0;
-                return (
-                  <div key={s.state} className="flex items-center gap-3 mb-2.5">
-                    <span style={{ ...MONO, fontSize: 10, color: '#5E5E5E', width: 28 }}>
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="font-semibold text-sm" style={{ color: '#F2F2F2', width: 32 }}>{s.state}</span>
-                    <div className="flex-1 rounded-full h-1.5 overflow-hidden" style={{ backgroundColor: '#2A2A2A' }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: i === 0 ? GOLD : '#3A3A3A' }} />
-                    </div>
-                    <span style={{ ...MONO, fontSize: 11, color: GOLD, minWidth: 72, textAlign: 'right' }}>
-                      {fmt(s.faturamento)}
-                    </span>
-                    <span style={{ fontSize: 10, color: '#5E5E5E', minWidth: 32, textAlign: 'right' }}>
-                      {s.pedidos}p
-                    </span>
-                  </div>
-                );
-              })}
-            </Section>
-
-            {/* Products */}
-            {(() => {
-              const totalProdutos = agg.byProduct.reduce((s, p) => s + p.faturamento, 0);
-              const cobertura = agg.totalFat > 0 ? Math.round((totalProdutos / agg.totalFat) * 100) : 0;
-              const SHOW = 12;
-              const restantes = Math.max(0, agg.byProduct.length - SHOW);
-              return (
-            <Section title={`Produtos Mais Vendidos · ${fmtSmall(totalProdutos)} em produtos (${cobertura}% do fat.)`}>
-              {agg.byProduct.slice(0, SHOW).map((p, i) => {
-                const pct = agg.byProduct[0]?.faturamento > 0
-                  ? (p.faturamento / agg.byProduct[0].faturamento) * 100 : 0;
-                return (
-                  <div key={p.name} className="mb-2.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs truncate" style={{ color: '#D8D8D8', maxWidth: '70%' }}>
-                        <span style={{ ...MONO, fontSize: 10, color: '#5E5E5E', marginRight: 6 }}>
-                          {String(i + 1).padStart(2, '0')}
-                        </span>
-                        {p.name}
-                      </span>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span style={{ fontSize: 10, color: '#5E5E5E' }}>{p.quantidade}un</span>
-                        <span style={{ ...MONO, fontSize: 11, color: GOLD }}>{fmt(p.faturamento)}</span>
-                      </div>
-                    </div>
-                    <div className="rounded-full h-1 overflow-hidden" style={{ backgroundColor: '#2A2A2A' }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: i === 0 ? GOLD : '#3A3A3A' }} />
-                    </div>
-                  </div>
-                );
-              })}
-              {restantes > 0 && (
-                <p style={{ ...MONO, fontSize: 10, color: '#3A3A3A', marginTop: 8, textAlign: 'center' }}>
-                  + {restantes} produto{restantes !== 1 ? 's' : ''} com menor faturamento
-                </p>
-              )}
-            </Section>
-              );
-            })()}
-          </div>
-
-          {/* ── Orders table ── */}
-          {(() => {
-            const sorted     = [...orders].sort((a, b) => new Date(toIso(b.created_at)).getTime() - new Date(toIso(a.created_at)).getTime());
-            const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-            const safePage   = Math.min(page, totalPages);
-            const slice      = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
-
-            // Gera array de botões de página com ellipsis
-            function pageButtons(total: number, current: number): (number | '...')[] {
-              if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-              const pages: (number | '...')[] = [1];
-              if (current > 3) pages.push('...');
-              for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
-              if (current < total - 2) pages.push('...');
-              pages.push(total);
-              return pages;
-            }
-
-            // 6 colunas: Ícone pagto | Nº | Cliente(1fr — centro) | Data | Total | Status
-            const COLS = '44px 88px 1fr 175px 125px 200px';
-
-            return (
-              <Section title={`Todos os Pedidos VIP · ${orders.length} pedidos`}>
-                <div style={{ overflowX: 'auto' }}>
-                  <div style={{ minWidth: 720 }}>
-
-                    {/* Header — 6 células */}
-                    <div className="grid pb-3 mb-1 border-b items-center"
-                      style={{ borderColor: '#262626', gridTemplateColumns: COLS }}>
-                      <span />
-                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Nº</p>
-                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Cliente</p>
-                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Data</p>
-                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Total</p>
-                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E' }}>Status</p>
-                    </div>
-
-                    {/* Rows */}
-                    <div className="flex flex-col">
-                      {slice.map((o) => {
-                        const dt          = new Date(toIso(o.created_at));
-                        const addrArr     = unwrapArray<{ uf?: string; state?: string }>(o.address);
-                        const uf          = addrArr[0]?.uf ?? addrArr[0]?.state ?? '';
-                        const statusAlias = (o.status as { data?: { alias?: string } } | undefined)?.data?.alias;
-                        const utmSrc      = (o as unknown as Record<string, unknown>).utm_source as string | undefined;
-                        const utmCamp     = (o as unknown as Record<string, unknown>).utm_campaign as string | undefined;
-                        const utmTag      = utmSrc ? `${utmSrc}${utmCamp ? ' / ' + utmCamp : ''}` : null;
-                        const txn      = o.transactions?.data?.[0];
-                        const pay      = txn?.payment?.data;
-                        const payBrand = pay?.alias;
-                        const payMethod =
-                          pay?.is_pix     ? 'pix'
-                          : pay?.is_billet  ? 'boleto'
-                          : pay?.is_credit_card ? 'credit_card'
-                          : undefined;
-
-                        return (
-                          <div key={o.id}
-                            className="grid items-center py-3 border-b"
-                            style={{ gridTemplateColumns: COLS, borderColor: '#1C1C1C', transition: 'background-color .12s', cursor: 'pointer' }}
-                            onClick={() => setSelectedOrder(o)}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#161616')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-
-                            {/* Ícone de pagamento */}
-                            <div className="flex items-center">
-                              <PaymentIcon method={payMethod} brand={payBrand} />
-                            </div>
-
-                            {/* Nº */}
-                            <span style={{ ...MONO, fontSize: 12, color: '#8A8A8A', fontWeight: 600 }}>#{o.number}</span>
-
-                            {/* Cliente + UF + tag UTM */}
-                            <div className="flex flex-col gap-1 min-w-0 pr-6">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-semibold truncate" style={{ fontSize: 13, color: '#F2F2F2' }}>
-                                  {o.customer?.data?.name ?? '—'}
-                                </span>
-                                {uf && <span className="shrink-0 text-xs font-bold" style={{ color: '#5E5E5E' }}>{uf}</span>}
-                              </div>
-                              {utmTag && (
-                                <span className="inline-flex self-start px-2 py-0.5 rounded"
-                                  style={{ backgroundColor: '#1A1A1A', color: '#6B7280', border: '1px solid #242424', fontFamily: 'monospace', fontSize: 10, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {utmTag}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Data + tempo atrás */}
-                            <div className="flex flex-col gap-0.5">
-                              <span style={{ fontSize: 12, color: '#D0D0D0' }}>{format(dt, 'dd/MM/yyyy HH:mm')}</span>
-                              <span style={{ fontSize: 11, color: '#5E5E5E' }}>{timeAgo(dt)}</span>
-                            </div>
-
-                            {/* Total + cupom */}
-                            <div className="flex flex-col gap-1">
-                              <span className="font-semibold" style={{ fontSize: 13, color: GOLD }}>{fmtSmall(orderValue(o))}</span>
-                              {(() => {
-                                const coup = safeStr(o.promocode);
-                                return coup
-                                  ? <span className="inline-flex self-start px-2 py-0.5 rounded"
-                                      style={{ backgroundColor: 'rgba(74,222,128,0.07)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.18)', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
-                                      {coup}
-                                    </span>
-                                  : null;
-                              })()}
-                            </div>
-
-                            {/* Status */}
-                            <StatusBadge alias={statusAlias} />
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* ── Rodapé de paginação ── */}
-                <div className="flex items-center justify-between pt-4 mt-2 border-t" style={{ borderColor: '#262626' }}>
-
-                  {/* Itens por página */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowSizeMenu(v => !v)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
-                      style={{ backgroundColor: '#111111', borderColor: showSizeMenu ? '#3A3A3A' : '#2A2A2A', color: '#9CA3AF', transition: 'border-color .15s' }}>
-                      {pageSize} por página
-                      <ChevronDown size={11} style={{ transform: showSizeMenu ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }} />
-                    </button>
-                    {/* Dropdown sempre montado — anima com opacity + translateY */}
-                    <div
-                      className="absolute bottom-full mb-2 left-0 rounded-xl border overflow-hidden z-20"
-                      style={{
-                        backgroundColor: '#161616', borderColor: '#2A2A2A', minWidth: 130,
-                        opacity: showSizeMenu ? 1 : 0,
-                        transform: showSizeMenu ? 'translateY(0)' : 'translateY(6px)',
-                        pointerEvents: showSizeMenu ? 'auto' : 'none',
-                        transition: 'opacity .18s ease, transform .18s ease',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                      }}>
-                      {[10, 20, 30, 50].map(s => (
-                        <button key={s} onClick={() => { setPageSize(s); setPage(1); setShowSizeMenu(false); }}
-                          className="w-full px-4 py-2.5 text-xs text-left flex items-center justify-between"
-                          style={{ color: s === pageSize ? '#D4A843' : '#9CA3AF', backgroundColor: s === pageSize ? '#1E1E1E' : 'transparent', transition: 'background-color .1s' }}
-                          onMouseEnter={e => { if (s !== pageSize) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1A1A1A'; }}
-                          onMouseLeave={e => { if (s !== pageSize) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}>
-                          <span>{s} por página</span>
-                          {s === pageSize && <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#D4A843', display: 'inline-block' }} />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Navegação de páginas */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={safePage === 1}
-                      className="px-2.5 py-1.5 rounded-lg text-xs border transition-colors"
-                      style={{ borderColor: '#2A2A2A', color: safePage === 1 ? '#3A3A3A' : '#9CA3AF', backgroundColor: '#111111' }}>
-                      ‹
-                    </button>
-                    {pageButtons(totalPages, safePage).map((p, i) =>
-                      p === '...'
-                        ? <span key={`e${i}`} className="px-1 text-xs" style={{ color: '#5E5E5E' }}>…</span>
-                        : (
-                          <button key={p} onClick={() => setPage(p)}
-                            className="w-8 py-1.5 rounded-lg text-xs border transition-colors"
-                            style={{
-                              borderColor: p === safePage ? '#D4A843' : '#2A2A2A',
-                              color: p === safePage ? '#D4A843' : '#9CA3AF',
-                              backgroundColor: p === safePage ? 'rgba(212,168,67,0.08)' : '#111111',
-                              fontWeight: p === safePage ? 600 : 400,
-                            }}>
-                            {p}
-                          </button>
-                        )
-                    )}
-                    <button
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={safePage === totalPages}
-                      className="px-2.5 py-1.5 rounded-lg text-xs border transition-colors"
-                      style={{ borderColor: '#2A2A2A', color: safePage === totalPages ? '#3A3A3A' : '#9CA3AF', backgroundColor: '#111111' }}>
-                      ›
-                    </button>
-                  </div>
-
-                  {/* Contador */}
-                  <p style={{ ...MONO, fontSize: 10, color: '#5E5E5E' }}>
-                    {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, orders.length)} de {orders.length}
-                  </p>
-                </div>
-              </Section>
-            );
-          })()}
-
-          {/* ── Quebra Faturado vs Líquido ── */}
-          {carts.length > 0 && (() => {
-            const totalCarts   = carts.length;
-            const totalOrders  = orders.length;
-            const totalEntries = totalCarts + totalOrders;
-            const convRate     = totalEntries > 0 ? (totalOrders / totalEntries) * 100 : 0;
-            const cartTotalValue = carts.reduce((s, c) => s + cartValue(c), 0);
-
-            return (
-              <Section title="Quebra · Faturado vs Líquido (Grupo VIP)">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Pedidos Pagos',         value: totalOrders.toString(),    color: GOLD,      sub: 'faturados com UTM VIP' },
-                    { label: 'Carrinhos Abandonados',  value: totalCarts.toString(),     color: '#F87171', sub: 'não converteram' },
-                    { label: 'Taxa de Conversão',      value: `${convRate.toFixed(1)}%`, color: convRate >= 50 ? '#4ADE80' : '#F87171', sub: 'pedidos ÷ total' },
-                    { label: 'Valor em Risco',         value: fmt(cartTotalValue),       color: '#8A8A8A', sub: 'valor dos carrinhos' },
-                  ].map(({ label, value, color, sub }) => (
-                    <div key={label} className="rounded-xl p-4" style={{ backgroundColor: '#111111', border: '1px solid #262626' }}>
-                      <p style={{ ...MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5E5E5E', marginBottom: 8 }}>{label}</p>
-                      <p style={{ fontSize: 26, fontWeight: 600, color, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{value}</p>
-                      <p style={{ fontSize: 10, color: '#5E5E5E', marginTop: 4 }}>{sub}</p>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            );
-          })()}
-
-        </>)}
-      </main>
-
-      {selectedOrder && (
-        <OrderDrawer
-          order={selectedOrder}
-          orders={orders}
-          onClose={() => setSelectedOrder(null)}
-        />
-      )}
-    </div>
+  const ordenados = useMemo(
+    () => [...orders].sort((a, b) => toIso(b.created_at).localeCompare(toIso(a.created_at))),
+    [orders],
   );
-}
 
-// ── Entrypoint ────────────────────────────────────────────────────────────────
+  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / porPagina));
+  const daPagina = ordenados.slice((pagina - 1) * porPagina, pagina * porPagina);
 
-/**
- * Marcas com vip: 'standby' têm o painel pronto, mas ainda sem credenciais
- * próprias da Yampi. Ficam atrás deste aviso, com uma pré-visualização manual
- * para inspecionar a tela antes de liberar para valer.
- */
-function VipStandby({ onPreview }: { onPreview: () => void }) {
-  const { brand } = useBrand();
+  const carrinhos = carts.length;
+  const valorRisco = carts.reduce((s, c) => s + cartValue(c), 0);
+  const conversao = agg && (agg.totalPed + carrinhos) > 0 ? (agg.totalPed / (agg.totalPed + carrinhos)) * 100 : 0;
+
+  const maxHora = agg ? Math.max(...agg.byHour, 1) : 1;
+  const horaPico = agg ? agg.byHour.indexOf(Math.max(...agg.byHour)) : 0;
+  const maxEstado = agg?.byState[0]?.faturamento ?? 1;
+  const maxProduto = agg?.byProduct[0]?.faturamento ?? 1;
+  const totalProdutos = agg?.byProduct.reduce((s, p) => s + p.faturamento, 0) ?? 0;
+
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(212px,1fr))', gap: 14 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{ ...CARD, borderRadius: 16, padding: 18, opacity: .6 }}>
+              <div style={{ height: 9, width: '55%', background: C.surfaceMut, borderRadius: 999 }} />
+              <div style={{ height: 26, width: '75%', background: C.surfaceMut, borderRadius: 8, marginTop: 12 }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ ...CARD, height: 260, opacity: .6 }} />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col flex-1" style={{ backgroundColor: '#111111' }}>
-      <Header title="Grupo VIP" />
-      <main className="flex flex-1 items-center justify-center p-8">
-        <div className="flex flex-col items-center gap-4 text-center" style={{ maxWidth: 420 }}>
-          <div className="flex items-center justify-center w-16 h-16 rounded-full"
-            style={{ backgroundColor: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.18)' }}>
-            <Crown size={28} style={{ color: GOLD, opacity: 0.6 }} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8, background: C.ink, color: '#fff',
+          borderRadius: 999, padding: '8px 16px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+        }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.accent }} />
+          Grupo VIP · {format(new Date(year, month, 1), 'MMMM', { locale: ptBR })} {year}
+        </span>
+        <span style={{ fontSize: 12.5, color: C.inkSoft }}>
+          {sincronizando ? 'Atualizando…' : fetchedAt ? `Atualizado às ${format(new Date(fetchedAt), 'HH:mm')}` : ''}
+        </span>
+        <button
+          type="button" onClick={sincronizar} disabled={sincronizando}
+          style={{ ...BTN_PRIMARY, marginLeft: 'auto', fontSize: 13.5, padding: '11px 18px', borderRadius: 11, boxShadow: `0 4px 0 ${C.primaryDeep}`, opacity: sincronizando ? .6 : 1 }}
+        >
+          {sincronizando ? 'Atualizando…' : 'Sincronizar VIP'}
+        </button>
+      </div>
+
+      {erro && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.warn, borderRadius: 14, padding: '13px 16px', fontSize: 13, flexWrap: 'wrap' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.ink, flex: 'none' }} />
+          <span style={{ flex: 1, minWidth: 180 }}><strong>Falha ao sincronizar.</strong> {erro}</span>
+          <button type="button" onClick={sincronizar} style={{ ...BTN_GHOST, padding: '7px 13px', fontSize: 12.5 }}>Tentar de novo</button>
+        </div>
+      )}
+
+      {agg && orders.length > 0 ? (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(212px,1fr))', gap: 14 }}>
+            {[
+              { rotulo: 'Faturamento VIP', valor: fmtBRL(agg.totalFat), sub: 'status pago via UTM VIP', icone: '↗' },
+              { rotulo: 'Pedidos',         valor: String(agg.totalPed), sub: 'atribuídos ao grupo',      icone: '◫' },
+              { rotulo: 'Ticket médio',    valor: fmtBRL(agg.ticket, true), sub: 'faturamento ÷ pedidos', icone: '◎' },
+              { rotulo: 'Carrinhos abandonados', valor: String(carrinhos), sub: 'UTM grupo_vip capturados', icone: '⌾' },
+            ].map((k) => (
+              <div key={k.rotulo} style={{ ...CARD, borderRadius: 16, padding: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={eyebrow(C.inkSoft)}>{k.rotulo}</span>
+                  <span style={{
+                    width: 26, height: 26, borderRadius: 8, background: C.surfaceAlt, display: 'grid',
+                    placeItems: 'center', fontSize: 12, color: C.primaryDeep, flex: 'none',
+                  }}>
+                    {k.icone}
+                  </span>
+                </div>
+                <div style={{ ...metric(28), marginTop: 8 }}>{k.valor}</div>
+                <div style={{ fontSize: 11.5, color: C.inkSoft }}>{k.sub}</div>
+              </div>
+            ))}
           </div>
 
-          <p style={{ fontSize: 18, fontWeight: 600, color: '#ECECEC', letterSpacing: '-0.01em' }}>
-            Em preparação
-          </p>
+          {/* Pedidos por horário */}
+          <div style={{ ...CARD, padding: '22px 20px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+              <h2 style={heading(19)}>Pedidos por horário</h2>
+              <span style={{ ...eyebrow(C.primaryDeep, 10), letterSpacing: '.1em' }}>· pico às {String(horaPico).padStart(2, '0')}h</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 200, paddingBottom: 22, borderBottom: `1px solid ${C.border}` }}>
+              {agg.byHour.map((qtd, h) => (
+                <div key={h} style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative' }}>
+                  <div
+                    title={`${String(h).padStart(2, '0')}h · ${qtd} ${qtd === 1 ? 'pedido' : 'pedidos'}`}
+                    style={{
+                      height: `${(qtd / maxHora) * 100}%`, minHeight: qtd > 0 ? 3 : 0,
+                      background: h === horaPico ? C.primary : C.accent, borderRadius: '4px 4px 0 0', opacity: h === horaPico ? 1 : .55,
+                    }}
+                  />
+                  {h % 2 === 0 && (
+                    <div style={{ position: 'absolute', bottom: -20, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.mono, fontSize: 9, color: C.inkSoft }}>
+                      {String(h).padStart(2, '0')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
-          <p style={{ fontSize: 13, color: '#5E5E5E', lineHeight: 1.6 }}>
-            O painel do Grupo VIP já funciona para a <strong style={{ color: '#8A8A8A' }}>{brand.name}</strong>,
-            mas depende das credenciais <code style={{ color: '#8A7A4E' }}>{brand.yampiEnvPrefix}YAMPI_*</code> na
-            Yampi e dos pedidos marcados com a UTM <code style={{ color: '#8A7A4E' }}>grupo_vip / whatsapp</code>.
-          </p>
+          {/* Rankings */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,340px),1fr))', gap: 16, alignItems: 'start' }}>
+            <div style={{ ...CARD, padding: '22px 20px' }}>
+              <h2 style={{ ...heading(18), marginBottom: 16 }}>Faturamento por estado</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                {agg.byState.slice(0, 8).map((e, i) => (
+                  <div key={e.state} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.inkMut, width: 16 }}>{String(i + 1).padStart(2, '0')}</span>
+                    <span style={{ fontFamily: FONT.display, fontWeight: 700, fontSize: 13, width: 26 }}>{e.state}</span>
+                    <span style={{ flex: 1, height: 8, borderRadius: 999, background: C.surfaceMut, overflow: 'hidden' }}>
+                      <span style={{ display: 'block', height: '100%', width: `${(e.faturamento / maxEstado) * 100}%`, background: i === 0 ? C.primary : C.accent, borderRadius: 999 }} />
+                    </span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', width: 74, textAlign: 'right' }}>{fmtBRL(e.faturamento)}</span>
+                    <span style={{ fontFamily: FONT.mono, fontSize: 10.5, color: C.inkSoft, width: 32, textAlign: 'right' }}>{e.pedidos}p</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-          <button
-            onClick={onPreview}
-            className="mt-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-            style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A', color: '#9CA3AF' }}
-          >
-            Pré-visualizar mesmo assim
-          </button>
+            <div style={{ ...CARD, padding: '22px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                <h2 style={heading(18)}>Produtos mais vendidos</h2>
+                {agg.totalFat > 0 && (
+                  <span style={{ fontSize: 11.5, color: C.inkSoft }}>
+                    · {((totalProdutos / agg.totalFat) * 100).toFixed(0)}% do faturamento VIP
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {agg.byProduct.slice(0, 12).map((p, i) => (
+                  <div key={p.name}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                      <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.inkMut, width: 16 }}>{String(i + 1).padStart(2, '0')}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                      <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.inkSoft }}>{p.quantidade}un</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', width: 74, textAlign: 'right' }}>{fmtBRL(p.faturamento)}</span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 999, background: C.surfaceMut, overflow: 'hidden', margin: '6px 0 0 26px' }}>
+                      <div style={{ height: '100%', width: `${(p.faturamento / maxProduto) * 100}%`, background: C.accent, borderRadius: 999 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {agg.byProduct.length > 12 && (
+                <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.borderSoft}` }}>
+                  + {agg.byProduct.length - 12} produtos com menor faturamento
+                </div>
+              )}
+            </div>
+          </div>
 
-          <p style={{ fontSize: 11, color: '#3F3F3F' }}>
-            Sem credenciais, a pré-visualização abre o painel vazio ou com erro — é esperado.
-          </p>
+          {/* Pedidos */}
+          <div style={{ ...CARD, overflow: 'hidden' }}>
+            <div style={{ padding: '20px 20px 14px' }}>
+              <h2 style={heading(19)}>
+                Todos os pedidos VIP <span style={{ fontWeight: 600, fontSize: 14, color: C.inkSoft }}>· {ordenados.length} pedidos</span>
+              </h2>
+            </div>
+
+            <div className="scroll-x">
+              <div style={{ minWidth: 700 }}>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: COLS, gap: 8, padding: '10px 18px',
+                  background: C.rail, borderTop: `1px solid ${C.railBorder}`, borderBottom: `1px solid ${C.railBorder}`,
+                  ...eyebrow(C.inkRail), letterSpacing: '.12em', whiteSpace: 'nowrap',
+                }}>
+                  <span /><span>Nº</span><span>Cliente</span><span>Data</span>
+                  <span style={{ textAlign: 'right' }}>Total</span>
+                  <span style={{ textAlign: 'right' }}>Status</span>
+                </div>
+
+                {daPagina.map((o) => {
+                  const pg = pagamentoDe(o);
+                  const end = enderecoDe(o);
+                  const criado = new Date(toIso(o.created_at));
+                  const st = STATUS_LABEL[o.status?.data?.alias ?? ''] ?? o.status?.data?.name ?? '—';
+                  const utm = [o.utm_source ?? o.tracking?.utm_source, o.utm_campaign ?? o.tracking?.utm_campaign].filter(Boolean).join(' / ');
+
+                  return (
+                    <button
+                      key={o.id} type="button" onClick={() => setSelecionado(o)}
+                      className="row-hover"
+                      style={{
+                        width: '100%', display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 8,
+                        padding: '13px 18px', border: 0, borderTop: `1px solid ${C.borderSoft}`,
+                        background: C.surface, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                      }}
+                    >
+                      <span style={{
+                        fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.06em', color: C.primaryDeep,
+                        background: C.surfaceAlt, borderRadius: 5, padding: '3px 5px', justifySelf: 'start',
+                      }}>
+                        {pg.curto}
+                      </span>
+                      <span style={{ fontFamily: FONT.mono, fontSize: 12.5, color: C.inkSoft }}>#{o.number}</span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {o.customer?.data?.name ?? '—'}
+                          {end?.uf && <span style={{ fontWeight: 400, color: C.inkSoft }}> · {end.uf}</span>}
+                        </span>
+                        {utm && (
+                          <span style={{
+                            display: 'inline-block', fontFamily: FONT.mono, fontSize: 9.5, color: C.inkSoft,
+                            background: C.surfaceMut, borderRadius: 4, padding: '2px 5px', marginTop: 3,
+                          }}>
+                            {utm}
+                          </span>
+                        )}
+                      </span>
+                      <span>
+                        <span style={{ display: 'block', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{format(criado, 'dd/MM HH:mm')}</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: C.inkSoft }}>{tempoRelativo(criado)}</span>
+                      </span>
+                      <span style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(orderValue(o), true)}</span>
+                        {o.promocode && (
+                          <span style={{
+                            display: 'inline-block', fontFamily: FONT.mono, fontSize: 9.5, color: C.primaryDeep,
+                            border: `1px solid ${C.borderMid}`, borderRadius: 4, padding: '1px 5px', marginTop: 3,
+                          }}>
+                            {o.promocode}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ minWidth: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                        <span style={statusPedidoPill(st)}>{st}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+              padding: '14px 20px', borderTop: `1px solid ${C.borderSoft}`, background: C.bg,
+            }}>
+              <select
+                value={porPagina}
+                onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(1); }}
+                style={{ padding: '8px 10px', fontSize: 12.5, fontWeight: 600, border: `1px solid ${C.borderMid}`, borderRadius: 9, background: C.surface, cursor: 'pointer' }}
+              >
+                {[10, 20, 30, 50].map((n) => <option key={n} value={n}>{n} por página</option>)}
+              </select>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button type="button" disabled={pagina === 1} onClick={() => setPagina((p) => p - 1)}
+                  style={{ ...BTN_GHOST, padding: '7px 11px', opacity: pagina === 1 ? .4 : 1 }}>‹</button>
+                <span style={{ fontFamily: FONT.mono, fontSize: 12, color: C.inkSoft, padding: '0 8px' }}>
+                  {pagina} / {totalPaginas}
+                </span>
+                <button type="button" disabled={pagina >= totalPaginas} onClick={() => setPagina((p) => p + 1)}
+                  style={{ ...BTN_GHOST, padding: '7px 11px', opacity: pagina >= totalPaginas ? .4 : 1 }}>›</button>
+              </div>
+
+              <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.inkSoft }}>
+                {(pagina - 1) * porPagina + 1}–{Math.min(pagina * porPagina, ordenados.length)} de {ordenados.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Quebra */}
+          {carrinhos > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(212px,1fr))', gap: 14 }}>
+              {[
+                { rotulo: 'Pedidos pagos',         valor: String(agg.totalPed), sub: 'faturados com UTM VIP' },
+                { rotulo: 'Carrinhos abandonados', valor: String(carrinhos),    sub: 'não converteram' },
+                { rotulo: 'Taxa de conversão',     valor: `${conversao.toFixed(1)}%`, sub: 'pedidos ÷ total' },
+                { rotulo: 'Valor em risco',        valor: fmtBRL(valorRisco),   sub: 'valor dos carrinhos' },
+              ].map((q) => (
+                <div key={q.rotulo} style={{ background: C.surfaceAlt, border: `1px solid ${C.borderMid}`, borderRadius: 16, padding: 16 }}>
+                  <div style={{ ...eyebrow(C.primaryDeep), letterSpacing: '.12em' }}>{q.rotulo}</div>
+                  <div style={{ ...metric(24), marginTop: 5 }}>{q.valor}</div>
+                  <div style={{ fontSize: 11.5, color: C.inkSoft }}>{q.sub}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : !erro && (
+        <div style={{ ...CARD, padding: '72px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 30, color: C.borderMid, marginBottom: 12 }}>♛</div>
+          <div style={{ ...heading(19) }}>
+            Nenhum pedido VIP em {format(new Date(year, month, 1), 'MMMM', { locale: ptBR })} de {year}
+          </div>
+          <div style={{ fontFamily: FONT.mono, fontSize: 11.5, color: C.inkMut, marginTop: 8 }}>
+            utm_source=grupo_vip &amp; utm_campaign=whatsapp
+          </div>
         </div>
-      </main>
+      )}
+
+      {selecionado && (
+        <DrawerPedido o={selecionado} todos={orders} onClose={() => setSelecionado(null)} />
+      )}
     </div>
   );
 }
@@ -1246,12 +664,10 @@ export default function VipPage() {
   const { brand } = useBrand();
   const [preview, setPreview] = useState(false);
 
-  // Trocar de marca fecha a pré-visualização — senão ela vazaria para a próxima
   useEffect(() => { setPreview(false); }, [brand.id]);
 
   if (brand.vip === 'standby' && !preview) {
     return <VipStandby onPreview={() => setPreview(true)} />;
   }
-
   return <VipDashboard key={brand.id} />;
 }

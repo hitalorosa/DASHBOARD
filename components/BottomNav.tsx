@@ -2,41 +2,46 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Zap, Database, Crown } from 'lucide-react';
-
-const navItems = [
-  { href: '/', label: 'Central', icon: LayoutDashboard },
-  { href: '/calendario', label: 'Calendário', icon: Calendar },
-  { href: '/disparos', label: 'Disparos', icon: Zap },
-  { href: '/bases', label: 'Bases', icon: Database },
-  { href: '/vip', label: 'VIP', icon: Crown },
-];
+import { useBrand } from '@/lib/brand-context';
+import { NAV, areaDaRota, areasDoNivel } from '@/lib/nav';
+import { C, FONT } from '@/lib/theme';
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { nivel } = useBrand();
+
+  const areaAtual = areaDaRota(pathname);
+  const itens = areasDoNivel(nivel).map((a) => NAV[a]);
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
       style={{
-        backgroundColor: '#0E0E0E',
-        borderColor: '#262626',
+        background: C.surface,
+        borderTop: `1px solid ${C.border}`,
         height: 60,
         paddingBottom: 'env(safe-area-inset-bottom)',
+        boxShadow: '0 -4px 16px rgba(23,48,44,.05)',
       }}
     >
-      {navItems.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href;
+      {itens.map((n) => {
+        const ativo = n.area === areaAtual;
         return (
           <Link
-            key={href}
-            href={href}
+            key={n.area}
+            href={n.href}
             className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
-            style={{ color: active ? '#D4A843' : '#5E5E5E', textDecoration: 'none' }}
+            style={{ color: ativo ? C.primary : C.inkMut, textDecoration: 'none', position: 'relative' }}
           >
-            <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
-            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>
-              {label}
+            {ativo && (
+              <span style={{
+                position: 'absolute', top: 0, left: '28%', right: '28%', height: 2,
+                background: C.primary, borderRadius: 999,
+              }} />
+            )}
+            <span style={{ fontSize: 16, lineHeight: 1 }}>{n.icone}</span>
+            <span style={{ fontFamily: FONT.mono, fontSize: 9, letterSpacing: '.08em', fontWeight: ativo ? 700 : 500 }}>
+              {n.rotuloCurto}
             </span>
           </Link>
         );

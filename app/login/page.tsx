@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter }        from 'next/navigation';
-
-const GOLD = '#D4A843';
+import { useRouter } from 'next/navigation';
+import { C, FONT } from '@/lib/theme';
 
 export default function LoginPage() {
   const [password, setPassword] = useState('');
@@ -27,7 +26,9 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push('/');
+        // O destino depende do nível liberado pela senha
+        const { inicio } = await res.json() as { inicio?: string };
+        router.push(inicio ?? '/');
         router.refresh();
       } else {
         setError('Senha incorreta.');
@@ -41,65 +42,96 @@ export default function LoginPage() {
     }
   }
 
+  const podeEnviar = !loading && password.trim().length > 0;
+
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ backgroundColor: '#0A0A0A' }}
+      style={{
+        minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '40px 24px',
+        background: `linear-gradient(155deg, ${C.bg} 0%, ${C.surfaceAlt} 65%, ${C.accent} 140%)`,
+      }}
     >
-      {/* Wordmark — o dashboard atende várias marcas, então a porta de entrada é neutra */}
-      <div className="mb-10 flex flex-col items-center gap-4">
-        <p style={{
-          color: '#D4A843', fontSize: 26, fontWeight: 600,
-          letterSpacing: '0.28em', textTransform: 'uppercase',
-          fontFamily: "Georgia, 'Times New Roman', serif",
-        }}>
-          Vante
-        </p>
-        <p style={{ color: '#3A3A3A', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          Área restrita
-        </p>
-      </div>
+      <div className="entra" style={{ width: '100%', maxWidth: 392 }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div
+            style={{
+              width: 52, height: 52, borderRadius: 16, background: C.primary,
+              display: 'grid', placeItems: 'center', margin: '0 auto 18px',
+              fontFamily: FONT.display, fontWeight: 800, fontSize: 24, color: '#fff',
+              boxShadow: `0 5px 0 ${C.primaryDeep}`,
+            }}
+          >
+            V
+          </div>
+          <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 30, letterSpacing: '-.02em', lineHeight: 1 }}>
+            Vante
+          </div>
+          <div style={{
+            fontFamily: FONT.mono, fontSize: 10, letterSpacing: '.22em',
+            textTransform: 'uppercase', color: C.inkSoft, marginTop: 8,
+          }}>
+            Área restrita
+          </div>
+        </div>
 
-      {/* Card */}
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-xs flex flex-col gap-3"
-      >
-        <input
-          ref={inputRef}
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Senha de acesso"
-          autoFocus
-          disabled={loading}
-          className="w-full rounded-xl px-4 py-3 text-sm outline-none border"
+        <form
+          onSubmit={handleSubmit}
           style={{
-            backgroundColor: '#111111',
-            borderColor:      error ? '#ef4444' : '#2A2A2A',
-            color:            '#F5F5F5',
-            caretColor:       GOLD,
-          }}
-        />
-
-        {error && (
-          <p style={{ color: '#ef4444', fontSize: 12, paddingLeft: 4 }}>{error}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !password.trim()}
-          className="w-full rounded-xl py-3 text-sm font-medium transition-opacity"
-          style={{
-            backgroundColor: GOLD,
-            color:            '#0A0A0A',
-            opacity:          loading || !password.trim() ? 0.5 : 1,
-            cursor:           loading || !password.trim() ? 'not-allowed' : 'pointer',
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24,
+            padding: 32, boxShadow: '0 18px 40px rgba(23,48,44,.08)',
           }}
         >
-          {loading ? 'Entrando…' : 'Entrar'}
-        </button>
-      </form>
+          <label htmlFor="senha" style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+            Senha de acesso
+          </label>
+          <input
+            id="senha"
+            ref={inputRef}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoFocus
+            disabled={loading}
+            style={{
+              width: '100%', padding: '14px 16px', fontSize: 16,
+              border: `1px solid ${error ? '#C97A3A' : C.borderMid}`,
+              borderRadius: 12, background: C.bg, color: C.ink,
+            }}
+          />
+
+          {error && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13,
+              fontWeight: 600, color: C.ink, background: C.warn, borderRadius: 10, padding: '9px 12px',
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.ink, flex: 'none' }} />
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={!podeEnviar}
+            style={{
+              width: '100%', marginTop: 18, background: C.primary, color: '#fff',
+              fontFamily: FONT.display, fontWeight: 700, fontSize: 17, padding: 16,
+              border: 0, borderRadius: 12, boxShadow: `0 6px 0 ${C.primaryDeep}`,
+              cursor: podeEnviar ? 'pointer' : 'not-allowed', opacity: podeEnviar ? 1 : .5,
+            }}
+          >
+            {loading ? 'Entrando…' : 'Entrar'}
+          </button>
+
+          <div style={{
+            marginTop: 20, paddingTop: 18, borderTop: `1px solid ${C.border}`,
+            fontSize: 12, color: C.inkSoft, lineHeight: 1.5,
+          }}>
+            A sessão herda o <strong style={{ fontWeight: 600, color: C.ink }}>nível de acesso</strong> da
+            senha: cada nível abre um recorte diferente do painel.
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
