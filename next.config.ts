@@ -15,8 +15,6 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https://*.supabase.co",
-      // painel da Roleta Recovery embutido em /roleta (outro projeto na Vercel)
-      "frame-src 'self' https://roletadry.vercel.app",
     ].join('; '),
   },
 ];

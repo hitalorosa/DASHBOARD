@@ -52,6 +52,7 @@ export const NAV: Record<Area, NavItem> = {
 const API_AREA: { prefixo: string; area: Area }[] = [
   { prefixo: '/api/yampi',      area: 'vip' },
   { prefixo: '/api/atribuicao', area: 'disparos' },
+  { prefixo: '/api/roleta',     area: 'roleta' },
 ];
 
 export function areaDaRota(pathname: string): Area | null {
