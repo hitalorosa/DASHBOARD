@@ -1,9 +1,9 @@
-# Estado do projeto — 19/08/2026
+# Estado do projeto — 31/08/2026
 
 Documento de retomada. Escrito para sobreviver a troca de máquina: as memórias do Claude
 ficam em `C:\Users\hital\.claude\projects\...` e **não** vão junto com o repositório.
 
-Último commit: `dc2a23f` · tudo pushado e em produção.
+Último commit: `79d7f13` · tudo pushado e em produção.
 
 ---
 
@@ -41,12 +41,14 @@ app/
   disparos/          Cards por disparo + painel de edição (Resultado | Conteúdo)
   bases/             Cards de segmento com decisão e notas
   vip/               Relatório do Grupo VIP (Yampi) + drawer de pedido
+  roleta/            Roleta Recovery — tela nativa (ver seção abaixo)
   login/             Senha única por nível
   api/
     auth/login       Valida senha, decide o nível, assina o cookie
     auth/logout      Limpa os dois cookies
     yampi            Pedidos VIP por marca (?brand=)
     atribuicao       Cruza pedidos com cupom/UTM de cada disparo
+    roleta           Ponte para o painel da Roleta Recovery (?dia=)
     webhooks/dooki   Webhook da Yampi com HMAC próprio
 
 lib/
@@ -88,6 +90,29 @@ Agosto/2026 da DrySkin (13 disparos) é **dataset fixo** em `lib/data.ts`
 (`disparosAgostoDryskin`), não está no banco. Copy, cupom e resultados entram pela UI e
 aí sim vão para o Supabase.
 
+### Roleta Recovery
+
+A tela `/roleta` é **nativa** desde 31/08 — era um iframe de `roletadry.vercel.app` e
+parecia site dentro de site. Os números continuam vindo de outro projeto,
+**`hitalorosa/RoletaRecovery`** (arquivo único `api/roleta_recovery.py`), que agora expõe
+o mesmo `dash_dados` do painel de lá em **`?view=json`**, com CORS liberado e cache de 60s.
+`?dia=YYYY-MM-DD` troca o dia da visão diária.
+
+O fetch **passa pelo servidor**, em `app/api/roleta/route.ts`. Não é preciosismo: o CSP tem
+`connect-src 'self' https://*.supabase.co`, então o browser não alcança o domínio de lá — e
+recurso bloqueado por CSP **falha calado na tela**, só aparece no console. A rota valida o
+`?dia=`, guarda 60s em memória por dia e corta em 30s, porque a origem consulta Supabase e
+Yampi a cada chamada e leva de 10 a 15s (por isso a tela tem estado de carregando).
+
+⚠️ **O JSON vive no outro repositório.** Se `?view=json` voltar a responder HTML, alguém
+reverteu de lá — a tela mostra exatamente isso na caixa de aviso, não fique procurando bug
+aqui.
+
+O bloco **"ganho contra o grupo de controle"** usa `controle` e `ctrl_comprou`, que o painel
+de origem calculava e nunca mostrava. Ele só aparece com `controle > 0`: sem grupo de
+controle a "diferença" seria a conversão bruta com outro nome. Abaixo de 200 no controle ou
+50 recebidos, avisa que o número ainda é ruído — mesma régua do robô (`AMOSTRA_MIN_CTRL`).
+
 ### Os 3 estágios do disparo
 
 Derivados do que está preenchido, não de um campo de status:
@@ -124,7 +149,7 @@ funciona com uma senha só, acesso total.
 > ⚠️ **Toda rota de API que sirva dados de uma área precisa entrar em `API_AREA`, no
 > `lib/nav.ts`.** Sem isso o nível `conteudo` conseguia ler `/api/yampi` direto e ver os
 > pedidos do VIP sem ter acesso à tela. Já mapeadas: `/api/yampi` → vip,
-> `/api/atribuicao` → disparos.
+> `/api/atribuicao` → disparos, `/api/roleta` → roleta.
 
 ---
 
@@ -184,12 +209,20 @@ Conserto definitivo: `npm ci`, que reescreve tudo localmente.
 5. **`NEWHAIR_YAMPI_*` não existe na Vercel** — o painel VIP da New Hair responde
    "credenciais não configuradas". Sem urgência: a marca está arquivada.
 
+6. **A roleta está sem grupo de controle** (`controle` e `ctrl_comprou` em 0 em 31/08).
+   Enquanto ficar assim, o bloco de ganho da tela `/roleta` não aparece — é ele que
+   responde quanto do faturamento a roleta trouxe de verdade, em vez de contar compra
+   que aconteceria de qualquer jeito. Ligar o holdout no robô é o que destrava.
+
 ---
 
 ## Histórico recente
 
 | Commit | O quê |
 |---|---|
+| `79d7f13` | Mostra os pedidos de cada disparo na tabela da Central |
+| `894beed` | Troca o iframe da roleta por uma tela nativa do dash |
+| `0330eea` | Adiciona a tela `/roleta` como embed (substituído pelo commit acima) |
 | `dc2a23f` | Alinha controles do header, símbolo na sidebar, tira aviso de nível do login |
 | `95cc8ea` | Corrige preenchimento da tela e sidebar que rolava junto |
 | `f4e3f85` | Fecha o Painel Vante e renomeia para DrySkin CRM |
