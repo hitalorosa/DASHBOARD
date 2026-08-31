@@ -5,7 +5,7 @@
  * A senha de cada nível é configurada por env var (ver app/api/auth/login/route.ts).
  */
 
-export type Area = 'central' | 'calendario' | 'disparos' | 'bases' | 'vip';
+export type Area = 'central' | 'calendario' | 'disparos' | 'bases' | 'vip' | 'roleta';
 export type Nivel = 'total' | 'financeiro' | 'conteudo';
 
 export const NIVEIS: Nivel[] = ['total', 'financeiro', 'conteudo'];
@@ -16,8 +16,8 @@ export function isNivel(v: unknown): v is Nivel {
 
 /** Quais áreas cada nível enxerga. A ordem define qual é a área inicial. */
 export const AREAS_POR_NIVEL: Record<Nivel, Area[]> = {
-  total:      ['central', 'calendario', 'disparos', 'bases', 'vip'],
-  financeiro: ['central', 'disparos', 'bases', 'vip'],
+  total:      ['central', 'calendario', 'disparos', 'bases', 'vip', 'roleta'],
+  financeiro: ['central', 'disparos', 'bases', 'vip', 'roleta'],
   conteudo:   ['calendario', 'disparos'],
 };
 
@@ -38,6 +38,7 @@ export const NAV: Record<Area, NavItem> = {
   disparos:   { area: 'disparos',   href: '/disparos',   rotulo: 'Disparos',   rotuloCurto: 'Disparos', icone: '➤', eyebrow: 'execução e resultado' },
   bases:      { area: 'bases',      href: '/bases',      rotulo: 'Bases',      rotuloCurto: 'Bases',    icone: '◍', eyebrow: 'decisão por segmento' },
   vip:        { area: 'vip',        href: '/vip',        rotulo: 'Grupo VIP',  rotuloCurto: 'VIP',      icone: '♛', eyebrow: 'relatório de canal' },
+  roleta:     { area: 'roleta',     href: '/roleta',     rotulo: 'Roleta',     rotuloCurto: 'Roleta',   icone: '◎', eyebrow: 'recuperação de carrinho' },
 };
 
 /**
