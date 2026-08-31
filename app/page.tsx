@@ -6,7 +6,7 @@ import { format, parseISO } from 'date-fns';
 import { C, FONT, eyebrow, heading, metric, roasPill, roasTexto, fmtBRL } from '@/lib/theme';
 
 const CARD: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20 };
-const GRID_COLS = '52px minmax(120px,1fr) minmax(76px,.8fr) minmax(84px,.9fr) minmax(64px,.7fr)';
+const GRID_COLS = '52px minmax(120px,1fr) minmax(76px,.8fr) minmax(84px,.9fr) minmax(46px,.5fr) minmax(64px,.7fr)';
 
 function KpiCard({ rotulo, valor, sub, destaque, progresso }: {
   rotulo: string; valor: string; sub: string; destaque?: boolean; progresso?: number;
@@ -146,7 +146,7 @@ export default function CentralPage() {
           </div>
 
           <div className="scroll-x">
-            <div style={{ minWidth: 460 }}>
+            <div style={{ minWidth: 516 }}>
               <div style={{
                 display: 'grid', gridTemplateColumns: GRID_COLS, gap: 8, padding: '10px 18px',
                 background: C.rail, borderTop: `1px solid ${C.railBorder}`, borderBottom: `1px solid ${C.railBorder}`,
@@ -155,6 +155,7 @@ export default function CentralPage() {
                 <span>Data</span><span>Campanha</span>
                 <span style={{ textAlign: 'right' }}>Invest.</span>
                 <span style={{ textAlign: 'right' }}>Fat.</span>
+                <span style={{ textAlign: 'right' }}>Ped.</span>
                 <span style={{ textAlign: 'right' }}>ROAS</span>
               </div>
 
@@ -170,6 +171,9 @@ export default function CentralPage() {
                   </span>
                   <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: d.faturamentoPago > 0 ? C.ink : C.inkMut }}>
                     {d.faturamentoPago > 0 ? fmtBRL(d.faturamentoPago) : '—'}
+                  </span>
+                  <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontFamily: FONT.mono, fontSize: 12.5, fontVariantNumeric: 'tabular-nums', color: d.pedidos > 0 ? C.inkSoft : C.inkMut }}>
+                    {d.pedidos > 0 ? d.pedidos : '—'}
                   </span>
                   <span style={{ textAlign: 'right' }}><span style={roasPill(d.roas)}>{roasTexto(d.roas)}</span></span>
                 </div>
