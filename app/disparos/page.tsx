@@ -432,23 +432,6 @@ function PainelEdicao({ d, yampi, onFechar, onRemover }: {
             </div>
           ))}
 
-          <div style={{ background: C.ink, borderRadius: 16, padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-              <span style={eyebrow(C.onDark)}>Mensagem 4 · convite grupo VIP</span>
-              <BotaoCopiar texto={content.msgVip ?? ''} />
-            </div>
-            <textarea
-              rows={3} value={content.msgVip ?? ''}
-              onChange={(e) => updateDisparoContent(d.id, { msgVip: e.target.value })}
-              placeholder="Cole aqui a mensagem de convite para o Grupo VIP…"
-              style={{
-                width: '100%', padding: 12, fontSize: 14, lineHeight: 1.5,
-                border: '1px solid rgba(255,255,255,.2)', borderRadius: 12,
-                background: 'rgba(255,255,255,.06)', color: '#fff', resize: 'vertical',
-              }}
-            />
-          </div>
-
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
               <span style={eyebrow(C.inkSoft)}>UTM · links ({utms.length})</span>
