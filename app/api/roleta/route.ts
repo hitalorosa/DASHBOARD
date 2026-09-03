@@ -25,11 +25,17 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
   // Mesma validação da origem: qualquer outra coisa vira "dia de hoje" lá
-  const pedido = searchParams.get('dia') ?? '';
-  const dia    = /^\d{4}-\d{2}-\d{2}$/.test(pedido) ? pedido : '';
-  const force  = searchParams.get('force') === '1';
+  const data = (nome: string) => {
+    const v = searchParams.get(nome) ?? '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+  };
+  const dia   = data('dia');
+  const de    = data('de');
+  const ate   = data('ate');
+  const force = searchParams.get('force') === '1';
 
-  const chave  = dia || 'hoje';
+  // Cada recorte tem seu próprio cache: pedir "agosto" não pode devolver "hoje".
+  const chave = de || ate ? `${de}..${ate}` : dia || 'hoje';
   const cached = cache.get(chave);
   if (cached && !force && Date.now() < cached.expiresAt) {
     return NextResponse.json({ ok: true, source: 'cache', fetchedAt: cached.fetchedAt, dados: cached.dados });
@@ -38,6 +44,8 @@ export async function GET(req: NextRequest) {
   const url = new URL(ORIGEM);
   url.searchParams.set('view', 'json');
   if (dia) url.searchParams.set('dia', dia);
+  if (de) url.searchParams.set('de', de);
+  if (ate) url.searchParams.set('ate', ate);
   // Opcional do outro lado: só existe se DASH_READ_TOKEN estiver setado lá
   const token = process.env.ROLETA_READ_TOKEN;
   if (token) url.searchParams.set('token', token);

@@ -30,6 +30,10 @@ interface DiaRoleta {
   receita: number;
   gasto: number;
   roas: number | null;
+  /** A origem passou a devolver o recorte pedido; `data` continua sendo o dia inicial. */
+  de?: string;
+  ate?: string;
+  dias?: number;
 }
 
 interface LeadDia {
@@ -94,6 +98,27 @@ function deslocar(iso: string, dias: number): string {
 }
 
 // ── Peças ────────────────────────────────────────────────────────────────────
+type Periodo = { de: string; ate: string };
+
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Atalhos de recorte. Meio-dia para o fuso não empurrar a data. */
+function preset(k: 'hoje' | '7' | '30' | 'mes' | 'mespassado'): Periodo {
+  const h = new Date();
+  h.setHours(12, 0, 0, 0);
+  if (k === 'hoje') return { de: iso(h), ate: iso(h) };
+  if (k === '7' || k === '30') {
+    const a = new Date(h);
+    a.setDate(a.getDate() - (k === '7' ? 6 : 29));
+    return { de: iso(a), ate: iso(h) };
+  }
+  if (k === 'mes') return { de: iso(new Date(h.getFullYear(), h.getMonth(), 1, 12)), ate: iso(h) };
+  return {
+    de: iso(new Date(h.getFullYear(), h.getMonth() - 1, 1, 12)),
+    ate: iso(new Date(h.getFullYear(), h.getMonth(), 0, 12)),
+  };
+}
+
 /** ROAS sem gasto é indefinido, não zero — por isso o traço em vez de "0,0x". */
 function fmtRoas(v: number | null | undefined): string {
   return v ? `${v.toFixed(1).replace('.', ',')}x` : '—';
@@ -166,12 +191,12 @@ function RoletaPainel() {
   const [atualizando, setAtualizando] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   // null = deixa a origem escolher (hoje no fuso de Brasília)
-  const [dia, setDia] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<Periodo | null>(null);
   const [pagina, setPagina] = useState(1);
 
-  const buscar = useCallback(async (alvo: string | null, force = false) => {
+  const buscar = useCallback(async (alvo: Periodo | null, force = false) => {
     const qs = new URLSearchParams();
-    if (alvo) qs.set('dia', alvo);
+    if (alvo) { qs.set('de', alvo.de); qs.set('ate', alvo.ate); }
     if (force) qs.set('force', '1');
     const query = qs.toString();
 
@@ -203,15 +228,15 @@ function RoletaPainel() {
   useEffect(() => {
     let vivo = true;
     setAtualizando(true);
-    buscar(dia)
+    buscar(periodo)
       .catch((e) => { if (vivo) setErro(e instanceof Error ? e.message : String(e)); })
       .finally(() => { if (vivo) { setCarregando(false); setAtualizando(false); } });
     return () => { vivo = false; };
-  }, [buscar, dia]);
+  }, [buscar, periodo]);
 
   async function atualizar() {
     setAtualizando(true);
-    try { await buscar(dia, true); }
+    try { await buscar(periodo, true); }
     catch (e) { setErro(e instanceof Error ? e.message : String(e)); }
     finally { setAtualizando(false); }
   }
@@ -238,7 +263,17 @@ function RoletaPainel() {
   const convCtl = dados.controle ? (dados.ctrl_comprou / dados.controle) * 100 : 0;
   const ganho = convRec - convCtl;
   const amostraOk = dados.controle >= AMOSTRA_MIN_CTRL && dados.recebidos >= AMOSTRA_MIN_RECEB;
-  const diaAtual = dados.dia?.data ?? '';
+  const pDe  = dados.dia?.de ?? dados.dia?.data ?? '';
+  const pAte = dados.dia?.ate ?? pDe;
+  const umDia = pDe === pAte;
+  const nDias = dados.dia?.dias ?? 1;
+  const rotuloPeriodo = umDia
+    ? `Visão do dia · ${dataBr(pDe)}`
+    : `Período · ${dataBr(pDe)} a ${dataBr(pAte)} · ${nDias} dias`;
+  /** As setas andam pelo tamanho da janela: num recorte de 7 dias, pulam 7 dias. */
+  const andar = (n: number) => setPeriodo({
+    de: deslocar(pDe, n * nDias), ate: deslocar(pAte, n * nDias),
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, opacity: atualizando ? .65 : 1, transition: 'opacity .15s' }}>
@@ -389,23 +424,29 @@ function RoletaPainel() {
 
       {/* Visão diária */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
-        <Secao>Visão do dia · {dataBr(diaAtual)}</Secao>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+        <Secao>{rotuloPeriodo}</Secao>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <button
-            type="button" aria-label="Dia anterior" disabled={!diaAtual || atualizando}
-            onClick={() => setDia(deslocar(diaAtual, -1))}
+            type="button" aria-label="Período anterior" disabled={!pDe || atualizando}
+            onClick={() => andar(-1)}
             style={{ ...BTN_GHOST, padding: '8px 12px', opacity: atualizando ? .5 : 1 }}
           >
             ‹
           </button>
           <input
-            type="date" value={diaAtual} disabled={atualizando}
-            onChange={(e) => { if (e.target.value) setDia(e.target.value); }}
+            type="date" value={pDe} disabled={atualizando} aria-label="Data inicial"
+            onChange={(e) => { if (e.target.value) setPeriodo({ de: e.target.value, ate: pAte }); }}
+            style={{ ...INPUT, width: 'auto', padding: '8px 10px', fontSize: 13 }}
+          />
+          <span style={{ color: C.inkMut, fontSize: 12 }}>até</span>
+          <input
+            type="date" value={pAte} disabled={atualizando} aria-label="Data final"
+            onChange={(e) => { if (e.target.value) setPeriodo({ de: pDe, ate: e.target.value }); }}
             style={{ ...INPUT, width: 'auto', padding: '8px 10px', fontSize: 13 }}
           />
           <button
-            type="button" aria-label="Próximo dia" disabled={!diaAtual || atualizando}
-            onClick={() => setDia(deslocar(diaAtual, 1))}
+            type="button" aria-label="Próximo período" disabled={!pDe || atualizando}
+            onClick={() => andar(1)}
             style={{ ...BTN_GHOST, padding: '8px 12px', opacity: atualizando ? .5 : 1 }}
           >
             ›
@@ -413,17 +454,30 @@ function RoletaPainel() {
         </div>
       </div>
 
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: -4 }}>
+        {([['hoje', 'Hoje'], ['7', '7 dias'], ['30', '30 dias'],
+           ['mes', 'Este mês'], ['mespassado', 'Mês passado']] as const).map(([k, rot]) => (
+          <button
+            key={k} type="button" disabled={atualizando}
+            onClick={() => setPeriodo(preset(k))}
+            style={{ ...BTN_GHOST, padding: '6px 13px', fontSize: 12.5, borderRadius: 999 }}
+          >
+            {rot}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(212px,1fr))', gap: 14 }}>
-        <Kpi rotulo="Leads do dia" valor={num(dados.dia?.leads)} sub="giraram a roleta" icone="◍" />
+        <Kpi rotulo={umDia ? 'Leads do dia' : 'Leads no período'} valor={num(dados.dia?.leads)} sub="giraram a roleta" icone="◍" />
         <Kpi
           rotulo="Mensagens enviadas" valor={num(dados.dia?.msgs)}
           sub={`M1 ${num(dados.dia?.env?.['1'] ?? 0)} · M2 ${num(dados.dia?.env?.['2'] ?? 0)} · M3 ${num(dados.dia?.env?.['3'] ?? 0)}`}
           icone="➤"
         />
         <Kpi rotulo="Pedidos recuperados" valor={num(dados.dia?.pedidos)} sub="receberam e compraram" icone="◫" destaque />
-        <Kpi rotulo="Receita recuperada" valor={fmtBRL(dados.dia?.receita ?? 0)} sub="no dia" icone="↗" destaque />
-        <Kpi rotulo="Gasto do dia" valor={fmtBRL(dados.dia?.gasto ?? 0, true)} sub={`${num(dados.dia?.msgs)} mensagens`} icone="◇" />
-        <Kpi rotulo="ROAS do dia" valor={fmtRoas(dados.dia?.roas)} sub="receita ÷ gasto" icone="⇅" destaque />
+        <Kpi rotulo="Receita recuperada" valor={fmtBRL(dados.dia?.receita ?? 0)} sub={umDia ? 'no dia' : 'no período'} icone="↗" destaque />
+        <Kpi rotulo={umDia ? 'Gasto do dia' : 'Gasto no período'} valor={fmtBRL(dados.dia?.gasto ?? 0, true)} sub={`${num(dados.dia?.msgs)} mensagens`} icone="◇" />
+        <Kpi rotulo={umDia ? 'ROAS do dia' : 'ROAS no período'} valor={fmtRoas(dados.dia?.roas)} sub="receita ÷ gasto" icone="⇅" destaque />
       </div>
 
       {/* Leads do dia */}
@@ -440,7 +494,7 @@ function RoletaPainel() {
 
         {leads.length === 0 ? (
           <div style={{ padding: '48px 24px', textAlign: 'center', color: C.inkSoft, fontSize: 13.5, borderTop: `1px solid ${C.border}` }}>
-            Nenhum lead girou a roleta em {dataBr(diaAtual)}.
+            Nenhum lead girou a roleta {umDia ? `em ${dataBr(pDe)}` : `entre ${dataBr(pDe)} e ${dataBr(pAte)}`}.
           </div>
         ) : (
           <>
