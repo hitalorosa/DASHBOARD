@@ -1,4 +1,4 @@
-﻿import { Disparo, Base, DataSazonal } from './types';
+﻿import { Disparo, Base, DataSazonal, DisparoContent } from './types';
 
 export const META_MENSAL = 200000;
 
@@ -80,6 +80,131 @@ export const disparosSetembroDryskin: Disparo[] = [
   empty('ds-14', '2026-09-29', 'Fim de Mês ②',               'fimmes',         'A definir'),
   empty('ds-15', '2026-09-30', 'Fim de Mês ③ · Último Dia',  'fimmes',         'A definir'),
 ];
+
+/**
+ * Copy já escrita, por id de disparo.
+ *
+ * Entra pelo código porque em produção não existe Supabase: o store lê o
+ * localStorage do navegador, então copy digitada num aparelho não aparece no
+ * outro. O que for editado na tela fica por cima disto (ver `getDisparoContent`).
+ *
+ * Texto exatamente como veio do Hitalo, sem reescrita.
+ */
+export const conteudoFixo: Record<string, Partial<DisparoContent>> = {
+  // 03/09 · Carrinho Abandonado
+  'ds-1': {
+    teaser: '🔥 *KIT DE 2 POR R$ 103,92* 🔥 Setembro começou e o seu carrinho ainda está aberto 👇',
+    botaoTeaser: 'VER CARRINHO',
+    msg1: `Oi! 💚
+
+Mês novo começando, e o seu carrinho continua aqui do jeito que você deixou.
+
+Pra abrir setembro, liberamos a oferta do mês: kit com 2 unidades por *R$ 103,92*, no lugar de R$ 129,90. Dá *menos de R$ 52 cada*.
+
+*USE O CUPOM:* 🎟️ *VOLTA20*
+
+Vale só hoje, até 23h59 👇`,
+    botao1: 'QUERO FECHAR',
+    msg2: `Só pra você não perder a conta 💚
+
+2 unidades por *R$ 103,92*, com *frete grátis*.
+
+Controla o suor sem arder e foi feito pra pele sensível. Uma aplicação segura de 2 a 4 dias.
+
+*USE O CUPOM:* 🎟️ *VOLTA20*
+
+A oferta de setembro fecha hoje às 23h59 👇`,
+    botao2: 'FAZER A CONTA',
+    msg3: `🚨 *ÚLTIMAS HORAS!* 🚨
+
+A reserva do seu carrinho termina hoje às 23h59 e o kit de 2 volta pra R$ 129,90.
+
+*USE O CUPOM:* 🎟️ *VOLTA20*
+
+Kit com 2 unidades por *R$ 103,92*, com *frete grátis*.
+
+Não deixa pra depois 👇`,
+    botao3: 'GARANTIR AGORA',
+    utms: ['https://premium.dryskin.com.br/?utm_source=car&utm_medium=whatsapp&utm_campaign=05-09'],
+    cupom: 'VOLTA20',
+  },
+
+  // 04/09 · Popup
+  'ds-2': {
+    teaser: '🔥 *KIT DE 2 POR R$ 103,92* 🔥 A oferta de setembro fecha hoje às 23h59 👇',
+    botaoTeaser: 'VER DESCONTO',
+    msg1: `Oi! 💚
+
+Mês novo, e você tem um desconto aqui que nunca chegou a usar.
+
+Ele entrou na oferta de setembro: kit com 2 unidades por *R$ 103,92*, no lugar de R$ 129,90. Dá *menos de R$ 52 cada*.
+
+*USE O CUPOM:* 🎟️ *SETEMBRO20*
+
+Vale só hoje, até 23h59 👇`,
+    botao1: 'QUERO USAR',
+    msg2: `Se você ainda não conhece 💚
+
+O DrySkin controla o suor sem arder e foi feito pra pele sensível. Você aplica à noite e ele age enquanto você dorme.
+
+Kit com 2 unidades por *R$ 103,92*, menos de *R$ 52 cada*, com *frete grátis*.
+
+*USE O CUPOM:* 🎟️ *SETEMBRO20*
+
+A oferta de setembro fecha hoje às 23h59 👇`,
+    botao2: 'QUERO CONHECER',
+    msg3: `🚨 *ÚLTIMAS HORAS!* 🚨
+
+O seu desconto expira hoje às 23h59 e o kit de 2 volta pra R$ 129,90.
+
+*USE O CUPOM:* 🎟️ *SETEMBRO20*
+
+Kit com 2 unidades por *R$ 103,92*, com *frete grátis*.
+
+Não deixa pra depois 👇`,
+    botao3: 'GARANTIR AGORA',
+    utms: ['https://premium.dryskin.com.br/?utm_source=popup&utm_medium=whatsapp&utm_campaign=04-09'],
+    cupom: 'SETEMBRO20',
+  },
+
+  // 05/09 · Pix Não Pago
+  'ds-3': {
+    teaser: '🔥 *KIT DE 2 POR R$ 103,92* 🔥 Mês novo pra fechar o pedido que ficou 👇',
+    botaoTeaser: 'RETOMAR PEDIDO',
+    msg1: `Oi! 💚
+
+O seu pedido chegou a ser gerado, mas o pagamento não foi concluído e o código expirou.
+
+Mês novo, chance nova: dá pra refazer hoje com a oferta de setembro. Kit com 2 unidades por *R$ 103,92*, no lugar de R$ 129,90. Dá *menos de R$ 52 cada*.
+
+*USE O CUPOM:* 🎟️ *VOLTA20*
+
+Vale só hoje, até 23h59 👇`,
+    botao1: 'REFAZER PEDIDO',
+    msg2: `O seu pedido continua aqui, esperando 💚
+
+2 unidades por *R$ 103,92*, com *frete grátis*.
+
+Uma aplicação segura de 2 a 4 dias, então o kit rende bem mais do que parece.
+
+*USE O CUPOM:* 🎟️ *VOLTA20*
+
+A oferta de setembro fecha hoje às 23h59 👇`,
+    botao2: 'FAZER A CONTA',
+    msg3: `🚨 *ÚLTIMAS HORAS!* 🚨
+
+Hoje às 23h59 a oferta de setembro sai do ar e o kit de 2 volta pra R$ 129,90.
+
+*USE O CUPOM:* 🎟️ *VOLTA20*
+
+Kit com 2 unidades por *R$ 103,92*, com *frete grátis*.
+
+Não deixa pra depois 👇`,
+    botao3: 'GARANTIR AGORA',
+    utms: ['https://premium.dryskin.com.br/?utm_source=pix&utm_medium=whatsapp&utm_campaign=05-09'],
+    cupom: 'VOLTA20',
+  },
+};
 
 export const basesMaio: Base[] = [];
 

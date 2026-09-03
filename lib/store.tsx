@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { Disparo, Base, DecisaoBase } from './types';
-import { disparosMaio, disparosAgostoDryskin, disparosSetembroDryskin } from './data';
+import { Disparo, Base, DecisaoBase, DisparoContent } from './types';
+import { disparosMaio, disparosAgostoDryskin, disparosSetembroDryskin, conteudoFixo } from './data';
 import { supabase } from './supabase';
 import { Brand, DEFAULT_BRAND } from './brands';
 
@@ -38,14 +38,9 @@ export interface BaseData {
   notas: string;
 }
 
-export interface DisparoContent {
-  msg1: string;
-  msg2: string;
-  msg3: string;
-  utms: string[];   // list of UTM links, one per base
-  cupom: string;
-  msgVip: string;   // mensagem de convite para o Grupo VIP
-}
+// Mora em lib/types.ts porque o data.ts também usa; reexportado para não quebrar
+// quem já importava daqui.
+export type { DisparoContent } from './types';
 
 interface StoreState {
   disparoData: Record<string, Partial<DisparoData>>;
@@ -265,7 +260,10 @@ export function StoreProvider({ children, brand = DEFAULT_BRAND }: { children: R
   }, [save]);
 
   const getDisparoContent = useCallback((id: string): Partial<DisparoContent> => {
-    return state.disparoContent?.[id] ?? {};
+    // A copy já escrita entra pelo código (conteudoFixo) porque em produção não há
+    // Supabase: o que o navegador não tiver no localStorage viria vazio. O que foi
+    // editado na tela fica por cima — a edição do usuário sempre ganha.
+    return { ...conteudoFixo[id], ...(state.disparoContent?.[id] ?? {}) };
   }, [state.disparoContent]);
 
   const getDisparos = useCallback((month: number, year: number): Disparo[] => {

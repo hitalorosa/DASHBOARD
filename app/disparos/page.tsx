@@ -195,8 +195,12 @@ function PainelEdicao({ d, yampi, onFechar, onRemover }: {
     ]},
   ];
 
-  const mensagens: [string, keyof DisparoContent][] = [
-    ['Mensagem 1', 'msg1'], ['Mensagem 2', 'msg2'], ['Mensagem 3', 'msg3'],
+  // Cada peça do funil tem o texto e o rótulo do botão que vai junto com ela.
+  const mensagens: { rotulo: string; texto: keyof DisparoContent; botao: keyof DisparoContent; linhas: number }[] = [
+    { rotulo: 'Teaser',     texto: 'teaser', botao: 'botaoTeaser', linhas: 2 },
+    { rotulo: 'Mensagem 1', texto: 'msg1',   botao: 'botao1',      linhas: 3 },
+    { rotulo: 'Mensagem 2', texto: 'msg2',   botao: 'botao2',      linhas: 3 },
+    { rotulo: 'Mensagem 3', texto: 'msg3',   botao: 'botao3',      linhas: 3 },
   ];
 
   const utms = content.utms ?? [''];
@@ -403,18 +407,28 @@ function PainelEdicao({ d, yampi, onFechar, onRemover }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 920 }}>
           <div style={{ fontSize: 12, color: C.inkSoft }}>Esta aba grava a cada tecla — sem botão de salvar.</div>
 
-          {mensagens.map(([rotulo, chave]) => (
-            <div key={chave} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16 }}>
+          {mensagens.map(({ rotulo, texto, botao, linhas }) => (
+            <div key={texto} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                 <span style={eyebrow(C.inkSoft)}>{rotulo}</span>
-                <BotaoCopiar texto={(content[chave] as string) ?? ''} />
+                <BotaoCopiar texto={(content[texto] as string) ?? ''} />
               </div>
               <textarea
-                rows={3} value={(content[chave] as string) ?? ''}
-                onChange={(e) => updateDisparoContent(d.id, { [chave]: e.target.value })}
+                rows={linhas} value={(content[texto] as string) ?? ''}
+                onChange={(e) => updateDisparoContent(d.id, { [texto]: e.target.value })}
                 placeholder="Cole aqui o texto da mensagem…"
                 style={{ ...INPUT, padding: 12, lineHeight: 1.5, resize: 'vertical' }}
               />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                <span style={{ ...eyebrow(C.inkMut), flex: 'none' }}>botão</span>
+                <input
+                  type="text" value={(content[botao] as string) ?? ''}
+                  onChange={(e) => updateDisparoContent(d.id, { [botao]: e.target.value })}
+                  placeholder="Ex: QUERO FECHAR"
+                  style={{ ...INPUT, width: 220, padding: '8px 10px', fontSize: 13 }}
+                />
+                <BotaoCopiar texto={(content[botao] as string) ?? ''} />
+              </div>
             </div>
           ))}
 
