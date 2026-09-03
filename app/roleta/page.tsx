@@ -28,6 +28,8 @@ interface DiaRoleta {
   env: PorMsg;
   pedidos: number;
   receita: number;
+  gasto: number;
+  roas: number | null;
 }
 
 interface LeadDia {
@@ -55,6 +57,11 @@ interface Dados {
   recebidos: number;
   ctrl_comprou: number;
   ped: PorMsg;
+  custo_msg_usd: number;
+  usd_brl: number;
+  gasto: number;
+  /** null quando não houve gasto — razão sem denominador não é zero, é indefinida. */
+  roas: number | null;
   dia: DiaRoleta;
   leads_dia_lista: LeadDia[];
 }
@@ -87,6 +94,11 @@ function deslocar(iso: string, dias: number): string {
 }
 
 // ── Peças ────────────────────────────────────────────────────────────────────
+/** ROAS sem gasto é indefinido, não zero — por isso o traço em vez de "0,0x". */
+function fmtRoas(v: number | null | undefined): string {
+  return v ? `${v.toFixed(1).replace('.', ',')}x` : '—';
+}
+
 function Kpi({ rotulo, valor, sub, icone, destaque }: {
   rotulo: string; valor: string; sub: string; icone?: string; destaque?: boolean;
 }) {
@@ -277,6 +289,12 @@ function RoletaPainel() {
         <Kpi rotulo="Pedidos recuperados" valor={num(dados.pedidos)} sub={`de ${num(dados.recebidos)} que receberam`} icone="◫" />
         <Kpi rotulo="Ticket médio" valor={fmtBRL(ticket, true)} sub="por pedido recuperado" icone="◎" />
         <Kpi rotulo="Conversão" valor={`${convRec.toFixed(1)}%`} sub="de quem recebeu mensagem" icone="⌾" destaque />
+        <Kpi
+          rotulo="Gasto" valor={fmtBRL(dados.gasto ?? 0, true)}
+          sub={`${num(dados.msgs_total)} mensagens × US$ ${(dados.custo_msg_usd ?? 0).toFixed(2).replace('.', ',')}`}
+          icone="◇"
+        />
+        <Kpi rotulo="ROAS" valor={fmtRoas(dados.roas)} sub="receita ÷ gasto" icone="⇅" destaque />
       </div>
 
       {/* Como funciona */}
@@ -404,6 +422,8 @@ function RoletaPainel() {
         />
         <Kpi rotulo="Pedidos recuperados" valor={num(dados.dia?.pedidos)} sub="receberam e compraram" icone="◫" destaque />
         <Kpi rotulo="Receita recuperada" valor={fmtBRL(dados.dia?.receita ?? 0)} sub="no dia" icone="↗" destaque />
+        <Kpi rotulo="Gasto do dia" valor={fmtBRL(dados.dia?.gasto ?? 0, true)} sub={`${num(dados.dia?.msgs)} mensagens`} icone="◇" />
+        <Kpi rotulo="ROAS do dia" valor={fmtRoas(dados.dia?.roas)} sub="receita ÷ gasto" icone="⇅" destaque />
       </div>
 
       {/* Leads do dia */}
