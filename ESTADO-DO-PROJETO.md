@@ -86,9 +86,12 @@ biblioteca — foi assim que o `lucide-react` saiu do projeto.
 Supabase, tabela `dash_store`, uma linha por marca: **1** Nouê, **2** DrySkin,
 **3** New Hair. Espelhado em `localStorage` por marca.
 
-Agosto/2026 da DrySkin (13 disparos) é **dataset fixo** em `lib/data.ts`
-(`disparosAgostoDryskin`), não está no banco. Copy, cupom e resultados entram pela UI e
-aí sim vão para o Supabase.
+Agosto/2026 (13 disparos, `disparosAgostoDryskin`) e setembro/2026 (15,
+`disparosSetembroDryskin`) da DrySkin são **dataset fixo** em `lib/data.ts`, não estão no
+banco. Copy, cupom e resultados entram pela UI e aí sim vão para o Supabase. Mês novo de
+planejamento entra assim: array novo no `data.ts` e mais um item no `allDisparos` do
+`store.tsx` — IDs com prefixo próprio, e nunca começando com `c-`, que é reservado para o
+que foi criado pelo "+ Novo".
 
 ### Roleta Recovery
 

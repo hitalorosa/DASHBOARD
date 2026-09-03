@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Disparo, Base, DecisaoBase } from './types';
-import { disparosMaio, disparosAgostoDryskin } from './data';
+import { disparosMaio, disparosAgostoDryskin, disparosSetembroDryskin } from './data';
 import { supabase } from './supabase';
 import { Brand, DEFAULT_BRAND } from './brands';
 
@@ -155,10 +155,10 @@ function saveCloud(rowId: number, state: StoreState, immediate = false) {
 }
 
 function allDisparos(state: StoreState, brandId?: string): Disparo[] {
-  // Disparos fixos por marca: maio/2026 é histórico da Nouê; agosto/2026 é o
-  // planejamento da DrySkin. Cada marca só herda o seu.
+  // Disparos fixos por marca: maio/2026 é histórico da Nouê; agosto e setembro/2026
+  // são o planejamento da DrySkin. Cada marca só herda o seu.
   const fixed = brandId === 'noue' ? disparosMaio
-    : brandId === 'dryskin' ? disparosAgostoDryskin
+    : brandId === 'dryskin' ? [...disparosAgostoDryskin, ...disparosSetembroDryskin]
     : [];
   return [...fixed, ...(state.customDisparos ?? [])];
 }

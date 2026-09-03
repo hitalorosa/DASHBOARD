@@ -52,6 +52,35 @@ export const disparosAgostoDryskin: Disparo[] = [
   seed('da-13', '2026-08-31', 'Fim de Mês ③ · Último Dia',   'fimmes',         'Base Toda + Coringas + RFM',        18000),
 ];
 
+/**
+ * Planejamento de disparos da DrySkin — Setembro/2026.
+ * Mesmo padrão de agosto: só o esqueleto, copy e resultados entram pela UI.
+ * IDs com prefixo 'ds-' (dryskin/setembro).
+ *
+ * As datas sem tema fechado entram como 'A definir' e com `tipo: 'sazonal'`, que
+ * é o mesmo padrão do modal "+ Novo" do calendário — o chip da grade não olha o
+ * tipo, ele lê copy e cupom, então esses ficam em "a definir" até serem escritos.
+ * Os três primeiros reaproveitam o nome de base de agosto de propósito: é assim
+ * que a tela de Bases junta o histórico do mesmo segmento.
+ */
+export const disparosSetembroDryskin: Disparo[] = [
+  empty('ds-1',  '2026-09-03', 'Carrinho Abandonado',        'comportamental', 'Carrinho Abandonado'),
+  empty('ds-2',  '2026-09-04', 'Popup',                      'comportamental', 'Popup · nunca compraram'),
+  empty('ds-3',  '2026-09-05', 'Pix Não Pago',               'comportamental', 'Pix não pago'),
+  empty('ds-4',  '2026-09-09', '9.9',                        'sazonal',        'A definir'),
+  empty('ds-5',  '2026-09-10', '9.9 · mesma oferta',         'ressaca',        'A definir'),
+  empty('ds-6',  '2026-09-13', 'A definir',                  'sazonal',        'A definir'),
+  empty('ds-7',  '2026-09-15', 'Mês do Cliente',             'sazonal',        'A definir'),
+  empty('ds-8',  '2026-09-17', 'A definir',                  'sazonal',        'A definir'),
+  empty('ds-9',  '2026-09-20', 'A definir',                  'sazonal',        'A definir'),
+  empty('ds-10', '2026-09-22', 'Começo da Primavera',        'sazonal',        'A definir'),
+  empty('ds-11', '2026-09-24', 'A definir',                  'sazonal',        'A definir'),
+  empty('ds-12', '2026-09-25', 'A definir',                  'sazonal',        'A definir'),
+  empty('ds-13', '2026-09-28', 'Fim de Mês ①',               'fimmes',         'A definir'),
+  empty('ds-14', '2026-09-29', 'Fim de Mês ②',               'fimmes',         'A definir'),
+  empty('ds-15', '2026-09-30', 'Fim de Mês ③ · Último Dia',  'fimmes',         'A definir'),
+];
+
 export const basesMaio: Base[] = [];
 
 export const datasazonais2025: DataSazonal[] = [ // kept name for compatibility
